@@ -2,7 +2,7 @@
 
 **Sistem Generator Script Testing Otomatis Berbasis Rule & Heuristic DOM Matching (Deterministik, Tanpa LLM)**
 
-`tester-lab` adalah engine otomatisasi yang menghasilkan *end-to-end test script* (seperti Playwright TypeScript / JavaScript) secara otomatis berdasarkan file skenario aturan bisnis (**JSON DSL**), tanpa bergantung pada Large Language Model (LLM).
+`tester-lab` adalah engine otomatisasi yang menghasilkan *end-to-end test script* secara otomatis berdasarkan file skenario aturan bisnis (**JSON DSL**), tanpa bergantung pada Large Language Model (LLM). Engine ini secara bawaan mendukung berbagai framework industri teratas: **Playwright (TS/JS), Cypress (JS), Selenium (Python), dan Robot Framework**.
 
 ---
 
@@ -18,7 +18,7 @@
 ## Fitur Unggulan Terbaru
 
 1. **Robust Action Helper untuk Form Dinamis (OutSystems Support)**
-   Jika sebuah halaman memiliki form kompleks (seperti pada platform OutSystems) di mana elemen input tidak terhubung langsung secara semantik dengan labelnya, engine secara otomatis akan mendeteksi skenario fallback ini. Code generator kemudian akan menyuntikkan *helper function* khusus (`action()`) yang mencari elemen berdasarkan hubungan hierarkis (ancestor div) dengan teks label visualnya, menjamin eksekusi Playwright yang *robust* terhadap elemen UI yang dinamis.
+   Jika sebuah halaman memiliki form kompleks (seperti pada platform OutSystems) di mana elemen input tidak terhubung langsung secara semantik dengan labelnya, engine secara otomatis akan mendeteksi skenario fallback ini. Code generator kemudian akan menyuntikkan *helper function* khusus (`action()`) yang mencari elemen berdasarkan hubungan hierarkis (ancestor div) dengan teks label visualnya, menjamin eksekusi script yang *robust* terhadap elemen UI yang dinamis.
 
 2. **Web UI: Import JSON Flow**
    Sekarang Anda dapat mengimpor file alur pengujian JSON yang kompleks (misalnya `examples/newloan-flow.json`) secara instan ke dalam **Scenario Builder** pada antarmuka Web UI. Konfigurasi langkah pengujian akan otomatis dimuat dan siap untuk di-generate ulang!
@@ -45,16 +45,17 @@
                        │
                        ▼
   [Module 4: Code Transpiler & Generator Engine (Handlebars + Prettier)]
-   - Injeksi resolved steps ke template Playwright (.spec.ts / .spec.js)
+   - Injeksi resolved steps ke template framework yang dipilih
+   - Dukungan Multi-Framework: Playwright (TS/JS), Cypress, Selenium (Py), Robot Framework
    - Format kode otomatis menggunakan Prettier API
                        │
                        ▼
   [Module 5: Dry-Run & Self-Healing Engine]
-   - Eksekusi headless otomatis pasca-generasi
+   - Eksekusi headless otomatis pasca-generasi (khusus Playwright)
    - Auto-healing fallback ke Rank 2 candidate jika selector bermasalah
                        │
                        ▼
-   [Output Artifact: File Script Testing (.spec.ts / .spec.js)]
+   [Output Artifact: File Script Testing (.spec.ts / cy.js / .py / .robot)]
 ```
 
 ---
