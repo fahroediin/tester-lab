@@ -1,0 +1,76 @@
+import fs from 'fs';
+import { validateDSL } from './validator/dslValidator.js';
+import { DOMExtractor } from './crawler/domExtractor.js';
+import { HeuristicMatcher } from './matcher/heuristicMatcher.js';
+import { CodeGenerator } from './generator/codeGenerator.js';
+import { DryRunEngine } from './validator/dryRunEngine.js';
+import { DSLConfig, GenerationResult, GenerationOptions, ResolvedStep } from './types/index.js';
+
+export * from './types/index.js';
+export { validateDSL } from './validator/dslValidator.js';
+export { DOMExtractor } from './crawler/domExtractor.js';
+export { HeuristicMatcher } from './matcher/heuristicMatcher.js';
+export { CodeGenerator } from './generator/codeGenerator.js';
+export { DryRunEngine } from './validator/dryRunEngine.js';
+
+export class TestScriptGenerator {
+  private extractor = new DOMExtractor();
+  private matcher = new HeuristicMatcher();
+  private generator = new CodeGenerator();
+  private dryRunner = new DryRunEngine();
+
+  /**
+   * Main pipeline: Validate DSL -> Crawl DOM & State Transition -> Heuristic Match -> Transpile Code -> Dry Run
+   */
+  public async generate(
+    dslInput: unknown,
+    options: GenerationOptions = {}
+  ): Promise<GenerationResult> {
+    // 1. Validate DSL Input
+    const validation = validateDSL(dslInput);
+    if (!validation.valid || !validation.data) {
+      return {
+        success: false,
+        code: '',
+        resolvedSteps: [],
+        warnings: validation.errors || ['DSL Validation Failed'],
+        logs: ['DSL Validation Failed']
+      };
+    }
+
+    const config: DSLConfig = validation.data;
+
+    // 2. Extract DOM Candidates with State Transition Crawling
+    console.log(`[Crawler] Navigating to ${config.targetUrl} & inspecting state transition DOM elements...`);
+    const stepExtractions = await this.extractor.extractCandidatesForSteps(config, this.matcher, {
+      viewport: config.viewport
+    });
+
+    const resolvedSteps: ResolvedStep[] = stepExtractions.map((res) => res.resolvedStep);
+    console.log(`[Crawler] Completed extraction & heuristic matching for ${resolvedSteps.length} steps.`);
+
+    // 3. Generate Code String & Format via Prettier
+    console.log(`[Generator] Emitting code string via Handlebars & Prettier...`);
+    const result = await this.generator.generateScript(config, resolvedSteps);
+
+    // Save to file if output path specified
+    if (options.outPath) {
+      await this.generator.saveToFile(options.outPath, result.code);
+      result.logs.push(`[Output] Script saved to file: ${options.outPath}`);
+    }
+
+    // 4. Dry-Run & Self-Healing Loop (Optional)
+    if (options.dryRun) {
+      console.log(`[Dry-Run] Executing generated script in headless mode for verification...`);
+      const dryRunRes = await this.dryRunner.executeDryRun(config, resolvedSteps, result.code);
+      result.dryRunPassed = dryRunRes.success;
+      result.dryRunError = dryRunRes.error;
+
+      if (dryRunRes.selfHealed) {
+        result.logs.push(`[Dry-Run] Script self-healed successfully after fallback strategy!`);
+      }
+    }
+
+    return result;
+  }
+}

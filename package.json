@@ -1,0 +1,43 @@
+{
+  "name": "tester-lab",
+  "version": "1.0.0",
+  "description": "Non-LLM Rule & Heuristic Based Automated Test Script Generator",
+  "main": "dist/index.js",
+  "bin": {
+    "test-gen": "dist/cli/index.js"
+  },
+  "scripts": {
+    "build": "tsc && node -e \"require('fs').mkdirSync('dist/templates', {recursive: true}); require('fs').cpSync('src/templates', 'dist/templates', {recursive: true}); require('fs').mkdirSync('dist/public', {recursive: true}); require('fs').cpSync('public', 'dist/public', {recursive: true});\"",
+    "start": "node dist/server/index.js",
+    "cli": "ts-node src/cli/index.ts",
+    "demo": "ts-node examples/demo-server.ts",
+    "generate": "ts-node src/cli/index.ts generate"
+  },
+  "keywords": [
+    "testing",
+    "playwright",
+    "test-generator",
+    "heuristic",
+    "non-llm",
+    "automation"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@playwright/test": "^1.45.0",
+    "commander": "^12.1.0",
+    "express": "^4.19.2",
+    "fast-levenshtein": "^3.0.0",
+    "handlebars": "^4.7.8",
+    "playwright": "^1.45.0",
+    "prettier": "^3.3.2",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/fast-levenshtein": "^0.0.4",
+    "@types/node": "^20.14.9",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.2"
+  }
+}

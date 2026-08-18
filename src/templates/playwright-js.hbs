@@ -1,0 +1,161 @@
+const { test, expect } = require('@playwright/test');
+
+test('{{testSuite}}', async ({ page }) => {
+  {{#if viewport}}
+  await page.setViewportSize({ width: {{viewport.width}}, height: {{viewport.height}} });
+  {{/if}}
+
+  await page.goto('{{{targetUrl}}}');
+  await page.waitForLoadState('networkidle');
+
+  {{#if needsRobustHelper}}
+  async function action(type, label, value) {
+    const textLoc = page.locator(`text="${label}"`).first();
+    await textLoc.waitFor({ state: 'attached', timeout: 15000 });
+    
+    const tag = type === 'select' ? 'select' : 'input';
+    
+    let target = textLoc.locator(`xpath=ancestor::div[1]//${tag}`).last();
+    if (await target.count() === 0) {
+      target = textLoc.locator(`xpath=ancestor::div[2]//${tag}`).last();
+      if (await target.count() === 0) {
+        target = textLoc.locator(`xpath=ancestor::div[3]//${tag}`).last();
+      }
+    }
+    
+    if (type === 'select') {
+      await target.selectOption(value, { force: true });
+    } else {
+      await target.fill(value, { force: true });
+    }
+  }
+  {{/if}}
+
+  {{#each resolvedSteps}}
+  // Step {{step}}: {{#if description}}{{{description}}}{{else}}{{action}} -> {{{targetLabel}}}{{/if}}
+  {{#if warning}}
+  // [WARNING]: {{{warning}}}
+  {{/if}}
+  {{#if (eq action "fill")}}
+    {{#if (eq selectorType "getByTestId")}}
+  await page.getByTestId('{{{selectorValue}}}').fill('{{{value}}}');
+    {{else if (eq selectorType "getByLabel")}}
+  await page.getByLabel('{{{selectorValue}}}', { exact: true }).fill('{{{value}}}');
+    {{else if (eq selectorType "getByRole")}}
+  await page.getByRole('{{{selectorValue}}}', { name: '{{{roleName}}}', exact: true }).fill('{{{value}}}');
+    {{else if (eq selectorType "getByPlaceholder")}}
+  await page.getByPlaceholder('{{{selectorValue}}}').fill('{{{value}}}');
+    {{else if (eq selectorType "getByText")}}
+  await page.getByText('{{{selectorValue}}}').fill('{{{value}}}');
+    {{else}}
+      {{#if ../needsRobustHelper}}
+        {{#if targetLabel}}
+  await action('fill', '{{{targetLabel}}}', '{{{value}}}');
+        {{else}}
+  await page.locator('{{{selectorValue}}}').fill('{{{value}}}');
+        {{/if}}
+      {{else}}
+  await page.locator('{{{selectorValue}}}').fill('{{{value}}}');
+      {{/if}}
+    {{/if}}
+  {{/if}}
+  {{#if (eq action "click")}}
+    {{#if (eq selectorType "getByTestId")}}
+  await page.getByTestId('{{{selectorValue}}}').click();
+    {{else if (eq selectorType "getByLabel")}}
+  await page.getByLabel('{{{selectorValue}}}', { exact: true }).click();
+    {{else if (eq selectorType "getByRole")}}
+  await page.getByRole('{{{selectorValue}}}', { name: '{{{roleName}}}' }).first().click();
+    {{else if (eq selectorType "getByPlaceholder")}}
+  await page.getByPlaceholder('{{{selectorValue}}}').first().click();
+    {{else if (eq selectorType "getByText")}}
+  await page.getByText('{{{selectorValue}}}').first().click();
+    {{else}}
+  await page.locator('{{{selectorValue}}}').click();
+    {{/if}}
+  {{/if}}
+  {{#if (eq action "select")}}
+    {{#if (eq selectorType "getByTestId")}}
+  await page.getByTestId('{{{selectorValue}}}').selectOption('{{{value}}}');
+    {{else if (eq selectorType "getByLabel")}}
+  await page.getByLabel('{{{selectorValue}}}', { exact: true }).selectOption('{{{value}}}');
+    {{else}}
+      {{#if ../needsRobustHelper}}
+        {{#if targetLabel}}
+  await action('select', '{{{targetLabel}}}', '{{{value}}}');
+        {{else}}
+  await page.locator('{{{selectorValue}}}').selectOption('{{{value}}}');
+        {{/if}}
+      {{else}}
+  await page.locator('{{{selectorValue}}}').selectOption('{{{value}}}');
+      {{/if}}
+    {{/if}}
+  {{/if}}
+  {{#if (eq action "check")}}
+    {{#if (eq selectorType "getByTestId")}}
+  await page.getByTestId('{{{selectorValue}}}').check();
+    {{else if (eq selectorType "getByLabel")}}
+  await page.getByLabel('{{{selectorValue}}}', { exact: true }).check();
+    {{else if (eq selectorType "getByRole")}}
+  await page.getByRole('{{{selectorValue}}}', { name: '{{{roleName}}}', exact: true }).check();
+    {{else}}
+  await page.locator('{{{selectorValue}}}').check();
+    {{/if}}
+  {{/if}}
+  {{#if (eq action "uncheck")}}
+    {{#if (eq selectorType "getByTestId")}}
+  await page.getByTestId('{{{selectorValue}}}').uncheck();
+    {{else if (eq selectorType "getByLabel")}}
+  await page.getByLabel('{{{selectorValue}}}', { exact: true }).uncheck();
+    {{else}}
+  await page.locator('{{{selectorValue}}}').uncheck();
+    {{/if}}
+  {{/if}}
+  {{#if (eq action "upload")}}
+    {{#if (eq selectorType "getByTestId")}}
+  await page.getByTestId('{{{selectorValue}}}').setInputFiles('{{{value}}}');
+    {{else if (eq selectorType "getByLabel")}}
+  await page.getByLabel('{{{selectorValue}}}', { exact: true }).setInputFiles('{{{value}}}');
+    {{else if (eq selectorType "getByRole")}}
+  await page.getByRole('{{{selectorValue}}}', { name: '{{{roleName}}}' }).first().setInputFiles('{{{value}}}');
+    {{else if (eq selectorType "getByPlaceholder")}}
+  await page.getByPlaceholder('{{{selectorValue}}}').setInputFiles('{{{value}}}');
+    {{else}}
+  await page.locator('{{{selectorValue}}}').setInputFiles('{{{value}}}');
+    {{/if}}
+  {{/if}}
+  {{#if (eq action "assert_url")}}
+  await expect(page).toHaveURL(new RegExp('{{{selectorValue}}}'));
+  {{/if}}
+  {{#if (eq action "assert_text")}}
+    {{#if (eq selectorType "getByTestId")}}
+  await expect(page.getByTestId('{{{selectorValue}}}')).toContainText('{{{expected}}}');
+    {{else if (eq selectorType "getByLabel")}}
+  await expect(page.getByLabel('{{{selectorValue}}}')).toContainText('{{{expected}}}');
+    {{else if (eq selectorType "getByRole")}}
+  await expect(page.getByRole('{{{selectorValue}}}', { name: '{{{roleName}}}' })).toContainText('{{{expected}}}');
+    {{else if (eq selectorType "getByText")}}
+  await expect(page.getByText('{{{selectorValue}}}')).toContainText('{{{expected}}}');
+    {{else}}
+  await expect(page.locator('{{{selectorValue}}}')).toContainText('{{{expected}}}');
+    {{/if}}
+  {{/if}}
+  {{#if (eq action "assert_visible")}}
+    {{#if (eq selectorType "getByTestId")}}
+  await expect(page.getByTestId('{{{selectorValue}}}')).toBeVisible();
+    {{else if (eq selectorType "getByLabel")}}
+  await expect(page.getByLabel('{{{selectorValue}}}')).toBeVisible();
+    {{else if (eq selectorType "getByRole")}}
+  await expect(page.getByRole('{{{selectorValue}}}', { name: '{{{roleName}}}' })).toBeVisible();
+    {{else if (eq selectorType "getByText")}}
+  await expect(page.getByText('{{{selectorValue}}}')).toBeVisible();
+    {{else}}
+  await expect(page.locator('{{{selectorValue}}}')).toBeVisible();
+    {{/if}}
+  {{/if}}
+  {{#if (eq action "wait")}}
+  await page.waitForTimeout({{selectorValue}});
+  {{/if}}
+
+  {{/each}}
+});

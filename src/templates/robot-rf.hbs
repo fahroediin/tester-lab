@@ -1,0 +1,68 @@
+*** Settings ***
+Documentation     Automated Test Suite: {{{testSuite}}}
+Library           SeleniumLibrary
+
+*** Variables ***
+${TARGET_URL}     {{{targetUrl}}}
+${BROWSER}        chrome
+
+*** Test Cases ***
+Execute Business Scenario
+    Open Browser    ${TARGET_URL}    ${BROWSER}
+    Maximize Browser Window
+    Set Selenium Implicit Wait    10s
+
+    {{#each resolvedSteps}}
+    # Step {{step}}: {{{description}}}
+    {{#if warning}}
+    # [WARNING]: {{{warning}}}
+    {{/if}}
+    {{#if (eq action "fill")}}
+    {{#if (eq selectorType "getByTestId")}}
+    Input Text    xpath=//*[@data-testid='{{{selectorValue}}}']    {{{value}}}
+    {{else if (eq selectorType "getByLabel")}}
+    Input Text    xpath=//label[contains(., '{{{selectorValue}}}')]/following::input[1]    {{{value}}}
+    {{else if (eq selectorType "getByPlaceholder")}}
+    Input Text    xpath=//input[@placeholder='{{{selectorValue}}}']    {{{value}}}
+    {{else}}
+    Input Text    css={{{selectorValue}}}    {{{value}}}
+    {{/if}}
+    {{/if}}
+    {{#if (eq action "click")}}
+    {{#if (eq selectorType "getByRole")}}
+    Click Element    xpath=//button[contains(., '{{{roleName}}}')] | //a[contains(., '{{{roleName}}}')]
+    {{else if (eq selectorType "getByText")}}
+    Click Element    xpath=//*[contains(text(), '{{{selectorValue}}}')]
+    {{else if (eq selectorType "getByTestId")}}
+    Click Element    xpath=//*[@data-testid='{{{selectorValue}}}']
+    {{else}}
+    Click Element    css={{{selectorValue}}}
+    {{/if}}
+    {{/if}}
+    {{#if (eq action "select")}}
+    Select From List By Label    css={{{selectorValue}}}    {{{value}}}
+    {{/if}}
+    {{#if (eq action "check")}}
+    Select Checkbox    css={{{selectorValue}}}
+    {{/if}}
+    {{#if (eq action "uncheck")}}
+    Unselect Checkbox    css={{{selectorValue}}}
+    {{/if}}
+    {{#if (eq action "upload")}}
+    Choose File    css={{{selectorValue}}}    {{{value}}}
+    {{/if}}
+    {{#if (eq action "assert_url")}}
+    Location Should Contain    {{{selectorValue}}}
+    {{/if}}
+    {{#if (eq action "assert_text")}}
+    Page Should Contain    {{{expected}}}
+    {{/if}}
+    {{#if (eq action "assert_visible")}}
+    Element Should Be Visible    css={{{selectorValue}}}
+    {{/if}}
+    {{#if (eq action "wait")}}
+    Sleep    {{{selectorValue}}}ms
+    {{/if}}
+    {{/each}}
+
+    Close Browser

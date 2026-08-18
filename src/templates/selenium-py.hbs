@@ -1,0 +1,83 @@
+import unittest
+import time
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import Select
+
+class {{{sanitizedTestSuite}}}Test(unittest.TestCase):
+
+    def setUp(self):
+        self.driver = webdriver.Chrome()
+        self.driver.implicitly_wait(10)
+        self.driver.maximize_window()
+
+    def test_run_scenario(self):
+        driver = self.driver
+        driver.get("{{{targetUrl}}}")
+
+        {{#each resolvedSteps}}
+        # Step {{step}}: {{{description}}}
+        {{#if warning}}
+        # [WARNING]: {{{warning}}}
+        {{/if}}
+        {{#if (eq action "fill")}}
+        {{#if (eq selectorType "getByTestId")}}
+        driver.find_element(By.XPATH, "//*[@data-testid='{{{selectorValue}}}']").clear()
+        driver.find_element(By.XPATH, "//*[@data-testid='{{{selectorValue}}}']").send_keys("{{{value}}}")
+        {{else if (eq selectorType "getByLabel")}}
+        driver.find_element(By.XPATH, "//label[contains(., '{{{selectorValue}}}')]/following::input[1]").clear()
+        driver.find_element(By.XPATH, "//label[contains(., '{{{selectorValue}}}')]/following::input[1]").send_keys("{{{value}}}")
+        {{else if (eq selectorType "getByPlaceholder")}}
+        driver.find_element(By.XPATH, "//input[@placeholder='{{{selectorValue}}}']").clear()
+        driver.find_element(By.XPATH, "//input[@placeholder='{{{selectorValue}}}']").send_keys("{{{value}}}")
+        {{else}}
+        driver.find_element(By.CSS_SELECTOR, "{{{selectorValue}}}").clear()
+        driver.find_element(By.CSS_SELECTOR, "{{{selectorValue}}}").send_keys("{{{value}}}")
+        {{/if}}
+        {{/if}}
+        {{#if (eq action "click")}}
+        {{#if (eq selectorType "getByRole")}}
+        driver.find_element(By.XPATH, "//button[contains(., '{{{roleName}}}')] | //a[contains(., '{{{roleName}}}')]").click()
+        {{else if (eq selectorType "getByText")}}
+        driver.find_element(By.XPATH, "//*[contains(text(), '{{{selectorValue}}}')]").click()
+        {{else if (eq selectorType "getByTestId")}}
+        driver.find_element(By.XPATH, "//*[@data-testid='{{{selectorValue}}}']").click()
+        {{else}}
+        driver.find_element(By.CSS_SELECTOR, "{{{selectorValue}}}").click()
+        {{/if}}
+        {{/if}}
+        {{#if (eq action "select")}}
+        Select(driver.find_element(By.CSS_SELECTOR, "{{{selectorValue}}}")).select_by_visible_text("{{{value}}}")
+        {{/if}}
+        {{#if (eq action "check")}}
+        el = driver.find_element(By.CSS_SELECTOR, "{{{selectorValue}}}")
+        if not el.is_selected():
+            el.click()
+        {{/if}}
+        {{#if (eq action "uncheck")}}
+        el = driver.find_element(By.CSS_SELECTOR, "{{{selectorValue}}}")
+        if el.is_selected():
+            el.click()
+        {{/if}}
+        {{#if (eq action "upload")}}
+        driver.find_element(By.CSS_SELECTOR, "{{{selectorValue}}}").send_keys("{{{value}}}")
+        {{/if}}
+        {{#if (eq action "assert_url")}}
+        self.assertIn("{{{selectorValue}}}", driver.current_url)
+        {{/if}}
+        {{#if (eq action "assert_text")}}
+        self.assertIn("{{{expected}}}", driver.page_source)
+        {{/if}}
+        {{#if (eq action "assert_visible")}}
+        self.assertTrue(driver.find_element(By.CSS_SELECTOR, "{{{selectorValue}}}").is_displayed())
+        {{/if}}
+        {{#if (eq action "wait")}}
+        time.sleep({{{selectorValue}}} / 1000)
+        {{/if}}
+        {{/each}}
+
+    def tearDown(self):
+        self.driver.quit()
+
+if __name__ == "__main__":
+    unittest.main()

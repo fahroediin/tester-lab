@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tester Lab — Automated Test Generator (Cohere System)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600&display=swap"
+    rel="stylesheet">
+  <style>
+    /* Cohere 2026 Web System Tokens */
+    :root {
+      --cohere-black: #000000;
+      --primary: #17171c;
+      --deep-green: #003c33;
+      --canvas: #ffffff;
+      --soft-stone: #eeece7;
+      --card-bg: #ffffff;
+      --hairline: #d9d9dd;
+      --border-light: #e5e7eb;
+      --ink: #212121;
+      --body-muted: #616161;
+      --slate: #75758a;
+      --coral: #ff7759;
+      --coral-soft: #fff4f1;
+      --pale-green: #edfce9;
+      --action-blue: #1863dc;
+      --form-focus: #9b60aa;
+      --font-display: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+      --font-body: 'Inter', system-ui, -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--canvas);
+      color: var(--ink);
+      font-family: var(--font-body);
+      line-height: 1.5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Announcement Bar */
+    .announcement-bar {
+      background-color: var(--cohere-black);
+      color: #ffffff;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      letter-spacing: 0.28px;
+      text-transform: uppercase;
+      gap: 12px;
+    }
+
+    .announcement-bar span.tag {
+      color: var(--coral);
+      font-weight: 500;
+    }
+
+    /* Header */
+    header {
+      background-color: var(--canvas);
+      border-bottom: 1px solid var(--hairline);
+      padding: 0 40px;
+      height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-logo {
+      width: 34px;
+      height: 34px;
+      background-color: var(--deep-green);
+      border-radius: 9999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-display);
+      font-weight: 600;
+      color: white;
+      font-size: 15px;
+    }
+
+    .brand-title {
+      font-family: var(--font-display);
+      font-size: 20px;
+      font-weight: 500;
+      letter-spacing: -0.48px;
+      color: var(--primary);
+    }
+
+    .brand-subtitle {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--slate);
+      letter-spacing: 0.2px;
+      text-transform: uppercase;
+    }
+
+    .badge-tag {
+      background-color: var(--coral-soft);
+      color: var(--coral);
+      border: 1px solid rgba(255, 119, 89, 0.4);
+      padding: 5px 14px;
+      border-radius: 32px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.28px;
+      text-transform: uppercase;
+    }
+
+    /* Container Grid */
+    .container {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 40px;
+      width: 100%;
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+    }
+
+    @media (max-width: 1024px) {
+      .container {
+        grid-template-columns: 1fr;
+        padding: 24px;
+      }
+    }
+
+    /* Cards */
+    .card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-light);
+      border-radius: 22px;
+      padding: 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.02);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--hairline);
+      padding-bottom: 16px;
+    }
+
+    .card-title {
+      font-family: var(--font-display);
+      font-size: 24px;
+      font-weight: 500;
+      letter-spacing: -0.32px;
+      color: var(--primary);
+    }
+
+    /* Form Controls */
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    label {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--body-muted);
+      letter-spacing: 0.2px;
+      text-transform: uppercase;
+    }
+
+    input[type="text"],
+    select,
+    textarea {
+      background-color: var(--canvas);
+      border: 1px solid var(--hairline);
+      border-radius: 8px;
+      color: var(--ink);
+      padding: 12px 16px;
+      font-family: var(--font-body);
+      font-size: 14px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    input[type="text"]:focus,
+    select:focus,
+    textarea:focus {
+      outline: none;
+      border-color: var(--form-focus);
+      box-shadow: 0 0 0 3px rgba(155, 96, 170, 0.15);
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .steps-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 8px;
+      border-top: 1px dashed var(--hairline);
+      padding-top: 16px;
+    }
+
+    /* Step List without internal scrollable limit */
+    .step-list {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .step-item {
+      background: var(--soft-stone);
+      border: 1px solid var(--hairline);
+      border-radius: 12px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      position: relative;
+      transition: border-color 0.2s, transform 0.2s, opacity 0.2s;
+    }
+
+    .drag-handle {
+      cursor: grab;
+      color: var(--slate);
+      font-size: 18px;
+      user-select: none;
+      padding: 0 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: color 0.2s;
+    }
+
+    .drag-handle:hover {
+      color: var(--primary);
+    }
+
+    .drag-handle:active {
+      cursor: grabbing;
+    }
+
+    .step-item.dragging {
+      opacity: 0.4;
+      border: 2px dashed var(--primary);
+      background-color: var(--canvas);
+    }
+
+    .step-item.drag-over {
+      border: 2px solid var(--coral);
+      transform: scale(1.01);
+      box-shadow: 0 4px 12px rgba(255, 119, 89, 0.15);
+    }
+
+    .step-row-top {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .step-num {
+      background: var(--primary);
+      color: white;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .btn-remove {
+      background: transparent;
+      border: none;
+      color: #b30000;
+      cursor: pointer;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      padding: 4px 8px;
+      margin-left: auto;
+      border-radius: 4px;
+    }
+
+    .btn-remove:hover {
+      background: rgba(179, 0, 0, 0.08);
+    }
+
+    /* Buttons Cohere Style */
+    .btn-primary {
+      background-color: var(--primary);
+      color: #ffffff;
+      border: none;
+      border-radius: 32px;
+      padding: 12px 28px;
+      font-family: var(--font-body);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: background-color 0.2s, transform 0.1s;
+    }
+
+    .btn-primary:hover {
+      background-color: var(--cohere-black);
+      transform: translateY(-1px);
+    }
+
+    .btn-pill-outline {
+      background-color: transparent;
+      border: 1px solid var(--hairline);
+      color: var(--ink);
+      border-radius: 30px;
+      padding: 8px 16px;
+      font-family: var(--font-body);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: border-color 0.2s, background-color 0.2s;
+    }
+
+    .btn-pill-outline:hover {
+      border-color: var(--primary);
+      background-color: rgba(23, 23, 28, 0.03);
+    }
+
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--ink);
+    }
+
+    .checkbox-group input {
+      cursor: pointer;
+      width: 16px;
+      height: 16px;
+      accent-color: var(--primary);
+    }
+
+    /* Console Panel Cohere Agent Console Style */
+    .agent-console {
+      background-color: var(--primary);
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .console-header {
+      background-color: #0e1117;
+      padding: 12px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .console-dots {
+      display: flex;
+      gap: 6px;
+    }
+
+    .console-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .dot-red {
+      background-color: #ff5f56;
+    }
+
+    .dot-yellow {
+      background-color: #ffbd2e;
+    }
+
+    .dot-green {
+      background-color: #27c93f;
+    }
+
+    .console-title {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--slate);
+      text-transform: uppercase;
+      letter-spacing: 0.28px;
+    }
+
+    .code-preview {
+      background-color: #0d1117;
+      padding: 20px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 1.6;
+      color: #e6edf3;
+      white-space: pre-wrap;
+      overflow-x: auto;
+      min-height: 260px;
+    }
+
+    /* Research Table Cohere Style */
+    .summary-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .summary-table th,
+    .summary-table td {
+      padding: 12px 14px;
+      text-align: left;
+      border-bottom: 1px solid var(--hairline);
+    }
+
+    .summary-table th {
+      font-family: var(--font-mono);
+      color: var(--slate);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.28px;
+    }
+
+    .status-chip {
+      padding: 4px 12px;
+      border-radius: 32px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: uppercase;
+      display: inline-block;
+    }
+
+    .chip-pass {
+      background: var(--pale-green);
+      color: var(--deep-green);
+      border: 1px solid rgba(0, 60, 51, 0.2);
+    }
+
+    .chip-fail {
+      background: var(--coral-soft);
+      color: #b30000;
+      border: 1px solid rgba(255, 119, 89, 0.3);
+    }
+
+    .loader {
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top: 2px solid #ffffff;
+      border-radius: 50%;
+      width: 14px;
+      height: 14px;
+      animation: spin 0.8s linear infinite;
+      display: none;
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+
+    footer {
+      border-top: 1px solid var(--hairline);
+      padding: 24px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--slate);
+    }
+
+    /* Responsive Media Queries (Cohere Web System Guidelines) */
+    @media (max-width: 1024px) {
+      .container {
+        grid-template-columns: 1fr;
+        padding: 24px;
+        gap: 24px;
+      }
+
+      header {
+        padding: 0 24px;
+      }
+
+      footer {
+        padding: 20px 24px;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .announcement-bar {
+        height: auto;
+        padding: 8px 16px;
+        flex-direction: column;
+        gap: 4px;
+        text-align: center;
+      }
+
+      header {
+        height: auto;
+        padding: 16px 20px;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+
+      .card {
+        padding: 20px;
+        border-radius: 16px;
+      }
+
+      .card-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+
+      .grid-2 {
+        grid-template-columns: 1fr;
+      }
+
+      .step-row-top {
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .step-row-top select {
+        width: 100% !important;
+      }
+
+      .btn-remove {
+        margin-left: 0;
+      }
+
+      .action-footer {
+        flex-direction: column;
+        align-items: stretch !important;
+        gap: 16px;
+      }
+
+      .btn-primary {
+        width: 100%;
+      }
+
+      footer {
+        flex-direction: column;
+        gap: 8px;
+        text-align: center;
+      }
+
+      .code-actions {
+        width: 100%;
+        display: flex;
+        gap: 8px;
+      }
+
+      .code-actions button {
+        flex: 1;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Top Announcement Bar -->
+  <div class="announcement-bar">
+    <span class="tag">TESTER LAB</span>
+    <span>NON-LLM HEURISTIC AUTOMATED PLAYWRIGHT TEST GENERATOR</span>
+  </div>
+
+  <header>
+    <div class="brand">
+      <div class="brand-logo">TL</div>
+      <div>
+        <div class="brand-title">Tester Lab</div>
+        <div class="brand-subtitle">Enterprise Automation & Heuristic Engine</div>
+      </div>
+    </div>
+    <span class="badge-tag">Playwright Engine</span>
+  </header>
+
+  <div class="container">
+    <!-- Left Column: Business Flow Builder -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Scenario Builder</div>
+        <div style="display: flex; gap: 8px;">
+          <input type="file" id="importFlowInput" accept=".json" style="display: none;" onchange="handleImportFlow(event)">
+          <button type="button" class="btn-pill-outline" onclick="document.getElementById('importFlowInput').click()">
+            Import JSON Flow
+          </button>
+          <button type="button" class="btn-pill-outline" onclick="loadSampleScenario()">
+            Load Sample Flow
+          </button>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="form-group">
+          <label for="testSuite">Test Suite Name</label>
+          <input type="text" id="testSuite" value="Login Authentication Test" placeholder="e.g. Login Scenario">
+        </div>
+        <div class="form-group">
+          <label for="framework">Target Framework</label>
+          <select id="framework" onchange="onFrameworkChange()">
+            <option value="playwright">Playwright</option>
+            <option value="cypress">Cypress</option>
+            <option value="selenium">Selenium WebDriver (Python)</option>
+            <option value="robotframework">Robot Framework</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="form-group">
+          <label for="targetUrl">Target Web Application URL</label>
+          <input type="text" id="targetUrl" value="https://the-internet.herokuapp.com/login"
+            placeholder="https://example.com/login">
+        </div>
+        <div class="form-group">
+          <label for="language">Language / Syntax Format</label>
+          <select id="language">
+            <option value="typescript">TypeScript (.spec.ts)</option>
+            <option value="javascript">JavaScript (.spec.js)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="steps-header">
+        <div style="font-family: var(--font-display); font-size: 18px; font-weight: 500;">Execution Steps</div>
+        <div style="font-family: var(--font-mono); font-size: 11px; color: var(--slate);" id="stepCountBadge">0 STEPS</div>
+      </div>
+
+      <div class="step-list" id="stepList">
+        <!-- Steps will be rendered here dynamically -->
+      </div>
+
+      <!-- Add Step button moved to the bottom of the execution steps -->
+      <div style="margin-top: 4px;">
+        <button type="button" class="btn-pill-outline" onclick="addStep()" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 16px;">
+          + Add Step
+        </button>
+      </div>
+
+      <div class="action-footer"
+        style="display: flex; align-items: center; justify-content: space-between; margin-top: 12px; border-top: 1px solid var(--hairline); padding-top: 20px;">
+        <label class="checkbox-group">
+          <input type="checkbox" id="dryRun" checked>
+          <span>Run Headless Dry-Run Verification</span>
+        </label>
+        <button type="button" class="btn-primary" id="btnGenerate" onclick="generateScript()">
+          <span class="loader" id="btnLoader"></span>
+          <span>Generate Script</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Right Column: Generation Result & Output Spec -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Output Spec & Matching</div>
+        <div id="statusBadgeContainer"></div>
+      </div>
+
+      <div id="summarySection" style="display: none;">
+        <div
+          style="font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.28px; margin-bottom: 12px; color: var(--slate);">
+          Matching Strategy & Scores:
+        </div>
+        <table class="summary-table">
+          <thead>
+            <tr>
+              <th>Step</th>
+              <th>Action</th>
+              <th>Matched Selector</th>
+              <th>Score</th>
+            </tr>
+          </thead>
+          <tbody id="summaryTableBody"></tbody>
+        </table>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <div class="card-header" style="border: none; padding: 0;">
+          <label
+            style="font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.2px; color: var(--body-muted);">Generated
+            Playwright Code:</label>
+          <div class="code-actions">
+            <button class="btn-pill-outline" onclick="copyCode()">Copy Code</button>
+            <button class="btn-pill-outline" onclick="downloadCode()">Download File</button>
+          </div>
+        </div>
+
+        <div class="agent-console">
+          <div class="console-header">
+            <div class="console-dots">
+              <div class="console-dot dot-red"></div>
+              <div class="console-dot dot-yellow"></div>
+              <div class="console-dot dot-green"></div>
+            </div>
+            <div class="console-title" id="consoleTitle">Playwright Test Output Console</div>
+          </div>
+          <div class="code-preview" id="codeOutput">// Generated Playwright script will appear here after clicking 'Generate Script'...</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <footer>
+    <div>TESTER LAB ENTERPRISE</div>
+    <div>NON-LLM HEURISTIC MATCHING PIPELINE</div>
+  </footer>
+
+  <script>
+    let steps = [];
+
+    function loadSampleScenario() {
+      document.getElementById('testSuite').value = 'Standard Web Login Verification';
+      document.getElementById('targetUrl').value = 'https://the-internet.herokuapp.com/login';
+      steps = [
+        { action: 'fill', targetLabel: 'Username', value: 'tomsmith', description: 'Isi kolom username' },
+        { action: 'fill', targetLabel: 'Password', value: 'SuperSecretPassword!', description: 'Isi kolom password' },
+        { action: 'click', targetLabel: 'Login', value: '', description: 'Klik tombol login' },
+        { action: 'assert_url', targetLabel: '', value: '/secure', description: 'Verifikasi URL beralih ke secure area' }
+      ];
+      renderSteps();
+    }
+
+    function handleImportFlow(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const data = JSON.parse(e.target.result);
+          
+          if (data.testSuite) document.getElementById('testSuite').value = data.testSuite;
+          if (data.targetUrl) document.getElementById('targetUrl').value = data.targetUrl;
+          if (data.framework) {
+            document.getElementById('framework').value = data.framework;
+            onFrameworkChange(); // update language options
+          }
+          if (data.language) {
+            // Need a tiny timeout because onFrameworkChange modifies the DOM options
+            setTimeout(() => {
+              document.getElementById('language').value = data.language;
+            }, 10);
+          }
+          
+          if (Array.isArray(data.steps)) {
+            steps = data.steps.map(s => ({
+              action: s.action || 'fill',
+              targetLabel: s.targetLabel || '',
+              // map expected to value for assert actions
+              value: s.value !== undefined ? s.value : (s.expected !== undefined ? s.expected : ''),
+              description: s.description || ''
+            }));
+            renderSteps();
+          }
+        } catch (err) {
+          alert('Failed to parse JSON file: ' + err.message);
+        }
+      };
+      reader.readAsText(file);
+      
+      // Reset input value to allow importing the same file again
+      event.target.value = '';
+    }
+
+    function addStep() {
+      steps.push({ action: 'fill', targetLabel: '', value: '', description: '' });
+      renderSteps();
+    }
+
+    function removeStep(index) {
+      steps.splice(index, 1);
+      renderSteps();
+    }
+
+    let dragSrcIndex = null;
+
+    function handleDragStart(e, index) {
+      dragSrcIndex = index;
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', index);
+      e.currentTarget.classList.add('dragging');
+    }
+
+    function handleDragOver(e, index) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      return false;
+    }
+
+    function handleDragEnter(e, index) {
+      if (index !== dragSrcIndex) {
+        e.currentTarget.classList.add('drag-over');
+      }
+    }
+
+    function handleDragLeave(e) {
+      e.currentTarget.classList.remove('drag-over');
+    }
+
+    function handleDrop(e, targetIndex) {
+      e.stopPropagation();
+      e.preventDefault();
+      e.currentTarget.classList.remove('drag-over');
+
+      if (dragSrcIndex !== null && dragSrcIndex !== targetIndex) {
+        const draggedItem = steps.splice(dragSrcIndex, 1)[0];
+        steps.splice(targetIndex, 0, draggedItem);
+        renderSteps();
+      }
+      return false;
+    }
+
+    function handleDragEnd(e) {
+      e.currentTarget.classList.remove('dragging');
+      document.querySelectorAll('.step-item').forEach(item => {
+        item.classList.remove('drag-over');
+        item.classList.remove('dragging');
+      });
+    }
+
+    function updateStep(index, field, val) {
+      steps[index][field] = val;
+    }
+
+    function renderSteps() {
+      const container = document.getElementById('stepList');
+      const badge = document.getElementById('stepCountBadge');
+      container.innerHTML = '';
+      if (badge) {
+        badge.textContent = steps.length + (steps.length === 1 ? ' STEP' : ' STEPS');
+      }
+
+      steps.forEach((step, idx) => {
+        const item = document.createElement('div');
+        item.className = 'step-item';
+        item.draggable = true;
+        item.setAttribute('ondragstart', `handleDragStart(event, ${idx})`);
+        item.setAttribute('ondragover', `handleDragOver(event, ${idx})`);
+        item.setAttribute('ondragenter', `handleDragEnter(event, ${idx})`);
+        item.setAttribute('ondragleave', `handleDragLeave(event)`);
+        item.setAttribute('ondrop', `handleDrop(event, ${idx})`);
+        item.setAttribute('ondragend', `handleDragEnd(event)`);
+
+        item.innerHTML = `
+          <div class="step-row-top">
+            <div class="drag-handle" title="Klik & seret untuk memindahkan posisi step">⠿</div>
+            <div class="step-num">${idx + 1}</div>
+            <select onchange="updateStep(${idx}, 'action', this.value); renderSteps();" style="width: 150px;">
+              <option value="fill" ${step.action === 'fill' ? 'selected' : ''}>Fill Input</option>
+              <option value="click" ${step.action === 'click' ? 'selected' : ''}>Click Element</option>
+              <option value="select" ${step.action === 'select' ? 'selected' : ''}>Select Option</option>
+              <option value="upload" ${step.action === 'upload' ? 'selected' : ''}>Upload File</option>
+              <option value="check" ${step.action === 'check' ? 'selected' : ''}>Check</option>
+              <option value="uncheck" ${step.action === 'uncheck' ? 'selected' : ''}>Uncheck</option>
+              <option value="assert_url" ${step.action === 'assert_url' ? 'selected' : ''}>Assert URL</option>
+              <option value="assert_text" ${step.action === 'assert_text' ? 'selected' : ''}>Assert Text</option>
+              <option value="assert_visible" ${step.action === 'assert_visible' ? 'selected' : ''}>Assert Visible</option>
+              <option value="wait" ${step.action === 'wait' ? 'selected' : ''}>Wait Delay</option>
+            </select>
+            <button class="btn-remove" onclick="removeStep(${idx})">Remove</button>
+          </div>
+
+          <div class="grid-2">
+            ${step.action !== 'assert_url' && step.action !== 'wait' ? `
+            <div class="form-group">
+              <label>Target Element Label / ID</label>
+              <input type="text" value="${step.targetLabel || ''}" placeholder="${step.action === 'upload' ? 'e.g. Upload KTP / Document' : 'e.g. Email / Username'}" onchange="updateStep(${idx}, 'targetLabel', this.value)">
+            </div>` : ''}
+
+            ${step.action === 'fill' || step.action === 'select' || step.action === 'upload' || step.action === 'assert_url' || step.action === 'assert_text' || step.action === 'wait' ? `
+            <div class="form-group">
+              <label>${step.action === 'assert_url' ? 'Expected URL Path' : step.action === 'assert_text' ? 'Expected Text' : step.action === 'wait' ? 'Delay (ms)' : step.action === 'upload' ? 'File Path to Attach' : 'Input Value'}</label>
+              <input type="text" value="${step.value || ''}" placeholder="${step.action === 'upload' ? 'e.g. fixtures/ktp.pdf' : 'e.g. user@example.com'}" onchange="updateStep(${idx}, 'value', this.value)">
+            </div>` : ''}
+          </div>
+
+          <div class="form-group">
+            <label>Description (Optional)</label>
+            <input type="text" value="${step.description || ''}" placeholder="Description of step action..." onchange="updateStep(${idx}, 'description', this.value)">
+          </div>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    function onFrameworkChange() {
+      const fw = document.getElementById('framework').value;
+      const langSelect = document.getElementById('language');
+      const badge = document.querySelector('.badge-tag');
+      
+      if (fw === 'playwright') {
+        langSelect.innerHTML = `
+          <option value="typescript">TypeScript (.spec.ts)</option>
+          <option value="javascript">JavaScript (.spec.js)</option>
+        `;
+        if (badge) badge.textContent = 'Playwright Engine';
+      } else if (fw === 'cypress') {
+        langSelect.innerHTML = `
+          <option value="javascript">JavaScript (cy.js)</option>
+        `;
+        if (badge) badge.textContent = 'Cypress Engine';
+      } else if (fw === 'selenium') {
+        langSelect.innerHTML = `
+          <option value="python">Python (selenium.py)</option>
+        `;
+        if (badge) badge.textContent = 'Selenium Engine';
+      } else if (fw === 'robotframework') {
+        langSelect.innerHTML = `
+          <option value="robot">Robot Framework (.robot)</option>
+        `;
+        if (badge) badge.textContent = 'Robot Engine';
+      }
+    }
+
+    async function generateScript() {
+      const btn = document.getElementById('btnGenerate');
+      const loader = document.getElementById('btnLoader');
+      const codeOutput = document.getElementById('codeOutput');
+      const summarySection = document.getElementById('summarySection');
+      const summaryTableBody = document.getElementById('summaryTableBody');
+      const statusBadgeContainer = document.getElementById('statusBadgeContainer');
+      const consoleTitle = document.getElementById('consoleTitle');
+
+      // 1. AUTO-CLEAN PREVIOUS RESULTS IMMEDIATELY
+      summarySection.style.display = 'none';
+      summaryTableBody.innerHTML = '';
+      statusBadgeContainer.innerHTML = '<span class="status-chip" style="background: var(--soft-stone); color: var(--slate); border: 1px solid var(--hairline);">Processing...</span>';
+
+      const dslPayload = {
+        testSuite: document.getElementById('testSuite').value || 'Automated Test Suite',
+        targetUrl: document.getElementById('targetUrl').value,
+        framework: document.getElementById('framework').value,
+        language: document.getElementById('language').value,
+        steps: steps.map((s, i) => {
+          const stepObj = {
+            step: i + 1,
+            action: s.action,
+            description: s.description
+          };
+          if (s.targetLabel) stepObj.targetLabel = s.targetLabel;
+          if (s.action === 'fill' || s.action === 'select' || s.action === 'upload') stepObj.value = s.value;
+          if (s.action === 'assert_url') stepObj.expected = s.value;
+          if (s.action === 'assert_text') {
+            stepObj.expected = s.value;
+            stepObj.targetLabel = s.targetLabel;
+          }
+          if (s.action === 'wait') stepObj.value = s.value;
+          return stepObj;
+        })
+      };
+
+      btn.disabled = true;
+      loader.style.display = 'inline-block';
+
+      // 2. REALTIME MONITORING PROCESS DISPLAY
+      const targetUrlVal = dslPayload.targetUrl;
+      const isDryRun = document.getElementById('dryRun').checked;
+
+      if (consoleTitle) consoleTitle.textContent = 'REALTIME BACKGROUND MONITOR';
+
+      codeOutput.textContent = 
+`[1/4] INITIALIZING GENERATION PIPELINE...
+[2/4] CRAWLER: Navigating to ${targetUrlVal} & inspecting state transition DOM elements...
+[3/4] HEURISTIC MATCHER: Scoring candidates & ranking Playwright selectors...
+[4/4] ${isDryRun ? 'DRY-RUN ENGINE: Executing headless Playwright test verification...' : 'GENERATOR: Emitting final code output...'}`;
+
+      let currentStep = 2;
+      const progressTimer = setInterval(() => {
+        if (currentStep === 2) {
+          codeOutput.textContent = 
+`[1/4] INITIALIZING PIPELINE... [DONE]
+[2/4] CRAWLER: Navigating to ${targetUrlVal} & evaluating interactive DOM elements... [ACTIVE]
+[3/4] HEURISTIC MATCHER: Scoring candidates... [PENDING]
+[4/4] GENERATOR: Emitting script & Dry-Run... [PENDING]`;
+          currentStep = 3;
+        } else if (currentStep === 3) {
+          codeOutput.textContent = 
+`[1/4] INITIALIZING PIPELINE... [DONE]
+[2/4] CRAWLER: Candidate extraction complete. [DONE]
+[3/4] HEURISTIC MATCHER: Calculating scores & choosing optimal Playwright locators... [ACTIVE]
+[4/4] GENERATOR: ${isDryRun ? 'Executing Playwright Headless Dry-Run...' : 'Formatting code string via Handlebars & Prettier...'} [ACTIVE]`;
+          currentStep = 4;
+        }
+      }, 1200);
+
+      try {
+        const response = await fetch('/api/v1/generate-script', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            dsl: dslPayload,
+            dryRun: isDryRun
+          })
+        });
+
+        clearInterval(progressTimer);
+        const data = await response.json();
+
+        if (consoleTitle) consoleTitle.textContent = 'PLAYWRIGHT TEST OUTPUT CONSOLE';
+
+        if (!data.success) {
+          statusBadgeContainer.innerHTML = '<span class="status-chip chip-fail">Generation Failed</span>';
+          alert('Error generating script: ' + (data.errors ? data.errors.join(', ') : data.error));
+          codeOutput.textContent = '// Generation failed.\n' + (data.errors ? data.errors.join('\n') : data.error);
+          return;
+        }
+
+        codeOutput.textContent = data.code;
+
+        // Render Summary Table with Fresh Results
+        summarySection.style.display = 'block';
+        summaryTableBody.innerHTML = '';
+
+        data.resolvedSteps.forEach((s) => {
+          const tr = document.createElement('tr');
+          const isPassScore = s.matchScore >= 80;
+          tr.innerHTML = `
+            <td><span style="font-family: var(--font-mono); font-weight: 500;">Step ${s.step}</span></td>
+            <td><span style="font-family: var(--font-mono); color: var(--action-blue);">${s.action}</span></td>
+            <td><span style="font-family: var(--font-mono);">${s.selectorType}('${s.selectorValue}')</span></td>
+            <td><span style="font-weight: 600; color: ${isPassScore ? 'var(--deep-green)' : 'var(--coral)'};">${s.matchScore}</span></td>
+          `;
+          summaryTableBody.appendChild(tr);
+        });
+
+        // Render Status Badge
+        if (isDryRun) {
+          if (data.dryRunPassed) {
+            statusBadgeContainer.innerHTML = '<span class="status-chip chip-pass">Dry-Run Passed</span>';
+          } else {
+            statusBadgeContainer.innerHTML = '<span class="status-chip chip-fail">Dry-Run Failed</span>';
+          }
+        } else {
+          statusBadgeContainer.innerHTML = '<span class="status-chip chip-pass">Script Generated</span>';
+        }
+
+      } catch (err) {
+        clearInterval(progressTimer);
+        if (consoleTitle) consoleTitle.textContent = 'PLAYWRIGHT TEST OUTPUT CONSOLE';
+        statusBadgeContainer.innerHTML = '<span class="status-chip chip-fail">Connection Error</span>';
+        alert('Failed to connect to API server: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        loader.style.display = 'none';
+      }
+    }
+
+    function copyCode() {
+      const code = document.getElementById('codeOutput').textContent;
+      navigator.clipboard.writeText(code).then(() => {
+        alert('Generated code copied to clipboard!');
+      });
+    }
+
+    function downloadCode() {
+      const code = document.getElementById('codeOutput').textContent;
+      const lang = document.getElementById('language').value;
+      const filename = `test-spec.${lang === 'javascript' ? 'spec.js' : 'spec.ts'}`;
+
+      const blob = new Blob([code], { type: 'text/plain' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      link.click();
+    }
+
+    // Initialize with sample scenario on load
+    loadSampleScenario();
+  </script>
+
+</body>
+
+</html>

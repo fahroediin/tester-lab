@@ -1,0 +1,59 @@
+describe('{{{testSuite}}}', () => {
+  it('should execute business scenario steps successfully', () => {
+    // Navigate to target URL
+    cy.visit('{{{targetUrl}}}');
+
+    {{#each resolvedSteps}}
+    // Step {{step}}: {{{description}}}
+    {{#if warning}}
+    // [WARNING]: {{{warning}}}
+    {{/if}}
+    {{#if (eq action "fill")}}
+      {{#if (eq selectorType "getByTestId")}}
+    cy.get('[data-testid="{{{selectorValue}}}"]').clear().type('{{{value}}}');
+      {{else if (eq selectorType "getByLabel")}}
+    cy.contains('label', '{{{selectorValue}}}').parent().find('input, textarea').clear().type('{{{value}}}');
+      {{else if (eq selectorType "getByPlaceholder")}}
+    cy.get('[placeholder="{{{selectorValue}}}"]').clear().type('{{{value}}}');
+      {{else}}
+    cy.get('{{{selectorValue}}}').clear().type('{{{value}}}');
+      {{/if}}
+    {{/if}}
+    {{#if (eq action "click")}}
+      {{#if (eq selectorType "getByRole")}}
+    cy.contains('button, a', '{{{roleName}}}').click();
+      {{else if (eq selectorType "getByText")}}
+    cy.contains('{{{selectorValue}}}').click();
+      {{else if (eq selectorType "getByTestId")}}
+    cy.get('[data-testid="{{{selectorValue}}}"]').click();
+      {{else}}
+    cy.get('{{{selectorValue}}}').click();
+      {{/if}}
+    {{/if}}
+    {{#if (eq action "select")}}
+    cy.get('{{{selectorValue}}}').select('{{{value}}}');
+    {{/if}}
+    {{#if (eq action "check")}}
+    cy.get('{{{selectorValue}}}').check();
+    {{/if}}
+    {{#if (eq action "uncheck")}}
+    cy.get('{{{selectorValue}}}').uncheck();
+    {{/if}}
+    {{#if (eq action "upload")}}
+    cy.get('{{{selectorValue}}}').selectFile('{{{value}}}');
+    {{/if}}
+    {{#if (eq action "assert_url")}}
+    cy.url().should('include', '{{{selectorValue}}}');
+    {{/if}}
+    {{#if (eq action "assert_text")}}
+    cy.contains('{{{expected}}}').should('be.visible');
+    {{/if}}
+    {{#if (eq action "assert_visible")}}
+    cy.get('{{{selectorValue}}}').should('be.visible');
+    {{/if}}
+    {{#if (eq action "wait")}}
+    cy.wait({{{selectorValue}}});
+    {{/if}}
+    {{/each}}
+  });
+});
