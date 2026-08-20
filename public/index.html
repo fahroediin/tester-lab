@@ -4,7 +4,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tester Lab — Automated Test Generator (Cohere System)</title>
+  <title>Tester Lab - Automated Test Generator</title>
+  <link rel="icon" type="image/jpeg" href="/favicon.jpg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
@@ -627,7 +628,8 @@
       <div class="card-header">
         <div class="card-title">Scenario Builder</div>
         <div style="display: flex; gap: 8px;">
-          <input type="file" id="importFlowInput" accept=".json" style="display: none;" onchange="handleImportFlow(event)">
+          <input type="file" id="importFlowInput" accept=".json" style="display: none;"
+            onchange="handleImportFlow(event)">
           <button type="button" class="btn-pill-outline" onclick="document.getElementById('importFlowInput').click()">
             Import JSON Flow
           </button>
@@ -670,7 +672,8 @@
 
       <div class="steps-header">
         <div style="font-family: var(--font-display); font-size: 18px; font-weight: 500;">Execution Steps</div>
-        <div style="font-family: var(--font-mono); font-size: 11px; color: var(--slate);" id="stepCountBadge">0 STEPS</div>
+        <div style="font-family: var(--font-mono); font-size: 11px; color: var(--slate);" id="stepCountBadge">0 STEPS
+        </div>
       </div>
 
       <div class="step-list" id="stepList">
@@ -679,7 +682,8 @@
 
       <!-- Add Step button moved to the bottom of the execution steps -->
       <div style="margin-top: 4px;">
-        <button type="button" class="btn-pill-outline" onclick="addStep()" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 16px;">
+        <button type="button" class="btn-pill-outline" onclick="addStep()"
+          style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 16px;">
           + Add Step
         </button>
       </div>
@@ -742,7 +746,8 @@
             </div>
             <div class="console-title" id="consoleTitle">Playwright Test Output Console</div>
           </div>
-          <div class="code-preview" id="codeOutput">// Generated Playwright script will appear here after clicking 'Generate Script'...</div>
+          <div class="code-preview" id="codeOutput">// Generated Playwright script will appear here after clicking
+            'Generate Script'...</div>
         </div>
       </div>
 
@@ -772,12 +777,12 @@
     function handleImportFlow(event) {
       const file = event.target.files[0];
       if (!file) return;
-      
+
       const reader = new FileReader();
-      reader.onload = function(e) {
+      reader.onload = function (e) {
         try {
           const data = JSON.parse(e.target.result);
-          
+
           if (data.testSuite) document.getElementById('testSuite').value = data.testSuite;
           if (data.targetUrl) document.getElementById('targetUrl').value = data.targetUrl;
           if (data.framework) {
@@ -790,7 +795,7 @@
               document.getElementById('language').value = data.language;
             }, 10);
           }
-          
+
           if (Array.isArray(data.steps)) {
             steps = data.steps.map(s => ({
               action: s.action || 'fill',
@@ -806,7 +811,7 @@
         }
       };
       reader.readAsText(file);
-      
+
       // Reset input value to allow importing the same file again
       event.target.value = '';
     }
@@ -936,7 +941,7 @@
       const fw = document.getElementById('framework').value;
       const langSelect = document.getElementById('language');
       const badge = document.querySelector('.badge-tag');
-      
+
       if (fw === 'playwright') {
         langSelect.innerHTML = `
           <option value="typescript">TypeScript (.spec.ts)</option>
@@ -1007,8 +1012,8 @@
 
       if (consoleTitle) consoleTitle.textContent = 'REALTIME BACKGROUND MONITOR';
 
-      codeOutput.textContent = 
-`[1/4] INITIALIZING GENERATION PIPELINE...
+      codeOutput.textContent =
+        `[1/4] INITIALIZING GENERATION PIPELINE...
 [2/4] CRAWLER: Navigating to ${targetUrlVal} & inspecting state transition DOM elements...
 [3/4] HEURISTIC MATCHER: Scoring candidates & ranking Playwright selectors...
 [4/4] ${isDryRun ? 'DRY-RUN ENGINE: Executing headless Playwright test verification...' : 'GENERATOR: Emitting final code output...'}`;
@@ -1016,15 +1021,15 @@
       let currentStep = 2;
       const progressTimer = setInterval(() => {
         if (currentStep === 2) {
-          codeOutput.textContent = 
-`[1/4] INITIALIZING PIPELINE... [DONE]
+          codeOutput.textContent =
+            `[1/4] INITIALIZING PIPELINE... [DONE]
 [2/4] CRAWLER: Navigating to ${targetUrlVal} & evaluating interactive DOM elements... [ACTIVE]
 [3/4] HEURISTIC MATCHER: Scoring candidates... [PENDING]
 [4/4] GENERATOR: Emitting script & Dry-Run... [PENDING]`;
           currentStep = 3;
         } else if (currentStep === 3) {
-          codeOutput.textContent = 
-`[1/4] INITIALIZING PIPELINE... [DONE]
+          codeOutput.textContent =
+            `[1/4] INITIALIZING PIPELINE... [DONE]
 [2/4] CRAWLER: Candidate extraction complete. [DONE]
 [3/4] HEURISTIC MATCHER: Calculating scores & choosing optimal Playwright locators... [ACTIVE]
 [4/4] GENERATOR: ${isDryRun ? 'Executing Playwright Headless Dry-Run...' : 'Formatting code string via Handlebars & Prettier...'} [ACTIVE]`;
