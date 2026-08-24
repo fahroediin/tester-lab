@@ -626,9 +626,14 @@
   <div class="container">
     <!-- Left Column: Business Flow Builder -->
     <div class="card">
-      <div class="card-header">
+      <div class="card-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
         <div class="card-title">Scenario Builder</div>
-        <div style="display: flex; gap: 8px;">
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <input type="file" id="importSpecInput" accept=".ts,.js,.spec.ts,.spec.js" style="display: none;"
+            onchange="handleImportSpec(event)">
+          <button type="button" class="btn-pill-outline" onclick="document.getElementById('importSpecInput').click()">
+            Upload .spec File
+          </button>
           <input type="file" id="importFlowInput" accept=".json" style="display: none;"
             onchange="handleImportFlow(event)">
           <button type="button" class="btn-pill-outline" onclick="document.getElementById('importFlowInput').click()">
@@ -810,6 +815,57 @@
         { action: 'assert_url', targetLabel: '', value: '/secure', description: 'Verifikasi URL beralih ke secure area' }
       ];
       renderSteps();
+    }
+
+    function handleImportSpec(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const specContent = e.target.result;
+          if (!specContent || !specContent.trim()) {
+            Swal.fire({ icon: 'warning', title: 'Empty File', text: 'The uploaded spec file is empty.', confirmButtonColor: '#005bbf' });
+            return;
+          }
+
+          latestGeneratedCode = specContent;
+          const codeOutput = document.getElementById('codeOutput');
+          if (codeOutput) codeOutput.textContent = specContent;
+
+          // Set language selection based on extension
+          const langSelect = document.getElementById('language');
+          if (langSelect) {
+            if (file.name.endsWith('.js')) {
+              langSelect.value = 'javascript';
+            } else {
+              langSelect.value = 'typescript';
+            }
+          }
+
+          const statusBadgeContainer = document.getElementById('statusBadgeContainer');
+          if (statusBadgeContainer) {
+            statusBadgeContainer.innerHTML = '<span class="status-chip chip-pass">Spec File Loaded</span>';
+          }
+
+          Swal.fire({
+            icon: 'success',
+            title: 'Spec File Loaded',
+            text: `Successfully imported "${file.name}". Click "Run Script Now" to execute.`,
+            timer: 2500,
+            showConfirmButton: false,
+            toast: true,
+            position: 'top-end'
+          });
+        } catch (err) {
+          Swal.fire({ icon: 'error', title: 'Import Failed', text: 'Failed to read spec file: ' + err.message, confirmButtonColor: '#005bbf' });
+        }
+      };
+      reader.readAsText(file);
+
+      // Reset input value to allow importing the same file again
+      event.target.value = '';
     }
 
     function handleImportFlow(event) {
