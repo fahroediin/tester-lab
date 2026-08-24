@@ -232,6 +232,8 @@ app.get('/health', (req: Request, res: Response) => {
   res.json({ status: 'OK', message: 'Test Generator API Service active' });
 });
 
-app.listen(port, () => {
-  console.log(`Test Generator REST API & Web UI running at http://localhost:${port}`);
+const host = process.env.HOST || '0.0.0.0';
+
+app.listen(Number(port), host, () => {
+  console.log(`Test Generator REST API & Web UI running at http://${host}:${port}`);
 });
