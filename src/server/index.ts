@@ -46,6 +46,14 @@ app.get('/', (req: Request, res: Response) => {
   res.sendFile(indexPath);
 });
 
+/**
+ * Admin Route: Serve Dedicated Admin Console Page
+ */
+app.get('/admin', (req: Request, res: Response) => {
+  let adminPath = path.join(process.cwd(), 'public', 'admin.html');
+  res.sendFile(adminPath);
+});
+
 // ==========================================
 // AUTHENTICATION ENDPOINTS
 // ==========================================
