@@ -32,6 +32,13 @@
           const codeOutput = document.getElementById('codeOutput');
           if (codeOutput) codeOutput.textContent = specContent;
 
+          // Attempt to parse back the UI steps
+          const parsedSteps = parseSpecToSteps(specContent);
+          if (parsedSteps.length > 0) {
+            steps = parsedSteps;
+            renderSteps();
+          }
+
           // Set language selection based on extension
           const langSelect = document.getElementById('language');
           if (langSelect) {
@@ -64,6 +71,53 @@
 
       // Reset input value to allow importing the same file again
       event.target.value = '';
+    }
+
+    function parseSpecToSteps(specContent) {
+      const lines = specContent.split('\n');
+      const parsedSteps = [];
+      
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line.startsWith('await ')) continue;
+        
+        // Look for previous comment as description
+        let description = '';
+        if (i > 0 && lines[i-1].trim().startsWith('//')) {
+          description = lines[i-1].trim().replace('//', '').trim();
+          // Remove "Step X: " if present
+          description = description.replace(/^Step\s+\d+:\s*/i, '');
+        }
+
+        if (line.includes('.fill(')) {
+          const labelMatch = line.match(/getByLabel\(['"](.*?)['"]/);
+          const fillMatch = line.match(/\.fill\(['"](.*?)['"]\)/);
+          if (labelMatch && fillMatch) {
+            parsedSteps.push({ action: 'fill', targetLabel: labelMatch[1], value: fillMatch[1], description });
+          }
+        } else if (line.includes('.click()')) {
+          const roleMatch = line.match(/getByRole\(['"]button['"],\s*\{\s*name:\s*['"](.*?)['"]\s*\}\)/);
+          if (roleMatch) {
+            parsedSteps.push({ action: 'click', targetLabel: roleMatch[1], value: '', description });
+          }
+        } else if (line.includes('toHaveURL(')) {
+          const urlMatch = line.match(/RegExp\(['"](.*?)['"]\)/) || line.match(/toHaveURL\(['"](.*?)['"]\)/);
+          if (urlMatch) {
+            parsedSteps.push({ action: 'assert_url', targetLabel: '', value: urlMatch[1], description });
+          }
+        } else if (line.includes('.waitForTimeout(')) {
+          const waitMatch = line.match(/waitForTimeout\((\d+)\)/);
+          if (waitMatch) {
+            parsedSteps.push({ action: 'wait', targetLabel: '', value: waitMatch[1], description });
+          }
+        } else if (line.includes('toBeVisible()')) {
+          const textMatch = line.match(/getByText\(['"](.*?)['"]/);
+          if (textMatch) {
+            parsedSteps.push({ action: 'assert_visible', targetLabel: '', value: textMatch[1], description });
+          }
+        }
+      }
+      return parsedSteps;
     }
 
     function handleImportFlow(event) {
