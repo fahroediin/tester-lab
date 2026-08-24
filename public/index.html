@@ -197,6 +197,8 @@
     }
 
     input[type="text"],
+    input[type="password"],
+    input[type="email"],
     select,
     textarea {
       background-color: var(--canvas);
@@ -210,6 +212,8 @@
     }
 
     input[type="text"]:focus,
+    input[type="password"]:focus,
+    input[type="email"]:focus,
     select:focus,
     textarea:focus {
       outline: none;
@@ -674,212 +678,7 @@
       font-weight: 600;
     }
 
-    /* BA Handbook Exact Login Layout & Aesthetic */
-    .ba-login-card {
-      background: #e2e8f0;
-      border: 2.5px solid #1e3a8a;
-      border-radius: 12px;
-      box-shadow: 6px 6px 0px #0f172a;
-      width: 100%;
-      max-width: 420px;
-      padding: 32px 28px;
-      text-align: center;
-    }
 
-    .ba-brand-pill {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 6px 28px;
-      border-radius: 9999px;
-      border: 2.5px solid #dc2626;
-      background: #ffffff;
-      box-shadow: 0 3px 0px #b91c1c;
-      margin-bottom: 12px;
-    }
-
-    .ba-brand-pill span {
-      font-family: var(--font-display);
-      font-weight: 900;
-      font-style: italic;
-      font-size: 20px;
-      letter-spacing: 1.5px;
-      color: #dc2626;
-    }
-
-    .ba-login-subtitle {
-      font-family: var(--font-display);
-      font-weight: 700;
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      color: #1e3a8a;
-      margin-bottom: 24px;
-    }
-
-    .ba-form-group {
-      margin-bottom: 16px;
-      text-align: left;
-    }
-
-    .ba-form-group label {
-      display: block;
-      font-family: var(--font-display);
-      font-weight: 700;
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      color: #1e3a8a;
-      margin-bottom: 6px;
-    }
-
-    .ba-input {
-      width: 100% !important;
-      background: #eaf2fd !important;
-      border: 2px solid #1e3a8a !important;
-      border-radius: 6px !important;
-      padding: 10px 14px !important;
-      font-family: var(--font-body) !important;
-      font-size: 14px !important;
-      font-weight: 500 !important;
-      color: #0f172a !important;
-      box-sizing: border-box !important;
-      outline: none !important;
-      transition: all 0.2s ease !important;
-      height: 42px !important;
-    }
-
-    .ba-input:focus {
-      background: #ffffff !important;
-      border-color: #2563eb !important;
-      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
-    }
-
-    .ba-password-wrapper {
-      position: relative !important;
-      display: block !important;
-      width: 100% !important;
-    }
-
-    .ba-password-wrapper input {
-      width: 100% !important;
-      padding-right: 44px !important;
-      box-sizing: border-box !important;
-    }
-
-    .ba-toggle-eye-btn {
-      position: absolute !important;
-      right: 12px !important;
-      top: 50% !important;
-      transform: translateY(-50%) !important;
-      background: transparent !important;
-      border: none !important;
-      cursor: pointer !important;
-      color: #1e3a8a !important;
-      display: flex !important;
-      align-items: center !important;
-      justify-content: center !important;
-      padding: 0 !important;
-      margin: 0 !important;
-      z-index: 5 !important;
-    }
-
-    .ba-toggle-eye-btn svg {
-      stroke: #1e3a8a !important;
-    }
-
-    .ba-btn-primary {
-      width: 100% !important;
-      background: #f97316 !important;
-      color: #ffffff !important;
-      border: 2px solid #1e3a8a !important;
-      border-radius: 6px !important;
-      box-shadow: 3px 3px 0px #0f172a !important;
-      padding: 11px 16px !important;
-      font-family: var(--font-display) !important;
-      font-size: 13px !important;
-      font-weight: 800 !important;
-      text-transform: uppercase !important;
-      letter-spacing: 1px !important;
-      cursor: pointer !important;
-      transition: all 0.15s ease !important;
-      margin-top: 8px !important;
-    }
-
-    .ba-btn-primary:hover {
-      background: #ea580c !important;
-      transform: translate(-1px, -1px) !important;
-      box-shadow: 4px 4px 0px #0f172a !important;
-    }
-
-    .ba-btn-primary:active {
-      transform: translate(2px, 2px) !important;
-      box-shadow: 1px 1px 0px #0f172a !important;
-    }
-
-    .ba-divider {
-      border: none !important;
-      border-top: 1px dotted #64748b !important;
-      margin: 22px 0 16px 0 !important;
-    }
-
-    .ba-prompt-text {
-      font-family: var(--font-display) !important;
-      font-size: 12px !important;
-      font-weight: 600 !important;
-      color: #1e3a8a !important;
-      margin-bottom: 10px !important;
-    }
-
-    .ba-btn-secondary {
-      width: 100% !important;
-      background: #ffffff !important;
-      color: #dc2626 !important;
-      border: 2px solid #1e3a8a !important;
-      border-radius: 4px !important;
-      box-shadow: 3px 3px 0px #0f172a !important;
-      padding: 9px 16px !important;
-      font-family: var(--font-display) !important;
-      font-size: 12px !important;
-      font-weight: 800 !important;
-      text-transform: uppercase !important;
-      letter-spacing: 0.8px !important;
-      cursor: pointer !important;
-      transition: all 0.15s ease !important;
-      display: inline-flex !important;
-      align-items: center !important;
-      justify-content: center !important;
-      gap: 6px !important;
-    }
-
-    .ba-btn-secondary:hover {
-      background: #fef2f2 !important;
-      transform: translate(-1px, -1px) !important;
-      box-shadow: 4px 4px 0px #0f172a !important;
-    }
-
-    .ba-btn-secondary:active {
-      transform: translate(2px, 2px) !important;
-      box-shadow: 1px 1px 0px #0f172a !important;
-    }
-
-    .ba-security-badge {
-      margin-top: 20px;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 18px;
-      border-radius: 6px;
-      background: #0f172a;
-      border: 2px solid #334155;
-      font-family: var(--font-mono);
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      color: #f59e0b;
-      box-shadow: 3px 3px 0px #020617;
-    }
   </style>
 </head>
 
@@ -905,94 +704,83 @@
     </div>
   </header>
 
-  <!-- Unauthenticated Minimalist Login View (BA Handbook Style) -->
-  <div id="unauthLoginView" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 85vh; padding: 32px 16px; background-color: #8da4c4; background-image: radial-gradient(#627c9f 1.5px, transparent 1.5px); background-size: 14px 14px; border-radius: 16px; margin: 20px auto; max-width: 540px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
-    <div class="ba-login-card">
+  <!-- Unauthenticated Login View (Minimalist) -->
+  <div id="unauthLoginView" style="display: flex; align-items: center; justify-content: center; min-height: 85vh; padding: 20px;">
+    <div class="card" style="width: 100%; max-width: 400px; padding: 40px;">
       
-      <!-- Brand Logo Pill Header -->
-      <div class="ba-brand-pill">
-        <span>TESTER LAB</span>
-      </div>
-      <div class="ba-login-subtitle">
-        SIGN IN TO ACCESS DIGITAL WORKSPACE
+      <div style="text-align: center; margin-bottom: 24px;">
+        <div class="brand-logo" style="width: 48px; height: 48px; font-size: 20px; margin: 0 auto 16px;">TL</div>
+        <h2 style="font-family: var(--font-display); color: var(--primary); font-size: 24px; font-weight: 600;">Welcome</h2>
+        <p style="color: var(--slate); font-size: 14px; margin-top: 8px;">Sign in to Tester Lab</p>
       </div>
 
       <!-- Login Section -->
       <div id="heroLoginSection">
         <form id="heroLoginForm" onsubmit="handleHeroLoginSubmit(event)">
-          <div class="ba-form-group">
+          <div class="form-group" style="margin-bottom: 20px;">
             <label>USERNAME</label>
-            <input type="text" id="heroLoginUsername" class="ba-input" required placeholder="Enter username (e.g. admin)">
+            <input type="text" id="heroLoginUsername" required placeholder="Enter username (e.g. admin)">
           </div>
-          <div class="ba-form-group">
+          <div class="form-group" style="margin-bottom: 24px;">
             <label>PASSWORD</label>
             <div style="position: relative; width: 100%; display: flex; align-items: center;">
-              <input type="password" id="heroLoginPassword" class="ba-input" required placeholder="Enter password" style="width: 100%; padding-right: 46px !important;">
-              <button type="button" onclick="togglePasswordVisibility('heroLoginPassword', this)" title="Show/Hide Password" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: transparent; border: none; padding: 0; margin: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10; box-shadow: none; border-radius: 0; min-width: 0; width: 24px; height: 24px;">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1e3a8a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <input type="password" id="heroLoginPassword" required placeholder="Enter password" style="width: 100%; padding-right: 40px;">
+              <button type="button" onclick="togglePasswordVisibility('heroLoginPassword', this)" title="Show/Hide Password" style="position: absolute; right: 12px; background: transparent; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; color: var(--slate); outline: none;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
                   <circle cx="12" cy="12" r="3"></circle>
                 </svg>
               </button>
             </div>
           </div>
-          <button type="submit" class="ba-btn-primary">
-            SIGN IN
-          </button>
+          <button type="submit" class="btn-primary" style="width: 100%; height: 44px; font-size: 14px;">Sign In</button>
         </form>
 
-        <!-- Divider & Request Access -->
-        <hr class="ba-divider">
-        <div class="ba-prompt-text">Don't have access yet?</div>
-        <button type="button" class="ba-btn-secondary" onclick="showRegisterSection()">
-          REQUEST ACCOUNT ACCESS
-        </button>
+        <div style="text-align: center; margin-top: 24px; border-top: 1px solid var(--hairline); padding-top: 20px;">
+          <p style="color: var(--slate); font-size: 13px; margin-bottom: 12px;">Don't have an account yet?</p>
+          <button type="button" class="btn-pill-outline" onclick="showRegisterSection()" style="width: 100%;">
+            Request Account Access
+          </button>
+        </div>
       </div>
 
       <!-- Register Section -->
       <div id="heroRegisterSection" style="display: none;">
         <form id="heroRegisterForm" onsubmit="handleHeroRegisterSubmit(event)">
-          <div class="ba-form-group">
+          <div class="form-group" style="margin-bottom: 20px;">
             <label>USERNAME</label>
-            <input type="text" id="heroRegUsername" class="ba-input" required placeholder="Choose a username">
+            <input type="text" id="heroRegUsername" required placeholder="Choose a username">
           </div>
-          <div class="ba-form-group">
+          <div class="form-group" style="margin-bottom: 20px;">
             <label>EMAIL ADDRESS</label>
-            <input type="email" id="heroRegEmail" class="ba-input" required placeholder="user@example.com">
+            <input type="email" id="heroRegEmail" required placeholder="user@example.com">
           </div>
-          <div class="ba-form-group">
+          <div class="form-group" style="margin-bottom: 24px;">
             <label>PASSWORD</label>
             <div style="position: relative; width: 100%; display: flex; align-items: center;">
-              <input type="password" id="heroRegPassword" class="ba-input" required placeholder="Minimum 6 characters" style="width: 100%; padding-right: 46px !important;">
-              <button type="button" onclick="togglePasswordVisibility('heroRegPassword', this)" title="Show/Hide Password" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: transparent; border: none; padding: 0; margin: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10; box-shadow: none; border-radius: 0; min-width: 0; width: 24px; height: 24px;">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1e3a8a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <input type="password" id="heroRegPassword" required placeholder="Minimum 6 characters" style="width: 100%; padding-right: 40px;">
+              <button type="button" onclick="togglePasswordVisibility('heroRegPassword', this)" title="Show/Hide Password" style="position: absolute; right: 12px; background: transparent; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; color: var(--slate); outline: none;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
                   <circle cx="12" cy="12" r="3"></circle>
                 </svg>
               </button>
             </div>
           </div>
-          <p style="font-size: 11px; color: #1e3a8a; font-weight: 500; line-height: 1.4; margin: 0 0 10px 0; text-align: left;">
+          <p style="font-size: 12px; color: var(--slate); margin-bottom: 16px; line-height: 1.4;">
             Note: New registrations require Administrator approval before accessing the platform.
           </p>
-          <button type="submit" class="ba-btn-primary">
-            SUBMIT REQUEST
-          </button>
+          <button type="submit" class="btn-primary" style="width: 100%; height: 44px; font-size: 14px;">Submit Request</button>
         </form>
 
-        <!-- Divider & Back to Sign In -->
-        <hr class="ba-divider">
-        <div class="ba-prompt-text">Already have an approved account?</div>
-        <button type="button" class="ba-btn-secondary" onclick="showLoginSection()">
-          BACK TO SIGN IN
-        </button>
+        <div style="text-align: center; margin-top: 24px; border-top: 1px solid var(--hairline); padding-top: 20px;">
+          <p style="color: var(--slate); font-size: 13px; margin-bottom: 12px;">Already have an approved account?</p>
+          <button type="button" class="btn-pill-outline" onclick="showLoginSection()" style="width: 100%;">
+            Back to Sign In
+          </button>
+        </div>
       </div>
 
-    </div>
-
-    <!-- Confidential / Security Footer Badge -->
-    <div class="ba-security-badge">
-      <span>INTERNAL — CONFIDENTIAL ACCESS</span>
     </div>
   </div>
 
