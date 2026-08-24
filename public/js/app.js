@@ -319,7 +319,7 @@
             errorDiv.style.paddingTop = '10px';
             errorDiv.style.borderTop = '1px dashed var(--coral)';
             errorDiv.style.fontWeight = '500';
-            errorDiv.textContent = '⚠️ Action Required: ' + errorMsg;
+            errorDiv.textContent = 'Action Required: ' + errorMsg;
             stepElements[i].appendChild(errorDiv);
             
             if (firstInvalidIndex === -1) {
