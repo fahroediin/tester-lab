@@ -434,9 +434,6 @@ export default defineConfig({
       let command = `npx playwright test "${testFilePath.replace(/\\/g, '/')}" --config="${configFilePath.replace(/\\/g, '/')}"`;
       if (isHeaded) {
         command += ' --headed';
-        if (process.platform === 'linux' && !process.env.DISPLAY) {
-          command = `xvfb-run -a ${command}`;
-        }
       }
 
       let logs = '';

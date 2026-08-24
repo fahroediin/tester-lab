@@ -301,6 +301,8 @@
       }
 
       btn.disabled = true;
+      const btnText = btn.querySelector('span:not(.loader)');
+      if (btnText) btnText.textContent = 'Generating Script...';
       loader.style.display = 'inline-block';
       isGeneratingScript = true;
       latestGeneratedCode = '';
@@ -399,6 +401,8 @@
       } finally {
         isGeneratingScript = false;
         btn.disabled = false;
+        const btnText = btn.querySelector('span:not(.loader)');
+        if (btnText) btnText.textContent = 'Generate Script';
         loader.style.display = 'none';
         if (btnRunTest) btnRunTest.disabled = false;
       }
