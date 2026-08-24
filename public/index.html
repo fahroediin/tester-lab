@@ -673,6 +673,37 @@
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
       font-weight: 600;
     }
+
+    .password-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+      width: 100%;
+    }
+
+    .password-wrapper input {
+      width: 100%;
+      padding-right: 42px !important;
+    }
+
+    .toggle-password-btn {
+      position: absolute;
+      right: 10px;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      color: var(--body-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px;
+      border-radius: 4px;
+      transition: color 0.2s;
+    }
+
+    .toggle-password-btn:hover {
+      color: var(--ink);
+    }
   </style>
 </head>
 
@@ -767,7 +798,12 @@
           </div>
           <div class="form-group">
             <label style="font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Password</label>
-            <input type="password" id="heroLoginPassword" required placeholder="Enter password" style="width: 100%; padding: 12px 14px; border-radius: 8px;">
+            <div class="password-wrapper">
+              <input type="password" id="heroLoginPassword" required placeholder="Enter password" style="width: 100%; padding: 12px 14px; border-radius: 8px;">
+              <button type="button" class="toggle-password-btn" onclick="togglePasswordVisibility('heroLoginPassword', this)" title="Show/Hide Password">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              </button>
+            </div>
           </div>
           <button type="submit" class="btn-pill-outline" style="width: 100%; justify-content: center; height: 42px; font-size: 13px; font-weight: 600; margin-top: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
             Sign In
@@ -795,7 +831,12 @@
           </div>
           <div class="form-group">
             <label style="font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Password</label>
-            <input type="password" id="heroRegPassword" required placeholder="Minimum 6 characters" style="width: 100%; padding: 12px 14px; border-radius: 8px;">
+            <div class="password-wrapper">
+              <input type="password" id="heroRegPassword" required placeholder="Minimum 6 characters" style="width: 100%; padding: 12px 14px; border-radius: 8px;">
+              <button type="button" class="toggle-password-btn" onclick="togglePasswordVisibility('heroRegPassword', this)" title="Show/Hide Password">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              </button>
+            </div>
           </div>
           <p style="font-size: 11px; color: var(--body-muted); line-height: 1.4; margin: 0;">
             Note: New registrations require Administrator approval before accessing the platform.
@@ -1582,6 +1623,18 @@
       authUserBar.innerHTML = '';
     }
 
+    function togglePasswordVisibility(inputId, btn) {
+      const input = document.getElementById(inputId);
+      if (!input) return;
+      if (input.type === 'password') {
+        input.type = 'text';
+        btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>`;
+      } else {
+        input.type = 'password';
+        btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
+      }
+    }
+
     function renderLoggedInBar() {
       const authUserBar = document.getElementById('authUserBar');
       if (!authUserBar || !currentUser) return;
@@ -1592,8 +1645,8 @@
       }
 
       authUserBar.innerHTML = `
-        <span style="font-family: var(--font-mono); font-size: 12px; font-weight: 500; color: var(--ink); background: var(--soft-stone); padding: 4px 10px; border-radius: 12px;">
-          ${currentUser.username} (${currentUser.role})
+        <span style="font-family: var(--font-mono); font-size: 12px; font-weight: 500; color: var(--ink); background: var(--soft-stone); padding: 6px 14px; border-radius: 9999px; border: 1px solid var(--hairline);">
+          ${currentUser.username}
         </span>
         ${adminBtn}
         <button type="button" class="btn-pill-outline" onclick="handleLogout()">Sign Out</button>
@@ -1793,7 +1846,7 @@
       authToken = '';
       currentUser = null;
       localStorage.removeItem('tester_jwt_token');
-      renderLoggedOutBar();
+      checkAuthSession();
       Swal.fire({
         icon: 'info',
         title: 'Signed Out',
