@@ -1,6 +1,9 @@
 import fs from 'fs';
 import path from 'path';
 import bcrypt from 'bcryptjs';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 export interface User {
   id: string;
@@ -15,6 +18,14 @@ export interface User {
 const dataDir = path.join(process.cwd(), 'data');
 const usersFilePath = path.join(dataDir, 'users.json');
 
+function getAdminConfig(): { username: string; email: string; password: string } {
+  return {
+    username: process.env.ADMIN_USERNAME || 'admin',
+    email: process.env.ADMIN_EMAIL || 'admin@testerlab.com',
+    password: process.env.ADMIN_PASSWORD || 'AdminPassword123!'
+  };
+}
+
 function ensureDataDirExists() {
   if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
@@ -23,27 +34,50 @@ function ensureDataDirExists() {
 
 export function loadUsers(): User[] {
   ensureDataDirExists();
-  if (!fs.existsSync(usersFilePath)) {
-    // Seed default admin account
-    const defaultAdmin: User = {
-      id: 'usr_admin_default',
-      username: 'admin',
-      email: 'admin@testerlab.com',
-      passwordHash: bcrypt.hashSync('AdminPassword123!', 10),
+  let users: User[] = [];
+
+  if (fs.existsSync(usersFilePath)) {
+    try {
+      const raw = fs.readFileSync(usersFilePath, 'utf-8');
+      users = JSON.parse(raw);
+    } catch {
+      users = [];
+    }
+  }
+
+  const { username, email, password } = getAdminConfig();
+
+  // Ensure Admin configured in .env is always synced and present
+  const adminIndex = users.findIndex(
+    (u) => u.username.toLowerCase() === username.toLowerCase() || u.role === 'admin'
+  );
+
+  if (adminIndex === -1) {
+    const adminUser: User = {
+      id: 'usr_admin_env',
+      username,
+      email,
+      passwordHash: bcrypt.hashSync(password, 10),
       role: 'admin',
       status: 'approved',
       createdAt: new Date().toISOString()
     };
-    fs.writeFileSync(usersFilePath, JSON.stringify([defaultAdmin], null, 2), 'utf-8');
-    return [defaultAdmin];
+    users.unshift(adminUser);
+    saveUsers(users);
+  } else {
+    // If admin credentials in .env are updated, keep credentials in sync
+    const currentAdmin = users[adminIndex];
+    const isPasswordSame = bcrypt.compareSync(password, currentAdmin.passwordHash);
+    if (currentAdmin.username !== username || !isPasswordSame) {
+      users[adminIndex].username = username;
+      users[adminIndex].email = email;
+      users[adminIndex].passwordHash = bcrypt.hashSync(password, 10);
+      users[adminIndex].status = 'approved';
+      saveUsers(users);
+    }
   }
 
-  try {
-    const raw = fs.readFileSync(usersFilePath, 'utf-8');
-    return JSON.parse(raw);
-  } catch {
-    return [];
-  }
+  return users;
 }
 
 export function saveUsers(users: User[]): void {
