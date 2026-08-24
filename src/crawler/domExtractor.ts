@@ -130,7 +130,7 @@ export class DOMExtractor {
       await locator.check();
     } else if (step.action === 'uncheck') {
       await locator.uncheck();
-    } else if (step.action === 'upload' && step.value) {
+    } else if ((step.action as string) === 'upload' && step.value) {
       await locator.setInputFiles(step.value).catch(() => {});
     }
   }

@@ -11,6 +11,7 @@
   <link
     href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600&display=swap"
     rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <style>
     /* Cohere 2026 Web System Tokens */
     :root {
@@ -616,7 +617,7 @@
       <div class="brand-logo">TL</div>
       <div>
         <div class="brand-title">Tester Lab</div>
-        <div class="brand-subtitle">Enterprise Automation & Heuristic Engine</div>
+        <div class="brand-subtitle">Automated Test Generator & Heuristic Engine</div>
       </div>
     </div>
     <span class="badge-tag">Playwright Engine</span>
@@ -744,10 +745,45 @@
               <div class="console-dot dot-yellow"></div>
               <div class="console-dot dot-green"></div>
             </div>
-            <div class="console-title" id="consoleTitle">Playwright Test Output Console</div>
+            <div class="console-title" id="consoleTitle">Playwright Code Spec</div>
           </div>
           <div class="code-preview" id="codeOutput">// Generated Playwright script will appear here after clicking
             'Generate Script'...</div>
+        </div>
+
+        <!-- Built-in Terminal Execution Console -->
+        <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 12px;">
+          <div class="card-header" style="border: none; padding: 0; display: flex; align-items: center; justify-content: space-between;">
+            <label style="font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.2px; color: var(--body-muted);">
+              Built-in Terminal Console:
+            </label>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <select id="runMode" style="padding: 6px 12px; font-size: 12px; height: 32px;">
+                <option value="headless">Headless Mode</option>
+                <option value="headed">Headed Mode (Visual Browser)</option>
+              </select>
+              <button class="btn-pill-primary" id="btnRunTest" onclick="runGeneratedTest()" style="padding: 6px 14px; font-size: 12px; height: 32px;">
+                Run Script Now
+              </button>
+            </div>
+          </div>
+
+          <div class="agent-console">
+            <div class="console-header">
+              <div class="console-dots">
+                <div class="console-dot dot-red"></div>
+                <div class="console-dot dot-yellow"></div>
+                <div class="console-dot dot-green"></div>
+              </div>
+              <div class="console-title" id="terminalTitle">CLI Terminal Output</div>
+            </div>
+            <div class="code-preview" id="terminalOutput" style="color: #34d399; font-family: var(--font-mono); min-height: 160px; max-height: 300px;">// Terminal ready. Click 'Run Script Now' to execute the generated Playwright test script directly in the terminal...</div>
+          </div>
+
+          <div id="videoContainer" style="display: none; margin-top: 12px;">
+            <label style="font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.2px; color: var(--body-muted);">Visual Browser Execution Recording Video:</label>
+            <video id="videoPlayer" controls style="width: 100%; border-radius: 8px; border: 1px solid var(--hairline); margin-top: 6px; background: #000; max-height: 360px;"></video>
+          </div>
         </div>
       </div>
 
@@ -755,12 +791,14 @@
   </div>
 
   <footer>
-    <div>TESTER LAB ENTERPRISE</div>
-    <div>NON-LLM HEURISTIC MATCHING PIPELINE</div>
+    <div>TESTER LAB</div>
+    <div>Crafted by: Fahrudin</div>
   </footer>
 
   <script>
     let steps = [];
+    let isGeneratingScript = false;
+    let latestGeneratedCode = '';
 
     function loadSampleScenario() {
       document.getElementById('testSuite').value = 'Standard Web Login Verification';
@@ -807,7 +845,7 @@
             renderSteps();
           }
         } catch (err) {
-          alert('Failed to parse JSON file: ' + err.message);
+          Swal.fire({ icon: 'error', title: 'Import Failed', text: 'Failed to parse JSON file: ' + err.message, confirmButtonColor: '#005bbf' });
         }
       };
       reader.readAsText(file);
@@ -1005,6 +1043,11 @@
 
       btn.disabled = true;
       loader.style.display = 'inline-block';
+      isGeneratingScript = true;
+      latestGeneratedCode = '';
+
+      const btnRunTest = document.getElementById('btnRunTest');
+      if (btnRunTest) btnRunTest.disabled = true;
 
       // 2. REALTIME MONITORING PROCESS DISPLAY
       const targetUrlVal = dslPayload.targetUrl;
@@ -1054,11 +1097,12 @@
 
         if (!data.success) {
           statusBadgeContainer.innerHTML = '<span class="status-chip chip-fail">Generation Failed</span>';
-          alert('Error generating script: ' + (data.errors ? data.errors.join(', ') : data.error));
+          Swal.fire({ icon: 'error', title: 'Generation Failed', text: (data.errors ? data.errors.join(', ') : data.error), confirmButtonColor: '#005bbf' });
           codeOutput.textContent = '// Generation failed.\n' + (data.errors ? data.errors.join('\n') : data.error);
           return;
         }
 
+        latestGeneratedCode = data.code;
         codeOutput.textContent = data.code;
 
         // Render Summary Table with Fresh Results
@@ -1092,17 +1136,19 @@
         clearInterval(progressTimer);
         if (consoleTitle) consoleTitle.textContent = 'PLAYWRIGHT TEST OUTPUT CONSOLE';
         statusBadgeContainer.innerHTML = '<span class="status-chip chip-fail">Connection Error</span>';
-        alert('Failed to connect to API server: ' + err.message);
+        Swal.fire({ icon: 'error', title: 'Connection Error', text: 'Failed to connect to API server: ' + err.message, confirmButtonColor: '#005bbf' });
       } finally {
+        isGeneratingScript = false;
         btn.disabled = false;
         loader.style.display = 'none';
+        if (btnRunTest) btnRunTest.disabled = false;
       }
     }
 
     function copyCode() {
       const code = document.getElementById('codeOutput').textContent;
       navigator.clipboard.writeText(code).then(() => {
-        alert('Generated code copied to clipboard!');
+        Swal.fire({ icon: 'success', title: 'Copied!', text: 'Generated code copied to clipboard!', timer: 2000, showConfirmButton: false, toast: true, position: 'top-end' });
       });
     }
 
@@ -1116,6 +1162,80 @@
       link.href = URL.createObjectURL(blob);
       link.download = filename;
       link.click();
+    }
+
+    async function runGeneratedTest() {
+      const btn = document.getElementById('btnRunTest');
+      const terminalOutput = document.getElementById('terminalOutput');
+      const terminalTitle = document.getElementById('terminalTitle');
+      const mode = document.getElementById('runMode').value;
+      const language = document.getElementById('language').value;
+
+      if (isGeneratingScript) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Generation in Progress',
+          text: 'Please wait until script generation finishes before running the test.',
+          confirmButtonColor: '#005bbf'
+        });
+        return;
+      }
+
+      const code = latestGeneratedCode;
+
+      if (!code || !code.trim() || code.startsWith('//') || code.includes('[1/4] INITIALIZING')) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'No Valid Script Found',
+          text: 'Please generate a valid test script first before running.',
+          confirmButtonColor: '#005bbf'
+        });
+        return;
+      }
+
+      btn.disabled = true;
+      terminalTitle.textContent = `CLI Terminal Output [Running ${mode.toUpperCase()}...]`;
+      terminalOutput.style.color = '#60a5fa';
+      terminalOutput.textContent = `[TERMINAL] Initiating Playwright Test Runner...\n[TERMINAL] Mode: ${mode.toUpperCase()}\n[TERMINAL] Environment: Node.js / Playwright\n[TERMINAL] Executing script...\n`;
+
+      try {
+        const response = await fetch('/api/v1/run-test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            code,
+            mode,
+            language
+          })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          terminalTitle.textContent = `CLI Terminal Output [PASS - ${data.durationMs}ms]`;
+          terminalOutput.style.color = '#34d399';
+          terminalOutput.textContent = `[PASS] Test Execution Completed Successfully (${data.durationMs}ms)\n\n${data.logs}`;
+        } else {
+          terminalTitle.textContent = `CLI Terminal Output [FAIL - ${data.durationMs}ms]`;
+          terminalOutput.style.color = '#f87171';
+          terminalOutput.textContent = `[FAIL] Test Execution Failed (${data.durationMs}ms)\n\n${data.logs || data.error}`;
+        }
+
+        if (data.videoUrl) {
+          const videoContainer = document.getElementById('videoContainer');
+          const videoPlayer = document.getElementById('videoPlayer');
+          if (videoContainer && videoPlayer) {
+            videoPlayer.src = data.videoUrl;
+            videoContainer.style.display = 'block';
+          }
+        }
+      } catch (err) {
+        terminalTitle.textContent = 'CLI Terminal Output [ERROR]';
+        terminalOutput.style.color = '#f87171';
+        terminalOutput.textContent = `[ERROR] Failed to communicate with runner service: ${err.message}`;
+      } finally {
+        btn.disabled = false;
+      }
     }
 
     // Initialize with sample scenario on load

@@ -4,7 +4,6 @@ export type DSLAction =
   | 'select' 
   | 'check' 
   | 'uncheck' 
-  | 'upload'
   | 'assert_text' 
   | 'assert_url' 
   | 'assert_visible' 
@@ -30,8 +29,8 @@ export interface DSLStep {
 export interface DSLConfig {
   testSuite: string;
   targetUrl: string;
-  framework?: 'playwright' | 'cypress' | 'selenium' | 'robotframework';
-  language?: 'typescript' | 'javascript' | 'python' | 'robot';
+  framework?: 'playwright' | 'cypress';
+  language?: 'typescript' | 'javascript';
   viewport?: {
     width: number;
     height: number;
@@ -123,4 +122,18 @@ export interface DryRunResult {
     oldSelector: string;
     newSelector: string;
   }[];
+}
+
+export interface TestRunOptions {
+  code: string;
+  mode?: 'headless' | 'headed';
+  framework?: 'playwright';
+  language?: 'typescript' | 'javascript';
+}
+
+export interface TestRunResult {
+  success: boolean;
+  logs: string;
+  error?: string;
+  durationMs: number;
 }

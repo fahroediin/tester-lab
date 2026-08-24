@@ -21,11 +21,11 @@ export class CodeGenerator {
     const language = config.language || 'typescript';
 
     let templateFileName = 'playwright-ts.hbs';
-    if (framework === 'cypress') {
+    if ((framework as string) === 'cypress') {
       templateFileName = 'cypress-js.hbs';
-    } else if (framework === 'selenium') {
+    } else if ((framework as string) === 'selenium') {
       templateFileName = 'selenium-py.hbs';
-    } else if (framework === 'robotframework') {
+    } else if ((framework as string) === 'robotframework') {
       templateFileName = 'robot-rf.hbs';
     } else if (language === 'javascript') {
       templateFileName = 'playwright-js.hbs';
