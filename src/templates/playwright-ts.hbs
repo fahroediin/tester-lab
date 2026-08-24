@@ -13,18 +13,10 @@ test('{{testSuite}}', async ({ page }) => {
   {{#if needsRobustHelper}}
   // Helper function for dynamic form locators (OutSystems/Complex UI)
   async function action(type: 'select' | 'fill', label: string, value: string) {
-    const textLoc = page.locator(`text="${label}"`).first();
-    await textLoc.waitFor({ state: 'attached', timeout: 15000 });
+    await page.getByText(label, { exact: false }).first().waitFor({ state: 'attached', timeout: 15000 });
     
     const tag = type === 'select' ? 'select' : 'input';
-    
-    let target = textLoc.locator(`xpath=ancestor::div[1]//${tag}`).last();
-    if (await target.count() === 0) {
-      target = textLoc.locator(`xpath=ancestor::div[2]//${tag}`).last();
-      if (await target.count() === 0) {
-        target = textLoc.locator(`xpath=ancestor::div[3]//${tag}`).last();
-      }
-    }
+    const target = page.locator(`xpath=(//*[contains(text(), '${label}')])[1]/following::${tag}[1]`);
     
     if (type === 'select') {
       await target.selectOption(value, { force: true });
