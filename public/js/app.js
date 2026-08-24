@@ -282,6 +282,58 @@
       const statusBadgeContainer = document.getElementById('statusBadgeContainer');
       const consoleTitle = document.getElementById('consoleTitle');
 
+      // 0. FRONTEND STEP VALIDATION
+      let isValid = true;
+      let firstInvalidIndex = -1;
+      document.querySelectorAll('.step-error-msg').forEach(el => el.remove());
+      document.querySelectorAll('.step-item').forEach(el => el.style.border = '');
+
+      for (let i = 0; i < steps.length; i++) {
+        const s = steps[i];
+        let errorMsg = '';
+        
+        if (!s.action) {
+           errorMsg = 'Action must be selected.';
+        } else if (['fill', 'click', 'select', 'upload', 'check', 'uncheck', 'assert_text', 'assert_visible'].includes(s.action) && !s.targetLabel) {
+           errorMsg = 'Target Element Label / ID is required for this action.';
+        } else if (['fill', 'select', 'upload'].includes(s.action) && !s.value) {
+           errorMsg = 'Input Value / File Path is required for this action.';
+        } else if (s.action === 'assert_url' && !s.value) {
+           errorMsg = 'Expected URL Path is required.';
+        } else if (s.action === 'assert_text' && !s.value) {
+           errorMsg = 'Expected Text is required.';
+        } else if (s.action === 'wait' && !s.value) {
+           errorMsg = 'Delay (ms) is required.';
+        }
+        
+        if (errorMsg) {
+          isValid = false;
+          const stepElements = document.querySelectorAll('.step-item');
+          if (stepElements[i]) {
+            stepElements[i].style.border = '1px solid var(--coral)';
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'step-error-msg';
+            errorDiv.style.color = 'var(--coral)';
+            errorDiv.style.fontSize = '12px';
+            errorDiv.style.marginTop = '10px';
+            errorDiv.style.paddingTop = '10px';
+            errorDiv.style.borderTop = '1px dashed var(--coral)';
+            errorDiv.style.fontWeight = '500';
+            errorDiv.textContent = '⚠️ Action Required: ' + errorMsg;
+            stepElements[i].appendChild(errorDiv);
+            
+            if (firstInvalidIndex === -1) {
+              firstInvalidIndex = i;
+              stepElements[i].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }
+        }
+      }
+
+      if (!isValid) {
+        return;
+      }
+
       // 1. AUTO-CLEAN PREVIOUS RESULTS IMMEDIATELY
       summarySection.style.display = 'none';
       summaryTableBody.innerHTML = '';
