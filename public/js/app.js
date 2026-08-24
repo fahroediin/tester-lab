@@ -27,6 +27,7 @@
             return;
           }
 
+          resetTerminalOutput();
           latestGeneratedCode = specContent;
           const codeOutput = document.getElementById('codeOutput');
           if (codeOutput) codeOutput.textContent = specContent;
@@ -257,6 +258,21 @@
       }
     }
 
+    function resetTerminalOutput() {
+      const terminalTitle = document.getElementById('terminalTitle');
+      const terminalOutput = document.getElementById('terminalOutput');
+      const videoContainer = document.getElementById('videoContainer');
+      const videoPlayer = document.getElementById('videoPlayer');
+
+      if (terminalTitle) terminalTitle.textContent = 'CLI Terminal Output';
+      if (terminalOutput) {
+        terminalOutput.textContent = "// Terminal ready. Click 'Run Script Now' to execute the generated Playwright test script directly in the terminal...";
+        terminalOutput.style.color = '#34d399';
+      }
+      if (videoContainer) videoContainer.style.display = 'none';
+      if (videoPlayer) videoPlayer.src = '';
+    }
+
     async function generateScript() {
       const btn = document.getElementById('btnGenerate');
       const loader = document.getElementById('btnLoader');
@@ -270,6 +286,7 @@
       summarySection.style.display = 'none';
       summaryTableBody.innerHTML = '';
       statusBadgeContainer.innerHTML = '<span class="status-chip" style="background: var(--soft-stone); color: var(--slate); border: 1px solid var(--hairline);">Processing...</span>';
+      resetTerminalOutput();
 
       const dslPayload = {
         testSuite: document.getElementById('testSuite').value || 'Automated Test Suite',
