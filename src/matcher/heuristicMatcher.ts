@@ -129,9 +129,16 @@ export class HeuristicMatcher {
     const bestCandidate = topMatch.candidate;
     const { selectorType, selectorValue, roleName } = this.determineSelector(bestCandidate, normalizedTarget, step.action);
 
+    // Auto-correct action if it's incompatible with the resolved DOM tag
+    let correctedAction = step.action;
+    if (correctedAction === 'select' && bestCandidate.tagName !== 'select') {
+      correctedAction = 'fill';
+      warning = (warning ? warning + ' | ' : '') + `Auto-corrected action from 'select' to 'fill' because target element is <${bestCandidate.tagName}>`;
+    }
+
     return {
       step: step.step,
-      action: step.action,
+      action: correctedAction,
       targetLabel: step.targetLabel,
       value: step.value,
       expected: step.expected,
