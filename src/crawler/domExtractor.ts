@@ -82,7 +82,8 @@ export class DOMExtractor {
           try {
             await this.performActionOnPage(page, step, resolved);
             // Wait for networkidle or state load after action
-            await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
+            await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+            await page.waitForTimeout(3000); // hard delay for heavy JS frameworks to finish rendering
           } catch (err) {
             console.warn(`[Crawler] Step ${step.step} state execution warning:`, err);
           }

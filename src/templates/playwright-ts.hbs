@@ -15,9 +15,16 @@ test('{{testSuite}}', async ({ page }) => {
   async function action(type: 'select' | 'fill', label: string, value: string) {
     const tag = type === 'select' ? 'select' : 'input';
     const escapedLabel = label.replace(/'/g, "\\'");
-    const xpath = `xpath=(//*[normalize-space(.)='${escapedLabel}' or normalize-space(.)='${escapedLabel} *' or normalize-space(.)='${escapedLabel}*'])[1]/following::${tag}[1]`;
     
-    const target = page.locator(xpath);
+    // 1. Standard GetByLabel (handles <label for="..."> and aria-labelledby)
+    const byLabel = page.getByLabel(label);
+    // 2. Element nested inside a matching label tag
+    const insideLabel = page.locator('label').filter({ hasText: label }).locator(tag).first();
+    // 3. Fallback: Classic XPath following the text node
+    const xpath = `xpath=(//*[normalize-space(.)='${escapedLabel}' or normalize-space(.)='${escapedLabel} *' or normalize-space(.)='${escapedLabel}*'])[1]/following::${tag}[1]`;
+    const following = page.locator(xpath);
+
+    const target = byLabel.or(insideLabel).or(following).first();
     await target.waitFor({ state: 'attached', timeout: 15000 });
     
     if (type === 'select') {

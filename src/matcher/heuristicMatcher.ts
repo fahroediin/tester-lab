@@ -193,46 +193,58 @@ export class HeuristicMatcher {
       return { score, reason: reasons.join(', ') };
     }
 
-    // Rule 2: Associated Label Match (Score: 85 - 90)
+    // Rule 2: Associated Label Match
     if (labelText) {
       if (labelText === target) {
         score += 90;
         reasons.push('Exact Associated Label Match');
       } else if (labelText.includes(target) || target.includes(labelText)) {
-        score += 85;
+        score += 75;
         reasons.push('Partial Associated Label Match');
       }
     }
 
-    // Rule 3: Accessibility Role & Name Match (Score: 75 - 80)
+    // Rule 3: Accessibility Role & Name Match
     if (cand.role && (innerText || ariaLabel)) {
       const accName = ariaLabel || innerText;
       if (accName === target) {
-        score += 80;
+        score += 88;
         reasons.push(`Exact ARIA Role (${cand.role}) & Name Match`);
       } else if (accName.includes(target) || target.includes(accName)) {
-        score += 75;
+        score += 70;
         reasons.push(`Partial ARIA Role (${cand.role}) & Name Match`);
       }
     }
 
-    // Rule 4: Placeholder or Aria-Label Match (Score: 70)
-    if (placeholder && (placeholder === target || placeholder.includes(target))) {
-      score += 70;
-      reasons.push('Placeholder Match');
-    } else if (ariaLabel && (ariaLabel === target || ariaLabel.includes(target))) {
-      score += 70;
-      reasons.push('Aria-Label Match');
-    }
-
-    // Rule 5: InnerText / Visual Text Match (Score: 60 - 65)
-    if (innerText && score < 60) {
+    // Rule 4: InnerText / Visual Text Match
+    // We evaluate this BEFORE Rule 5 so exact InnerText beats partial Aria/Placeholder
+    if (innerText) {
       if (innerText === target) {
-        score += 65;
+        score += 85;
         reasons.push('Exact InnerText Match');
       } else if (innerText.includes(target)) {
         score += 60;
         reasons.push('Partial InnerText Match');
+      }
+    }
+
+    // Rule 5: Placeholder or Aria-Label Match (Standalone)
+    if (placeholder) {
+      if (placeholder === target) {
+         score += 80;
+         reasons.push('Exact Placeholder Match');
+      } else if (placeholder.includes(target)) {
+         score += 65;
+         reasons.push('Partial Placeholder Match');
+      }
+    }
+    if (ariaLabel) {
+      if (ariaLabel === target) {
+         score += 80;
+         reasons.push('Exact Aria-Label Match');
+      } else if (ariaLabel.includes(target)) {
+         score += 65;
+         reasons.push('Partial Aria-Label Match');
       }
     }
 
