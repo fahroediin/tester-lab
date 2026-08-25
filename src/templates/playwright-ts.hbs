@@ -31,6 +31,7 @@ test('{{testSuite}}', async ({ page }) => {
   {{/if}}
 
   {{#each resolvedSteps}}
+  console.log('__STEP_START__ {{step}}');
   // Step {{step}}: {{#if description}}{{{description}}}{{else}}{{action}} -> {{{targetLabel}}}{{/if}}
   {{#if warning}}
   // [WARNING]: {{{warning}}}

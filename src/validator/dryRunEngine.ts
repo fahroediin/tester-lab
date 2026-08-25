@@ -29,7 +29,7 @@ export class DryRunEngine {
 import { defineConfig } from '@playwright/test';
 export default defineConfig({
   testDir: '${tempDir.replace(/\\/g, '/')}',
-  timeout: 15000,
+  timeout: 20000,
   use: {
     headless: true,
     viewport: { width: 1280, height: 720 },
@@ -65,10 +65,11 @@ export default defineConfig({
         durationMs
       };
     } catch (error: any) {
+      const errorOutput = (error.stdout || '') + '\n' + (error.stderr || '');
       console.warn('Initial dry-run failed. Attempting Self-Healing Fallback Strategy...');
 
       // Attempt Self-Healing Strategy (tempDir is still alive here — NOT cleaned up yet)
-      const healResult = await this.attemptSelfHealing(config, resolvedSteps, tempDir, configFilePath);
+      const healResult = await this.attemptSelfHealing(config, resolvedSteps, tempDir, configFilePath, errorOutput);
       
       // NOW cleanup temp directory, after self-healing is complete
       cleanupTempDir();
@@ -99,16 +100,22 @@ export default defineConfig({
     config: DSLConfig,
     resolvedSteps: ResolvedStep[],
     tempDir: string,
-    configFilePath: string
+    configFilePath: string,
+    errorOutput: string
   ): Promise<{ success: boolean; healedCode?: string; healedSteps?: { stepNumber: number; oldSelector: string; newSelector: string }[] }> {
     const healedStepsList: { stepNumber: number; oldSelector: string; newSelector: string }[] = [];
     const patchedSteps = [...resolvedSteps];
+
+    // Find which step failed by parsing the console.log output
+    const stepStarts = [...errorOutput.matchAll(/__STEP_START__ (\d+)/g)];
+    const failedStepNumber = stepStarts.length > 0 ? parseInt(stepStarts[stepStarts.length - 1][1]) : -1;
 
     let healedAny = false;
 
     for (let i = 0; i < patchedSteps.length; i++) {
       const step = patchedSteps[i];
-      if (step.candidatesRank && step.candidatesRank.length > 1) {
+      // ONLY patch the step that actually failed!
+      if (step.step === failedStepNumber && step.candidatesRank && step.candidatesRank.length > 1) {
         const rank2 = step.candidatesRank[1];
         const cand = rank2.candidate;
 
