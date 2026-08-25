@@ -37,77 +37,77 @@ test('{{testSuite}}', async ({ page }) => {
   {{/if}}
   {{#if (eq action "fill")}}
     {{#if (eq selectorType "getByTestId")}}
-  await page.getByTestId('{{{selectorValue}}}').fill('{{{value}}}');
+  await page.getByTestId('{{{selectorValue}}}').fill('{{{value}}}', { force: true });
     {{else if (eq selectorType "getByLabel")}}
-  await page.getByLabel('{{{selectorValue}}}', { exact: true }).fill('{{{value}}}');
+  await page.getByLabel('{{{selectorValue}}}', { exact: true }).fill('{{{value}}}', { force: true });
     {{else if (eq selectorType "getByRole")}}
-  await page.getByRole('{{{selectorValue}}}', { name: '{{{roleName}}}', exact: true }).fill('{{{value}}}');
+  await page.getByRole('{{{selectorValue}}}', { name: '{{{roleName}}}', exact: true }).fill('{{{value}}}', { force: true });
     {{else if (eq selectorType "getByPlaceholder")}}
-  await page.getByPlaceholder('{{{selectorValue}}}').fill('{{{value}}}');
+  await page.getByPlaceholder('{{{selectorValue}}}').fill('{{{value}}}', { force: true });
     {{else if (eq selectorType "getByText")}}
-  await page.getByText('{{{selectorValue}}}').fill('{{{value}}}');
+  await page.getByText('{{{selectorValue}}}').fill('{{{value}}}', { force: true });
     {{else}}
       {{#if ../needsRobustHelper}}
         {{#if targetLabel}}
   await action('fill', '{{{targetLabel}}}', '{{{value}}}');
         {{else}}
-  await page.locator('{{{selectorValue}}}').fill('{{{value}}}');
+  await page.locator('{{{selectorValue}}}').fill('{{{value}}}', { force: true });
         {{/if}}
       {{else}}
-  await page.locator('{{{selectorValue}}}').fill('{{{value}}}');
+  await page.locator('{{{selectorValue}}}').fill('{{{value}}}', { force: true });
       {{/if}}
     {{/if}}
   {{/if}}
   {{#if (eq action "click")}}
     {{#if (eq selectorType "getByTestId")}}
-  await page.getByTestId('{{{selectorValue}}}').click();
+  await page.getByTestId('{{{selectorValue}}}').click({ force: true });
     {{else if (eq selectorType "getByLabel")}}
-  await page.getByLabel('{{{selectorValue}}}', { exact: true }).click();
+  await page.getByLabel('{{{selectorValue}}}', { exact: true }).click({ force: true });
     {{else if (eq selectorType "getByRole")}}
-  await page.getByRole('{{{selectorValue}}}', { name: '{{{roleName}}}' }).first().click();
+  await page.getByRole('{{{selectorValue}}}', { name: '{{{roleName}}}' }).first().click({ force: true });
     {{else if (eq selectorType "getByPlaceholder")}}
-  await page.getByPlaceholder('{{{selectorValue}}}').first().click();
+  await page.getByPlaceholder('{{{selectorValue}}}').first().click({ force: true });
     {{else if (eq selectorType "getByText")}}
-  await page.getByText('{{{selectorValue}}}').first().click();
+  await page.getByText('{{{selectorValue}}}').first().click({ force: true });
     {{else}}
-  await page.locator('{{{selectorValue}}}').click();
+  await page.locator('{{{selectorValue}}}').click({ force: true });
     {{/if}}
   {{/if}}
   {{#if (eq action "select")}}
     {{#if (eq selectorType "getByTestId")}}
-  await page.getByTestId('{{{selectorValue}}}').selectOption('{{{value}}}');
+  await page.getByTestId('{{{selectorValue}}}').selectOption('{{{value}}}', { force: true });
     {{else if (eq selectorType "getByLabel")}}
-  await page.getByLabel('{{{selectorValue}}}', { exact: true }).selectOption('{{{value}}}');
+  await page.getByLabel('{{{selectorValue}}}', { exact: true }).selectOption('{{{value}}}', { force: true });
     {{else}}
       {{#if ../needsRobustHelper}}
         {{#if targetLabel}}
   await action('select', '{{{targetLabel}}}', '{{{value}}}');
         {{else}}
-  await page.locator('{{{selectorValue}}}').selectOption('{{{value}}}');
+  await page.locator('{{{selectorValue}}}').selectOption('{{{value}}}', { force: true });
         {{/if}}
       {{else}}
-  await page.locator('{{{selectorValue}}}').selectOption('{{{value}}}');
+  await page.locator('{{{selectorValue}}}').selectOption('{{{value}}}', { force: true });
       {{/if}}
     {{/if}}
   {{/if}}
   {{#if (eq action "check")}}
     {{#if (eq selectorType "getByTestId")}}
-  await page.getByTestId('{{{selectorValue}}}').check();
+  await page.getByTestId('{{{selectorValue}}}').check({ force: true });
     {{else if (eq selectorType "getByLabel")}}
-  await page.getByLabel('{{{selectorValue}}}', { exact: true }).check();
+  await page.getByLabel('{{{selectorValue}}}', { exact: true }).check({ force: true });
     {{else if (eq selectorType "getByRole")}}
-  await page.getByRole('{{{selectorValue}}}', { name: '{{{roleName}}}', exact: true }).check();
+  await page.getByRole('{{{selectorValue}}}', { name: '{{{roleName}}}', exact: true }).check({ force: true });
     {{else}}
-  await page.locator('{{{selectorValue}}}').check();
+  await page.locator('{{{selectorValue}}}').check({ force: true });
     {{/if}}
   {{/if}}
   {{#if (eq action "uncheck")}}
     {{#if (eq selectorType "getByTestId")}}
-  await page.getByTestId('{{{selectorValue}}}').uncheck();
+  await page.getByTestId('{{{selectorValue}}}').uncheck({ force: true });
     {{else if (eq selectorType "getByLabel")}}
-  await page.getByLabel('{{{selectorValue}}}', { exact: true }).uncheck();
+  await page.getByLabel('{{{selectorValue}}}', { exact: true }).uncheck({ force: true });
     {{else}}
-  await page.locator('{{{selectorValue}}}').uncheck();
+  await page.locator('{{{selectorValue}}}').uncheck({ force: true });
     {{/if}}
   {{/if}}
   {{#if (eq action "upload")}}
