@@ -81,9 +81,13 @@ export class DOMExtractor {
         if (resolved.matchScore > 0 && ['fill', 'click', 'select', 'check', 'uncheck', 'upload'].includes(step.action)) {
           try {
             await this.performActionOnPage(page, step, resolved);
-            // Wait for networkidle or state load after action
-            await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
-            await page.waitForTimeout(3000); // hard delay for heavy JS frameworks to finish rendering
+            // Only wait heavily on clicks (page transitions). Fills and selects just need a short reactive delay.
+            if (step.action === 'click') {
+              await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+              await page.waitForTimeout(2000); // hard delay for heavy JS frameworks to finish rendering
+            } else {
+              await page.waitForTimeout(300); // short delay for frontend frameworks (React/Vue/OutSystems) reactivity
+            }
           } catch (err) {
             console.warn(`[Crawler] Step ${step.step} state execution warning:`, err);
           }
