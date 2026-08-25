@@ -31,14 +31,14 @@ export class CodeGenerator {
       templateFileName = 'playwright-js.hbs';
     }
 
-    // Find template file path relative to src or dist
-    let templatePath = path.join(process.cwd(), 'src', 'templates', templateFileName);
+    // Find template file path: prefer __dirname-based path (reliable regardless of cwd),
+    // then fallback to process.cwd()-based paths
+    let templatePath = path.join(__dirname, '..', 'templates', templateFileName);
     if (!fs.existsSync(templatePath)) {
-      templatePath = path.join(process.cwd(), 'dist', 'templates', templateFileName);
+      templatePath = path.join(process.cwd(), 'src', 'templates', templateFileName);
     }
     if (!fs.existsSync(templatePath)) {
-      // Fallback to inline template string if template file is missing
-      templatePath = path.join(__dirname, '..', 'templates', templateFileName);
+      templatePath = path.join(process.cwd(), 'dist', 'templates', templateFileName);
     }
 
     let templateSource: string;

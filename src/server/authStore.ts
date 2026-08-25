@@ -18,6 +18,9 @@ export interface User {
 const dataDir = path.join(process.cwd(), 'data');
 const usersFilePath = path.join(dataDir, 'users.json');
 
+// In-memory cache to prevent race conditions on concurrent file I/O
+let cachedUsers: User[] | null = null;
+
 function getAdminConfig(): { username: string; email: string; password: string } {
   return {
     username: process.env.ADMIN_USERNAME || 'admin',
@@ -33,6 +36,11 @@ function ensureDataDirExists() {
 }
 
 export function loadUsers(): User[] {
+  // Return cached copy if available (prevents redundant disk reads & race conditions)
+  if (cachedUsers !== null) {
+    return cachedUsers;
+  }
+
   ensureDataDirExists();
   let users: User[] = [];
 
@@ -77,12 +85,15 @@ export function loadUsers(): User[] {
     }
   }
 
+  cachedUsers = users;
   return users;
 }
 
 export function saveUsers(users: User[]): void {
   ensureDataDirExists();
   fs.writeFileSync(usersFilePath, JSON.stringify(users, null, 2), 'utf-8');
+  // Keep in-memory cache in sync with persisted data
+  cachedUsers = users;
 }
 
 export function findUserByUsername(username: string): User | undefined {

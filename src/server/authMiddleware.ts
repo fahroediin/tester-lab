@@ -2,7 +2,10 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { findUserById, User } from './authStore.js';
 
-export const JWT_SECRET = process.env.JWT_SECRET || 'tester-lab-jwt-secret-key-2026-secure';
+export const JWT_SECRET = process.env.JWT_SECRET || (() => {
+  console.warn('[SECURITY WARNING] JWT_SECRET not set in environment. Using auto-generated secret (sessions will NOT persist across restarts).');
+  return require('crypto').randomBytes(32).toString('hex');
+})();
 
 export interface AuthenticatedRequest extends Request {
   user?: User;

@@ -78,11 +78,13 @@ export class DOMExtractor {
         });
 
         // Perform action on crawler page to transition DOM state for subsequent steps
-        if (resolved.matchScore > 0 && ['fill', 'click', 'select', 'check', 'uncheck', 'upload'].includes(step.action)) {
+        // IMPORTANT: Use resolved.action (auto-corrected by matcher) instead of step.action (original DSL)
+        const effectiveAction = resolved.action;
+        if (resolved.matchScore > 0 && ['fill', 'click', 'select', 'check', 'uncheck', 'upload'].includes(effectiveAction)) {
           try {
-            await this.performActionOnPage(page, step, resolved);
+            await this.performActionOnPage(page, { ...step, action: effectiveAction }, resolved);
             // Only wait heavily on clicks (page transitions). Fills and selects just need a short reactive delay.
-            if (step.action === 'click') {
+            if (effectiveAction === 'click') {
               await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
               await page.waitForTimeout(2000); // hard delay for heavy JS frameworks to finish rendering
             } else {
@@ -125,12 +127,21 @@ export class DOMExtractor {
     if (step.action === 'fill' && step.value) {
       await locator.fill(step.value, { force: true, timeout: 5000 });
     } else if (step.action === 'click') {
-      await Promise.all([
-        page.waitForNavigation({ timeout: 3000 }).catch(() => {}),
-        locator.click({ force: true, timeout: 5000 })
-      ]);
+      // Use waitForURL pattern instead of deprecated waitForNavigation
+      const currentUrl = page.url();
+      await locator.click({ force: true, timeout: 5000 });
+      // Wait briefly for potential navigation
+      await page.waitForURL((url) => url.toString() !== currentUrl, { timeout: 3000 }).catch(() => {});
     } else if (step.action === 'select' && step.value) {
-      await locator.selectOption(step.value, { force: true, timeout: 5000 });
+      // Safety check: verify element is actually a <select> before calling selectOption
+      const tagName = await locator.evaluate(el => el.tagName.toLowerCase()).catch(() => '');
+      if (tagName === 'select') {
+        await locator.selectOption(step.value, { force: true, timeout: 5000 });
+      } else {
+        // Fallback: treat as fill for non-select elements (e.g., input[type=number], input[type=text])
+        console.warn(`[Crawler] Step ${step.step}: Auto-fallback from selectOption to fill (element is <${tagName}>, not <select>)`);
+        await locator.fill(step.value, { force: true, timeout: 5000 });
+      }
     } else if (step.action === 'check') {
       await locator.check({ force: true, timeout: 5000 });
     } else if (step.action === 'uncheck') {

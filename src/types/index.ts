@@ -30,8 +30,8 @@ export interface DSLStep {
 export interface DSLConfig {
   testSuite: string;
   targetUrl: string;
-  framework?: 'playwright' | 'cypress';
-  language?: 'typescript' | 'javascript';
+  framework?: 'playwright' | 'cypress' | 'selenium' | 'robotframework';
+  language?: 'typescript' | 'javascript' | 'python' | 'robot';
   viewport?: {
     width: number;
     height: number;
@@ -118,6 +118,7 @@ export interface DryRunResult {
   error?: string;
   durationMs: number;
   selfHealed?: boolean;
+  healedCode?: string;
   healedSteps?: {
     stepNumber: number;
     oldSelector: string;

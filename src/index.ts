@@ -68,6 +68,11 @@ export class TestScriptGenerator {
 
       if (dryRunRes.selfHealed) {
         result.logs.push(`[Dry-Run] Script self-healed successfully after fallback strategy!`);
+        // Replace original code with healed code so user receives the working version
+        if (dryRunRes.healedCode) {
+          result.code = dryRunRes.healedCode;
+          result.logs.push(`[Dry-Run] Output code updated to self-healed version.`);
+        }
       }
     }
 

@@ -193,21 +193,24 @@ export class HeuristicMatcher {
     const id = cand.id.toLowerCase();
     const name = cand.name.toLowerCase();
 
-    // Rule 1: Direct Test ID Match (Score: 100)
+    // Rule 1: Direct Test ID Match (Score: 100) — immediate return, highest priority
     if (testId && (testId === target || testId.replace(/[-_]/g, '') === target.replace(/[-_\s]/g, ''))) {
       score += 100;
       reasons.push('Direct Test ID Match');
       return { score, reason: reasons.join(', ') };
     }
 
+    // Use a primary score tracker to prevent cumulative inflation.
+    // Only the BEST matching attribute wins (label vs aria vs innerText vs placeholder).
+    let primaryScore = 0;
+    let primaryReason = '';
+
     // Rule 2: Associated Label Match
     if (labelText) {
       if (labelText === target) {
-        score += 90;
-        reasons.push('Exact Associated Label Match');
+        if (90 > primaryScore) { primaryScore = 90; primaryReason = 'Exact Associated Label Match'; }
       } else if (labelText.includes(target) || target.includes(labelText)) {
-        score += 75;
-        reasons.push('Partial Associated Label Match');
+        if (75 > primaryScore) { primaryScore = 75; primaryReason = 'Partial Associated Label Match'; }
       }
     }
 
@@ -215,47 +218,43 @@ export class HeuristicMatcher {
     if (cand.role && (innerText || ariaLabel)) {
       const accName = ariaLabel || innerText;
       if (accName === target) {
-        score += 88;
-        reasons.push(`Exact ARIA Role (${cand.role}) & Name Match`);
+        if (88 > primaryScore) { primaryScore = 88; primaryReason = `Exact ARIA Role (${cand.role}) & Name Match`; }
       } else if (accName.includes(target) || target.includes(accName)) {
-        score += 70;
-        reasons.push(`Partial ARIA Role (${cand.role}) & Name Match`);
+        if (70 > primaryScore) { primaryScore = 70; primaryReason = `Partial ARIA Role (${cand.role}) & Name Match`; }
       }
     }
 
     // Rule 4: InnerText / Visual Text Match
-    // We evaluate this BEFORE Rule 5 so exact InnerText beats partial Aria/Placeholder
     if (innerText) {
       if (innerText === target) {
-        score += 85;
-        reasons.push('Exact InnerText Match');
+        if (85 > primaryScore) { primaryScore = 85; primaryReason = 'Exact InnerText Match'; }
       } else if (innerText.includes(target)) {
-        score += 60;
-        reasons.push('Partial InnerText Match');
+        if (60 > primaryScore) { primaryScore = 60; primaryReason = 'Partial InnerText Match'; }
       }
     }
 
     // Rule 5: Placeholder or Aria-Label Match (Standalone)
     if (placeholder) {
       if (placeholder === target) {
-         score += 80;
-         reasons.push('Exact Placeholder Match');
+        if (80 > primaryScore) { primaryScore = 80; primaryReason = 'Exact Placeholder Match'; }
       } else if (placeholder.includes(target)) {
-         score += 65;
-         reasons.push('Partial Placeholder Match');
+        if (65 > primaryScore) { primaryScore = 65; primaryReason = 'Partial Placeholder Match'; }
       }
     }
     if (ariaLabel) {
       if (ariaLabel === target) {
-         score += 80;
-         reasons.push('Exact Aria-Label Match');
+        if (80 > primaryScore) { primaryScore = 80; primaryReason = 'Exact Aria-Label Match'; }
       } else if (ariaLabel.includes(target)) {
-         score += 65;
-         reasons.push('Partial Aria-Label Match');
+        if (65 > primaryScore) { primaryScore = 65; primaryReason = 'Partial Aria-Label Match'; }
       }
     }
 
-    // Secondary attribute checks: ID & Name
+    if (primaryScore > 0) {
+      score += primaryScore;
+      reasons.push(primaryReason);
+    }
+
+    // Secondary attribute checks: ID & Name (only if primary didn't score well enough)
     if (score < 60 && (id || name)) {
       if (id === target || id.replace(/[-_]/g, '') === target.replace(/[-_\s]/g, '')) {
         score += 60;

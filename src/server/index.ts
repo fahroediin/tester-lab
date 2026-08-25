@@ -463,14 +463,15 @@ export default defineConfig({
       try {
         const foundVideo = findVideoFile(tempDir);
         if (foundVideo) {
-          const videosDir = path.join(process.cwd(), 'public', 'videos', userId);
+          const sanitizedUserId = userId.replace(/[^a-zA-Z0-9_-]/g, '');
+          const videosDir = path.join(process.cwd(), 'public', 'videos', sanitizedUserId);
           if (!fs.existsSync(videosDir)) {
             fs.mkdirSync(videosDir, { recursive: true });
           }
           const videoName = `run_${Date.now()}.webm`;
           const destPath = path.join(videosDir, videoName);
           fs.copyFileSync(foundVideo, destPath);
-          videoUrl = `/videos/${userId}/${videoName}`;
+          videoUrl = `/videos/${sanitizedUserId}/${videoName}`;
         }
       } catch (videoErr) {
         console.warn('Video artifact extraction warning:', videoErr);

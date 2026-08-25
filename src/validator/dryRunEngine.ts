@@ -37,6 +37,13 @@ export default defineConfig({
 });
 `;
 
+    // Helper to safely cleanup temp directory
+    const cleanupTempDir = () => {
+      try {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      } catch {}
+    };
+
     try {
       fs.writeFileSync(testFilePath, code, 'utf-8');
       fs.writeFileSync(configFilePath, playwrightConfig, 'utf-8');
@@ -52,47 +59,48 @@ export default defineConfig({
       });
 
       const durationMs = Date.now() - startTime;
+      cleanupTempDir();
       return {
         success: true,
         durationMs
       };
     } catch (error: any) {
-      const durationMs = Date.now() - startTime;
       console.warn('Initial dry-run failed. Attempting Self-Healing Fallback Strategy...');
 
-      // Attempt Self-Healing Strategy
+      // Attempt Self-Healing Strategy (tempDir is still alive here — NOT cleaned up yet)
       const healResult = await this.attemptSelfHealing(config, resolvedSteps, tempDir, configFilePath);
+      
+      // NOW cleanup temp directory, after self-healing is complete
+      cleanupTempDir();
+
       if (healResult.success) {
         return {
           success: true,
           durationMs: Date.now() - startTime,
           selfHealed: true,
-          healedSteps: healResult.healedSteps
+          healedSteps: healResult.healedSteps,
+          healedCode: healResult.healedCode
         };
       }
 
       return {
         success: false,
         error: error.stderr || error.stdout || error.message || 'Dry run test execution failed',
-        durationMs
+        durationMs: Date.now() - startTime
       };
-    } finally {
-      // Cleanup temp directory
-      try {
-        fs.rmSync(tempDir, { recursive: true, force: true });
-      } catch {}
     }
   }
 
   /**
-   * Self-healing rule: fallback to Rank 2 candidates if initial selector fails
+   * Self-healing rule: fallback to Rank 2 candidates if initial selector fails.
+   * Returns the healed code string if successful so the caller can use the corrected script.
    */
   private async attemptSelfHealing(
     config: DSLConfig,
     resolvedSteps: ResolvedStep[],
     tempDir: string,
     configFilePath: string
-  ): Promise<{ success: boolean; healedSteps?: { stepNumber: number; oldSelector: string; newSelector: string }[] }> {
+  ): Promise<{ success: boolean; healedCode?: string; healedSteps?: { stepNumber: number; oldSelector: string; newSelector: string }[] }> {
     const healedStepsList: { stepNumber: number; oldSelector: string; newSelector: string }[] = [];
     const patchedSteps = [...resolvedSteps];
 
@@ -164,6 +172,7 @@ export default defineConfig({
       });
       return {
         success: true,
+        healedCode: patchedResult.code,
         healedSteps: healedStepsList
       };
     } catch {
