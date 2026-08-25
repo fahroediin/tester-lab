@@ -4,16 +4,23 @@ test('Standard Web Login Verification', async ({ page }) => {
   // Set viewport if configured
 
   // Navigate to target URL
-  await page.goto('https://dev.osacademy.net/LOSHome/EntryDataCustomer');
+  await page.goto('https://the-internet.herokuapp.com/login');
   await page.waitForLoadState('networkidle');
 
   // Helper function for dynamic form locators (OutSystems/Complex UI)
   async function action(type: 'select' | 'fill', label: string, value: string) {
     const tag = type === 'select' ? 'select' : 'input';
     const escapedLabel = label.replace(/'/g, "\\'");
-    const xpath = `xpath=(//*[normalize-space(.)='${escapedLabel}' or normalize-space(.)='${escapedLabel} *' or normalize-space(.)='${escapedLabel}*'])[1]/following::${tag}[1]`;
 
-    const target = page.locator(xpath);
+    // 1. Standard GetByLabel (handles <label for="..."> and aria-labelledby)
+    const byLabel = page.getByLabel(label);
+    // 2. Element nested inside a matching label tag
+    const insideLabel = page.locator('label').filter({ hasText: label }).locator(tag).first();
+    // 3. Fallback: Classic XPath following the text node
+    const xpath = `xpath=(//*[normalize-space(.)='${escapedLabel}' or normalize-space(.)='${escapedLabel} *' or normalize-space(.)='${escapedLabel}*'])[1]/following::${tag}[1]`;
+    const following = page.locator(xpath);
+
+    const target = byLabel.or(insideLabel).or(following).first();
     await target.waitFor({ state: 'attached', timeout: 15000 });
 
     if (type === 'select') {
@@ -32,9 +39,9 @@ test('Standard Web Login Verification', async ({ page }) => {
   // Step 3: click -> Login
   await page.getByRole('button', { name: 'Login' }).first().click();
 
-  // Step 4: [WARNING]: Low match score (0) for target: 'New Application'. Using fallback text locator.
-  // [WARNING]: Low match score (0) for target: 'text="New Application"'. Using fallback text locator.
-  await page.getByRole('button', { name: 'New Application' }).first().click();
+  // Step 4: [WARNING]: Low match score (0) for target: 'text="New Application"'. Using fallback text locator.
+  // [WARNING]: Low match score (0) for target: 'New Application'. Using fallback text locator.
+  await page.locator('text="New Application"').click();
 
   // Step 5: wait ->
   await page.waitForTimeout(3000);
@@ -91,18 +98,20 @@ test('Standard Web Login Verification', async ({ page }) => {
   // [WARNING]: Low match score (0) for target: 'Tenor Proposed'. Using fallback text locator.
   await action('select', 'Tenor Proposed', '36');
 
-  // Step 19: fill -> Requested Limit
+  // Step 19: [WARNING]: Low match score (0) for target: 'Requested Limit'. Using fallback text locator.
   // [WARNING]: Low match score (0) for target: 'Requested Limit'. Using fallback text locator.
   await action('fill', 'Requested Limit', '20000000');
 
   // Step 20: Menyesuaikan dengan teks tombol asli di screenshot
-  await page.getByRole('button', { name: 'Next' }).first().click();
+  // [WARNING]: Low match score (0) for target: 'Next'. Using fallback text locator.
+  await page.locator('text="Next"').click();
 
   // Step 21: wait ->
   await page.waitForTimeout(6000);
 
   // Step 22: fill -> Full Name
-  await page.getByPlaceholder('Search Loan Id or Full Name').fill('Thomas Shelby');
+  // [WARNING]: Low match score (0) for target: 'Full Name'. Using fallback text locator.
+  await action('fill', 'Full Name', 'Thomas Shelby');
 
   // Step 23: [WARNING]: Low match score (0) for target: 'Gender'. Using fallback text locator.
   // [WARNING]: Low match score (0) for target: 'Gender'. Using fallback text locator.
