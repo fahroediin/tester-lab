@@ -298,7 +298,7 @@ app.delete('/api/v1/admin/users/:id', authenticateJWT, requireAdmin, (req: Authe
  * POST /api/v1/generate-script
  * Generate test script from JSON DSL payload (Requires approved account)
  */
-app.post('/api/v1/generate-script', authenticateJWT, requireApprovedUser, async (req: Request, res: Response) => {
+app.post('/api/v1/generate-script', authenticateJWT, requireApprovedUser, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { dsl, dryRun, outPath } = req.body;
 
@@ -342,7 +342,7 @@ app.post('/api/v1/generate-script', authenticateJWT, requireApprovedUser, async 
  * POST /api/v1/inspect-dom
  * Extract interactive candidate DOM elements from target URL (Requires approved account)
  */
-app.post('/api/v1/inspect-dom', authenticateJWT, requireApprovedUser, async (req: Request, res: Response) => {
+app.post('/api/v1/inspect-dom', authenticateJWT, requireApprovedUser, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { url, viewport } = req.body;
 
@@ -391,9 +391,10 @@ function findVideoFile(dir: string): string | null {
  * POST /api/v1/run-test
  * Directly execute generated Playwright test code with Concurrency Queue (Max 3 concurrent executions)
  */
-app.post('/api/v1/run-test', authenticateJWT, requireApprovedUser, async (req: Request, res: Response) => {
+app.post('/api/v1/run-test', authenticateJWT, requireApprovedUser, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { code, mode = 'headless', language = 'typescript' } = req.body;
+    const userId = req.user!.id;
 
     if (!code || typeof code !== 'string') {
       return res.status(400).json({
@@ -419,7 +420,7 @@ export default defineConfig({
   outputDir: '${tempDir.replace(/\\/g, '/')}/results',
   use: {
     headless: ${!isHeaded},
-    video: '${isHeaded ? 'on' : 'off'}',
+    video: 'on',
     launchOptions: {
       slowMo: ${isHeaded ? 1000 : 0}
     },
@@ -462,14 +463,14 @@ export default defineConfig({
       try {
         const foundVideo = findVideoFile(tempDir);
         if (foundVideo) {
-          const videosDir = path.join(process.cwd(), 'public', 'videos');
+          const videosDir = path.join(process.cwd(), 'public', 'videos', userId);
           if (!fs.existsSync(videosDir)) {
             fs.mkdirSync(videosDir, { recursive: true });
           }
           const videoName = `run_${Date.now()}.webm`;
           const destPath = path.join(videosDir, videoName);
           fs.copyFileSync(foundVideo, destPath);
-          videoUrl = `/videos/${videoName}`;
+          videoUrl = `/videos/${userId}/${videoName}`;
         }
       } catch (videoErr) {
         console.warn('Video artifact extraction warning:', videoErr);

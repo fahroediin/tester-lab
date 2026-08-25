@@ -81,40 +81,58 @@
         const line = lines[i].trim();
         if (!line.startsWith('await ')) continue;
         
-        // Look for previous comment as description
         let description = '';
         if (i > 0 && lines[i-1].trim().startsWith('//')) {
           description = lines[i-1].trim().replace('//', '').trim();
-          // Remove "Step X: " if present
           description = description.replace(/^Step\s+\d+:\s*/i, '');
         }
 
+        const actionHelperMatch = line.match(/action\(['"](fill|select)['"],\s*['"](.*?)['"],\s*['"](.*?)['"]\)/);
+        if (actionHelperMatch) {
+           parsedSteps.push({ action: actionHelperMatch[1], targetLabel: actionHelperMatch[2], value: actionHelperMatch[3], description });
+           continue;
+        }
+
+        const locatorMatch = line.match(/getByTestId\(['"](.*?)['"]\)|getByLabel\(['"](.*?)['"]|getByRole\(['"].*?['"]|getByPlaceholder\(['"](.*?)['"]\)|getByText\(['"](.*?)['"]\)|locator\(['"](.*?)['"]\)/);
+        let targetLabel = '';
+        if (locatorMatch) {
+          targetLabel = locatorMatch[1] || locatorMatch[2] || locatorMatch[4] || locatorMatch[5] || locatorMatch[6] || '';
+          if (line.includes('getByRole')) {
+            const roleNameMatch = line.match(/name:\s*['"](.*?)['"]/);
+            if (roleNameMatch) targetLabel = roleNameMatch[1];
+            else {
+               const roleMatch = line.match(/getByRole\(['"](.*?)['"]/);
+               if (roleMatch) targetLabel = roleMatch[1];
+            }
+          }
+        }
+
         if (line.includes('.fill(')) {
-          const labelMatch = line.match(/getByLabel\(['"](.*?)['"]/);
-          const fillMatch = line.match(/\.fill\(['"](.*?)['"]\)/);
-          if (labelMatch && fillMatch) {
-            parsedSteps.push({ action: 'fill', targetLabel: labelMatch[1], value: fillMatch[1], description });
-          }
-        } else if (line.includes('.click()')) {
-          const roleMatch = line.match(/getByRole\(['"]button['"],\s*\{\s*name:\s*['"](.*?)['"]\s*\}\)/);
-          if (roleMatch) {
-            parsedSteps.push({ action: 'click', targetLabel: roleMatch[1], value: '', description });
-          }
+          const valMatch = line.match(/\.fill\(['"](.*?)['"]\)/);
+          if (valMatch) parsedSteps.push({ action: 'fill', targetLabel, value: valMatch[1], description });
+        } else if (line.includes('.click(')) {
+          parsedSteps.push({ action: 'click', targetLabel, value: '', description });
+        } else if (line.includes('.selectOption(')) {
+          const valMatch = line.match(/\.selectOption\(['"](.*?)['"]\)/);
+          if (valMatch) parsedSteps.push({ action: 'select', targetLabel, value: valMatch[1], description });
+        } else if (line.includes('.check(')) {
+          parsedSteps.push({ action: 'check', targetLabel, value: '', description });
+        } else if (line.includes('.uncheck(')) {
+          parsedSteps.push({ action: 'uncheck', targetLabel, value: '', description });
+        } else if (line.includes('.setInputFiles(')) {
+          const valMatch = line.match(/\.setInputFiles\(['"](.*?)['"]\)/);
+          if (valMatch) parsedSteps.push({ action: 'upload', targetLabel, value: valMatch[1], description });
         } else if (line.includes('toHaveURL(')) {
           const urlMatch = line.match(/RegExp\(['"](.*?)['"]\)/) || line.match(/toHaveURL\(['"](.*?)['"]\)/);
-          if (urlMatch) {
-            parsedSteps.push({ action: 'assert_url', targetLabel: '', value: urlMatch[1], description });
-          }
+          if (urlMatch) parsedSteps.push({ action: 'assert_url', targetLabel: '', value: urlMatch[1], description });
+        } else if (line.includes('toContainText(')) {
+          const textMatch = line.match(/\.toContainText\(['"](.*?)['"]\)/);
+          if (textMatch) parsedSteps.push({ action: 'assert_text', targetLabel, value: textMatch[1], description });
+        } else if (line.includes('toBeVisible(')) {
+          parsedSteps.push({ action: 'assert_visible', targetLabel, value: '', description });
         } else if (line.includes('.waitForTimeout(')) {
           const waitMatch = line.match(/waitForTimeout\((\d+)\)/);
-          if (waitMatch) {
-            parsedSteps.push({ action: 'wait', targetLabel: '', value: waitMatch[1], description });
-          }
-        } else if (line.includes('toBeVisible()')) {
-          const textMatch = line.match(/getByText\(['"](.*?)['"]/);
-          if (textMatch) {
-            parsedSteps.push({ action: 'assert_visible', targetLabel: '', value: textMatch[1], description });
-          }
+          if (waitMatch) parsedSteps.push({ action: 'wait', targetLabel: '', value: waitMatch[1], description });
         }
       }
       return parsedSteps;
@@ -418,7 +436,7 @@
       };
 
       if (!authToken) {
-        openAuthModal('login');
+        checkAuthSession();
         Swal.fire({ icon: 'warning', title: 'Authentication Required', text: 'Please sign in to generate test scripts.', confirmButtonColor: '#005bbf' });
         return;
       }
@@ -558,7 +576,7 @@
       const language = document.getElementById('language').value;
 
       if (!authToken) {
-        openAuthModal('login');
+        checkAuthSession();
         Swal.fire({ icon: 'warning', title: 'Authentication Required', text: 'Please sign in to execute tests.', confirmButtonColor: '#005bbf' });
         return;
       }
@@ -738,38 +756,7 @@
       `;
     }
 
-    function openAuthModal(tab = 'login') {
-      const modal = document.getElementById('authModal');
-      if (modal) modal.style.display = 'flex';
-      switchAuthTab(tab);
-    }
-
-    function closeAuthModal() {
-      const modal = document.getElementById('authModal');
-      if (modal) modal.style.display = 'none';
-    }
-
-    function switchAuthTab(tab) {
-      const tabLoginBtn = document.getElementById('tabLoginBtn');
-      const tabRegisterBtn = document.getElementById('tabRegisterBtn');
-      const loginForm = document.getElementById('loginForm');
-      const registerForm = document.getElementById('registerForm');
-      const authModalTitle = document.getElementById('authModalTitle');
-
-      if (tab === 'login') {
-        tabLoginBtn.classList.add('active');
-        tabRegisterBtn.classList.remove('active');
-        loginForm.style.display = 'flex';
-        registerForm.style.display = 'none';
-        authModalTitle.textContent = 'Sign In to Tester Lab';
-      } else {
-        tabRegisterBtn.classList.add('active');
-        tabLoginBtn.classList.remove('active');
-        registerForm.style.display = 'flex';
-        loginForm.style.display = 'none';
-        authModalTitle.textContent = 'Request Account Registration';
-      }
-    }
+    // Removed legacy openAuthModal functions as they are replaced by heroLoginSection inline flow
 
     function switchHeroAuthTab(tab) {
       const heroTabLoginBtn = document.getElementById('heroTabLoginBtn');
@@ -858,74 +845,7 @@
       }
     }
 
-    async function handleLoginSubmit(event) {
-      event.preventDefault();
-      const username = document.getElementById('loginUsername').value;
-      const password = document.getElementById('loginPassword').value;
-
-      try {
-        const response = await fetch('/api/v1/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, password })
-        });
-        const data = await response.json();
-
-        if (!data.success) {
-          Swal.fire({ icon: 'error', title: 'Login Failed', text: data.error, confirmButtonColor: '#005bbf' });
-          return;
-        }
-
-        authToken = data.token;
-        localStorage.setItem('tester_jwt_token', authToken);
-        currentUser = data.user;
-        renderLoggedInBar();
-        closeAuthModal();
-
-        Swal.fire({
-          icon: 'success',
-          title: `Welcome, ${currentUser.username}!`,
-          text: 'Authentication successful.',
-          timer: 2000,
-          showConfirmButton: false,
-          toast: true,
-          position: 'top-end'
-        });
-      } catch (err) {
-        Swal.fire({ icon: 'error', title: 'Connection Error', text: err.message, confirmButtonColor: '#005bbf' });
-      }
-    }
-
-    async function handleRegisterSubmit(event) {
-      event.preventDefault();
-      const username = document.getElementById('regUsername').value;
-      const email = document.getElementById('regEmail').value;
-      const password = document.getElementById('regPassword').value;
-
-      try {
-        const response = await fetch('/api/v1/auth/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, email, password })
-        });
-        const data = await response.json();
-
-        if (!data.success) {
-          Swal.fire({ icon: 'error', title: 'Registration Failed', text: data.error, confirmButtonColor: '#005bbf' });
-          return;
-        }
-
-        closeAuthModal();
-        Swal.fire({
-          icon: 'info',
-          title: 'Request Submitted',
-          text: 'Your registration request has been submitted. Please wait for an Administrator to approve your account before logging in.',
-          confirmButtonColor: '#005bbf'
-        });
-      } catch (err) {
-        Swal.fire({ icon: 'error', title: 'Connection Error', text: err.message, confirmButtonColor: '#005bbf' });
-      }
-    }
+    // Legacy handleLoginSubmit & handleRegisterSubmit removed
 
     function handleLogout() {
       authToken = '';
