@@ -123,20 +123,20 @@ export class DOMExtractor {
     }
 
     if (step.action === 'fill' && step.value) {
-      await locator.fill(step.value);
+      await locator.fill(step.value, { force: true, timeout: 5000 });
     } else if (step.action === 'click') {
       await Promise.all([
         page.waitForNavigation({ timeout: 3000 }).catch(() => {}),
-        locator.click()
+        locator.click({ force: true, timeout: 5000 })
       ]);
     } else if (step.action === 'select' && step.value) {
-      await locator.selectOption(step.value);
+      await locator.selectOption(step.value, { force: true, timeout: 5000 });
     } else if (step.action === 'check') {
-      await locator.check();
+      await locator.check({ force: true, timeout: 5000 });
     } else if (step.action === 'uncheck') {
-      await locator.uncheck();
+      await locator.uncheck({ force: true, timeout: 5000 });
     } else if ((step.action as string) === 'upload' && step.value) {
-      await locator.setInputFiles(step.value).catch(() => {});
+      await locator.setInputFiles(step.value, { timeout: 5000 }).catch(() => {});
     }
   }
 
