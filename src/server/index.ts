@@ -16,6 +16,7 @@ import {
   loadUsers,
   updateUserStatus
 } from './authStore.js';
+import { addLog, getLogs } from './activityLogStore.js';
 import {
   authenticateJWT,
   AuthenticatedRequest,
@@ -98,6 +99,13 @@ app.post('/api/v1/auth/register', async (req: Request, res: Response) => {
       status: 'pending'
     });
 
+    addLog({
+      userId: newUser.id,
+      username: newUser.username,
+      action: 'Register',
+      details: 'Requested new account access (pending approval)'
+    });
+
     return res.status(201).json({
       success: true,
       message: 'Registration request submitted successfully. Account is pending admin approval.',
@@ -110,6 +118,11 @@ app.post('/api/v1/auth/register', async (req: Request, res: Response) => {
       }
     });
   } catch (err: any) {
+    addLog({
+      username: req.body.username || 'System',
+      action: 'Register Failed',
+      details: err.message || 'Internal Server Error'
+    });
     return res.status(500).json({
       success: false,
       error: err.message || 'Internal Server Error'
@@ -134,6 +147,11 @@ app.post('/api/v1/auth/login', async (req: Request, res: Response) => {
 
     const user = findUserByUsername(username);
     if (!user) {
+      addLog({
+        username: username,
+        action: 'Login Failed',
+        details: 'Invalid username'
+      });
       return res.status(401).json({
         success: false,
         error: 'Invalid username or password.'
@@ -142,6 +160,12 @@ app.post('/api/v1/auth/login', async (req: Request, res: Response) => {
 
     const isMatch = bcrypt.compareSync(password, user.passwordHash);
     if (!isMatch) {
+      addLog({
+        userId: user.id,
+        username: user.username,
+        action: 'Login Failed',
+        details: 'Invalid password'
+      });
       return res.status(401).json({
         success: false,
         error: 'Invalid username or password.'
@@ -149,6 +173,12 @@ app.post('/api/v1/auth/login', async (req: Request, res: Response) => {
     }
 
     if (user.status === 'pending') {
+      addLog({
+        userId: user.id,
+        username: user.username,
+        action: 'Login Failed',
+        details: 'Account is pending approval'
+      });
       return res.status(403).json({
         success: false,
         error: 'Your account registration is pending admin approval. Please wait for admin confirmation.'
@@ -156,6 +186,12 @@ app.post('/api/v1/auth/login', async (req: Request, res: Response) => {
     }
 
     if (user.status === 'rejected') {
+      addLog({
+        userId: user.id,
+        username: user.username,
+        action: 'Login Failed',
+        details: 'Account was rejected'
+      });
       return res.status(403).json({
         success: false,
         error: 'Your account registration request was rejected by the admin.'
@@ -172,6 +208,13 @@ app.post('/api/v1/auth/login', async (req: Request, res: Response) => {
       JWT_SECRET,
       { expiresIn: '7d' }
     );
+
+    addLog({
+      userId: user.id,
+      username: user.username,
+      action: 'Login Success',
+      details: 'User authenticated successfully'
+    });
 
     return res.json({
       success: true,
@@ -235,6 +278,19 @@ app.get('/api/v1/admin/users', authenticateJWT, requireAdmin, (req: Authenticate
 });
 
 /**
+ * GET /api/v1/admin/logs
+ * List all activity logs (Admin only)
+ */
+app.get('/api/v1/admin/logs', authenticateJWT, requireAdmin, (req: AuthenticatedRequest, res: Response) => {
+  const limit = parseInt(req.query.limit as string) || 200;
+  const logs = getLogs(limit);
+  return res.json({
+    success: true,
+    logs
+  });
+});
+
+/**
  * POST /api/v1/admin/users/:id/approve
  * Approve user registration request (Admin only)
  */
@@ -245,6 +301,13 @@ app.post('/api/v1/admin/users/:id/approve', authenticateJWT, requireAdmin, (req:
   if (!updated) {
     return res.status(404).json({ success: false, error: 'User not found.' });
   }
+
+  addLog({
+    userId: req.user!.id,
+    username: req.user!.username,
+    action: 'Admin Approve',
+    details: `Approved user '${updated.username}'`
+  });
 
   return res.json({
     success: true,
@@ -265,6 +328,13 @@ app.post('/api/v1/admin/users/:id/reject', authenticateJWT, requireAdmin, (req: 
     return res.status(404).json({ success: false, error: 'User not found.' });
   }
 
+  addLog({
+    userId: req.user!.id,
+    username: req.user!.username,
+    action: 'Admin Reject',
+    details: `Rejected user '${updated.username}'`
+  });
+
   return res.json({
     success: true,
     message: `Account '${updated.username}' rejected.`,
@@ -283,6 +353,13 @@ app.delete('/api/v1/admin/users/:id', authenticateJWT, requireAdmin, (req: Authe
   if (!deleted) {
     return res.status(404).json({ success: false, error: 'User not found.' });
   }
+
+  addLog({
+    userId: req.user!.id,
+    username: req.user!.username,
+    action: 'Admin Delete',
+    details: `Deleted user ID '${id}'`
+  });
 
   return res.json({
     success: true,
@@ -315,11 +392,24 @@ app.post('/api/v1/generate-script', authenticateJWT, requireApprovedUser, async 
     });
 
     if (!result.success) {
+      addLog({
+        userId: req.user!.id,
+        username: req.user!.username,
+        action: 'Generate Script Failed',
+        details: 'Failed due to validation or generation errors'
+      });
       return res.status(422).json({
         success: false,
         errors: result.warnings
       });
     }
+
+    addLog({
+      userId: req.user!.id,
+      username: req.user!.username,
+      action: 'Generate Script',
+      details: `Generated script for target URL: ${dsl.targetUrl}`
+    });
 
     return res.json({
       success: true,
@@ -482,6 +572,14 @@ export default defineConfig({
       }
 
       const durationMs = Date.now() - startTime;
+      
+      addLog({
+        userId: req.user!.id,
+        username: req.user!.username,
+        action: 'Run Test',
+        details: `Ran script in ${mode} mode (Status: ${success ? 'Success' : 'Failed'}, Duration: ${durationMs}ms)`
+      });
+
       return {
         success,
         logs: logs.trim(),

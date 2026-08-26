@@ -307,6 +307,33 @@
         </table>
       </div>
     </div>
+    <div class="card" style="margin-top: 32px;">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Activity Logs</div>
+          <div class="card-subtitle">Recent user activities and system events</div>
+        </div>
+        <button type="button" class="btn-pill-outline" onclick="loadLogs()">Refresh Logs</button>
+      </div>
+
+      <div style="overflow-x: auto;">
+        <table class="summary-table">
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Username</th>
+              <th>Action</th>
+              <th>Details</th>
+            </tr>
+          </thead>
+          <tbody id="logsTableBody">
+            <tr>
+              <td colspan="4" style="text-align: center; padding: 24px;">Loading activity logs...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
 
   <footer>
@@ -354,6 +381,7 @@
         }
 
         await loadUsers();
+        await loadLogs();
       } catch (err) {
         window.location.href = '/';
       }
@@ -481,6 +509,52 @@
         }
       } catch (err) {
         Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#005bbf' });
+      }
+    }
+
+    async function loadLogs() {
+      const tbody = document.getElementById('logsTableBody');
+      if (!tbody) return;
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 24px;">Loading activity logs...</td></tr>';
+
+      try {
+        const response = await fetch('/api/v1/admin/logs', {
+          headers: getAuthHeaders()
+        });
+        const data = await response.json();
+
+        if (!data.success) {
+          tbody.innerHTML = `<tr><td colspan="4" style="color:var(--coral); text-align:center; padding: 24px;">${data.error}</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = '';
+        if (data.logs.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 24px;">No activity logs found.</td></tr>';
+          return;
+        }
+
+        data.logs.forEach((log) => {
+          const tr = document.createElement('tr');
+          let actionClass = '';
+          if (log.action.includes('Failed') || log.action.includes('Reject') || log.action.includes('Delete')) {
+            actionClass = 'color: #dc2626;'; 
+          } else if (log.action.includes('Approve') || log.action.includes('Success')) {
+            actionClass = 'color: #16a34a;'; 
+          } else {
+            actionClass = 'color: var(--action-blue);';
+          }
+          
+          tr.innerHTML = `
+            <td style="white-space: nowrap; font-family: var(--font-mono); font-size: 11px;">${new Date(log.timestamp).toLocaleString()}</td>
+            <td><strong>${log.username}</strong></td>
+            <td><span style="font-family: var(--font-mono); font-size: 12px; font-weight: 600; ${actionClass}">${log.action}</span></td>
+            <td style="color: var(--body-muted);">${log.details}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="4" style="color:var(--coral); text-align:center; padding: 24px;">Failed to load logs: ${err.message}</td></tr>`;
       }
     }
 
