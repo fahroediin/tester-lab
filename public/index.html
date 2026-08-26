@@ -201,36 +201,40 @@
       </div>
     </div>
 
-    <!-- Right Column: Generation Result & Output Spec -->
-    <div class="card" id="outputSpecCard">
-      <div class="card-header">
-        <div class="card-title">Output Spec & Matching</div>
-        <div id="statusBadgeContainer"></div>
-      </div>
-
-      <div id="summarySection" style="display: none;">
-        <div
-          style="font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.28px; margin-bottom: 12px; color: var(--slate);">
-          Matching Strategy & Scores:
+    <!-- Right Column Wrapper -->
+    <div style="display: flex; flex-direction: column; gap: 24px; width: 100%;">
+      <!-- Card 1: Output Spec & Matching -->
+      <div class="card" id="outputSpecCard">
+        <div class="card-header">
+          <div class="card-title">Output Spec & Matching</div>
+          <div id="statusBadgeContainer"></div>
         </div>
-        <table class="summary-table">
-          <thead>
-            <tr>
-              <th>Step</th>
-              <th>Action</th>
-              <th>Matched Selector</th>
-              <th>Score</th>
-            </tr>
-          </thead>
-          <tbody id="summaryTableBody"></tbody>
-        </table>
+
+        <div id="summarySection" style="display: none;">
+          <div
+            style="font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.28px; margin-bottom: 12px; color: var(--slate);">
+            Matching Strategy & Scores:
+          </div>
+          <table class="summary-table">
+            <thead>
+              <tr>
+                <th>Step</th>
+                <th>Action</th>
+                <th>Matched Selector</th>
+                <th>Score</th>
+              </tr>
+            </thead>
+            <tbody id="summaryTableBody"></tbody>
+          </table>
+        </div>
       </div>
 
-      <div style="display: flex; flex-direction: column; gap: 12px;">
-        <div class="card-header" style="border: none; padding: 0;">
+      <!-- Card 2: Generated Code -->
+      <div class="card">
+        <div class="card-header">
           <label
-            style="font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.2px; color: var(--body-muted);">Generated
-            Playwright Code:</label>
+            style="font-family: var(--font-mono); font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.2px; color: var(--primary); margin: 0;">Generated
+            Playwright Code</label>
           <div class="code-actions">
             <button class="btn-pill-outline" onclick="copyCode()">Copy Code</button>
             <button class="btn-pill-outline" onclick="downloadCode()">Download File</button>
@@ -249,43 +253,42 @@
           <div class="code-preview" id="codeOutput">// Generated Playwright script will appear here after clicking
             'Generate Script'...</div>
         </div>
-
-        <!-- Built-in Terminal Execution Console -->
-        <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 12px;">
-          <div class="card-header" style="border: none; padding: 0; display: flex; align-items: center; justify-content: space-between;">
-            <label style="font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.2px; color: var(--body-muted);">
-              Built-in Terminal Console:
-            </label>
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <select id="runMode" style="padding: 6px 12px; font-size: 12px; height: 32px;">
-                <option value="headless">Headless Mode</option>
-                <option value="headed">Headed Mode (Visual Browser)</option>
-              </select>
-              <button class="btn-pill-primary" id="btnRunTest" onclick="runGeneratedTest()" style="padding: 6px 14px; font-size: 12px; height: 32px;">
-                Run Script Now
-              </button>
-            </div>
-          </div>
-
-          <div class="agent-console">
-            <div class="console-header">
-              <div class="console-dots">
-                <div class="console-dot dot-red"></div>
-                <div class="console-dot dot-yellow"></div>
-                <div class="console-dot dot-green"></div>
-              </div>
-              <div class="console-title" id="terminalTitle">CLI Terminal Output</div>
-            </div>
-            <div class="code-preview" id="terminalOutput" style="color: #34d399; font-family: var(--font-mono); min-height: 160px; max-height: 300px;">// Terminal ready. Click 'Run Script Now' to execute the generated Playwright test script directly in the terminal...</div>
-          </div>
-
-          <div id="videoContainer" style="display: none; margin-top: 12px;">
-            <label style="font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.2px; color: var(--body-muted);">Visual Browser Execution Recording Video:</label>
-            <video id="videoPlayer" controls style="width: 100%; border-radius: 8px; border: 1px solid var(--hairline); margin-top: 6px; background: #000; max-height: 360px;"></video>
-          </div>
-        </div>
       </div>
 
+      <!-- Card 3: CLI Terminal Output -->
+      <div class="card">
+        <div class="card-header" style="display: flex; align-items: center; justify-content: space-between;">
+          <label style="font-family: var(--font-mono); font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.2px; color: var(--primary); margin: 0;">
+            Built-in Terminal Console
+          </label>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <select id="runMode" style="padding: 6px 12px; font-size: 12px; height: 32px; width: auto;">
+              <option value="headless">Headless Mode</option>
+              <option value="headed">Headed Mode (Visual Browser)</option>
+            </select>
+            <button class="btn-pill-primary" id="btnRunTest" onclick="runGeneratedTest()" style="padding: 6px 14px; font-size: 12px; height: 32px;">
+              Run Script Now
+            </button>
+          </div>
+        </div>
+
+        <div class="agent-console">
+          <div class="console-header">
+            <div class="console-dots">
+              <div class="console-dot dot-red"></div>
+              <div class="console-dot dot-yellow"></div>
+              <div class="console-dot dot-green"></div>
+            </div>
+            <div class="console-title" id="terminalTitle">CLI Terminal Output</div>
+          </div>
+          <div class="code-preview" id="terminalOutput" style="color: #34d399; font-family: var(--font-mono); min-height: 160px; max-height: 300px;">// Terminal ready. Click 'Run Script Now' to execute the generated Playwright test script directly in the terminal...</div>
+        </div>
+
+        <div id="videoContainer" style="display: none; margin-top: 12px;">
+          <label style="font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.2px; color: var(--body-muted);">Visual Browser Execution Recording Video:</label>
+          <video id="videoPlayer" controls style="width: 100%; border-radius: 8px; border: 1px solid var(--hairline); margin-top: 6px; background: #000; max-height: 360px;"></video>
+        </div>
+      </div>
     </div>
   </div>
 

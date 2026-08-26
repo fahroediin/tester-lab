@@ -463,6 +463,7 @@
 
       const outputCard = document.getElementById('outputSpecCard');
       if (outputCard) {
+        outputCard.classList.add('highlight-blue');
         setTimeout(() => {
           outputCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }, 100);
@@ -573,6 +574,9 @@
 
         const scenarioCard = document.getElementById('scenarioBuilderCard');
         if (scenarioCard) scenarioCard.classList.remove('highlight-green');
+
+        const outputCard = document.getElementById('outputSpecCard');
+        if (outputCard) outputCard.classList.remove('highlight-blue');
       }
     }
 
