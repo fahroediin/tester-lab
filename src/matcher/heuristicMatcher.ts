@@ -330,7 +330,9 @@ export class HeuristicMatcher {
       };
     }
 
-    if (cand.labelText) {
+    // Only use getByLabel when there's a real HTML label association (label[for] or wrapping label).
+    // Playwright getByLabel does NOT work with positional/sibling labels.
+    if (cand.labelText && cand.hasDirectLabel) {
       return {
         selectorType: 'getByLabel',
         selectorValue: cand.labelText.trim()
@@ -341,6 +343,14 @@ export class HeuristicMatcher {
       return {
         selectorType: 'getByPlaceholder',
         selectorValue: cand.placeholder.trim()
+      };
+    }
+
+    // For input/select/textarea with name attribute, use CSS name selector (very reliable)
+    if (cand.name && ['input', 'select', 'textarea'].includes(cand.tagName)) {
+      return {
+        selectorType: 'locator',
+        selectorValue: `${cand.tagName}[name="${cand.name}"]`
       };
     }
 

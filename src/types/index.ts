@@ -49,6 +49,7 @@ export interface DOMElementCandidate {
   ariaLabel: string;
   innerText: string;
   labelText: string;
+  hasDirectLabel: boolean;
   role: string;
   type: string;
   href?: string;

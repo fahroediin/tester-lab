@@ -185,6 +185,7 @@ export class DOMExtractor {
         ariaLabel: string;
         innerText: string;
         labelText: string;
+        hasDirectLabel: boolean;
         role: string;
         type: string;
         href?: string;
@@ -235,15 +236,18 @@ export class DOMExtractor {
         const isInputControl = ['input', 'textarea', 'select'].includes(tagName) || ['textbox', 'combobox', 'searchbox', 'spinbutton', 'checkbox', 'radio'].includes(role);
 
         let labelText = '';
+        let hasDirectLabel = false;
         if (isInputControl) {
           if (id) {
             const labelEl = doc.querySelector(`label[for="${id}"]`);
             if (labelEl) {
               labelText = (labelEl.textContent || '').trim();
+              hasDirectLabel = true;
             }
           }
           if (!labelText && htmlEl.closest('label')) {
             labelText = (htmlEl.closest('label')?.textContent || '').trim();
+            hasDirectLabel = true;
           }
           if (!labelText && htmlEl.previousElementSibling && htmlEl.previousElementSibling.tagName.toLowerCase() === 'label') {
             labelText = (htmlEl.previousElementSibling.textContent || '').trim();
@@ -298,6 +302,7 @@ export class DOMExtractor {
           ariaLabel,
           innerText,
           labelText,
+          hasDirectLabel,
           role,
           type,
           href,
