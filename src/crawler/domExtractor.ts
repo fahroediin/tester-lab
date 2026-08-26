@@ -248,6 +248,18 @@ export class DOMExtractor {
           if (!labelText && htmlEl.previousElementSibling && htmlEl.previousElementSibling.tagName.toLowerCase() === 'label') {
             labelText = (htmlEl.previousElementSibling.textContent || '').trim();
           }
+          // Tailwind/Modern UI pattern: <label></label><div><input></div>
+          if (!labelText && htmlEl.parentElement && htmlEl.parentElement.previousElementSibling && htmlEl.parentElement.previousElementSibling.tagName.toLowerCase() === 'label') {
+            labelText = (htmlEl.parentElement.previousElementSibling.textContent || '').trim();
+          }
+          // Deeper nesting pattern: <label></label><div><div><input></div></div>
+          if (!labelText && htmlEl.parentElement && htmlEl.parentElement.parentElement && htmlEl.parentElement.parentElement.previousElementSibling && htmlEl.parentElement.parentElement.previousElementSibling.tagName.toLowerCase() === 'label') {
+            labelText = (htmlEl.parentElement.parentElement.previousElementSibling.textContent || '').trim();
+          }
+          // Clean up asterisks usually used for required fields
+          if (labelText) {
+            labelText = labelText.replace(/\*/g, '').trim();
+          }
           if (!labelText) {
             const parentContainer = htmlEl.closest('.form-group, .field, .input-group, .mb-3, .form-item, div');
             if (parentContainer) {

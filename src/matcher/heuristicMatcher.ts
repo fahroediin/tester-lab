@@ -265,6 +265,25 @@ export class HeuristicMatcher {
       }
     }
 
+    // Token-based matching (Bag of Words) for robust cross-language or attribute matches
+    // This helps match "Date Order" with "order_date" or "Tanggal Order"
+    if (score < 50) {
+      const tokenize = (s: string) => Array.from(new Set(s.toLowerCase().split(/[^a-z0-9]+/))).filter(Boolean).sort().join(' ');
+      const targetToken = tokenize(target);
+      if (targetToken.length > 0) {
+        if (tokenize(labelText) === targetToken || tokenize(placeholder) === targetToken) {
+          score += 65;
+          reasons.push('Exact Token Match on Label/Placeholder');
+        } else if (tokenize(name) === targetToken || tokenize(id) === targetToken) {
+          score += 60;
+          reasons.push('Exact Token Match on Name/ID');
+        } else if (tokenize(labelText).includes(targetToken) || tokenize(name).includes(targetToken)) {
+          score += 45;
+          reasons.push('Partial Token Match');
+        }
+      }
+    }
+
     // Rule 6: Levenshtein Fuzzy Match (Score: 30 - 50)
     if (score <= 0 && (innerText || labelText || placeholder)) {
       const compareText = labelText || innerText || placeholder;
