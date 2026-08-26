@@ -236,8 +236,8 @@
             style="font-family: var(--font-mono); font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.2px; color: var(--primary); margin: 0;">Generated
             Playwright Code</label>
           <div class="code-actions">
-            <button class="btn-pill-outline" onclick="copyCode()">Copy Code</button>
-            <button class="btn-pill-outline" onclick="downloadCode()">Download File</button>
+            <button class="btn-pill-outline" id="btnCopyCode" onclick="copyCode()">Copy Code</button>
+            <button class="btn-pill-outline" id="btnDownloadCode" onclick="downloadCode()">Download File</button>
           </div>
         </div>
 
@@ -256,7 +256,7 @@
       </div>
 
       <!-- Card 3: CLI Terminal Output -->
-      <div class="card">
+      <div class="card" id="cliTerminalCard">
         <div class="card-header" style="display: flex; align-items: center; justify-content: space-between;">
           <label style="font-family: var(--font-mono); font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.2px; color: var(--primary); margin: 0;">
             Built-in Terminal Console

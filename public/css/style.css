@@ -153,6 +153,11 @@ header {
   box-shadow: 0 0 15px rgba(96, 165, 250, 0.2) !important;
 }
 
+.card.highlight-red {
+  border-color: #f87171 !important;
+  box-shadow: 0 0 15px rgba(248, 113, 113, 0.2) !important;
+}
+
 .card-header {
   display: flex;
   align-items: center;

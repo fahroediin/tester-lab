@@ -457,6 +457,11 @@
       const btnAddStep = document.getElementById('btnAddStep');
       if (btnAddStep) btnAddStep.disabled = true;
       document.querySelectorAll('.step-item').forEach(el => el.setAttribute('draggable', 'false'));
+      
+      const btnCopyCode = document.getElementById('btnCopyCode');
+      const btnDownloadCode = document.getElementById('btnDownloadCode');
+      if (btnCopyCode) btnCopyCode.disabled = true;
+      if (btnDownloadCode) btnDownloadCode.disabled = true;
 
       const scenarioCard = document.getElementById('scenarioBuilderCard');
       if (scenarioCard) scenarioCard.classList.add('highlight-green');
@@ -571,6 +576,11 @@
         const btnAddStep = document.getElementById('btnAddStep');
         if (btnAddStep) btnAddStep.disabled = false;
         document.querySelectorAll('.step-item').forEach(el => el.setAttribute('draggable', 'true'));
+        
+        const btnCopyCode = document.getElementById('btnCopyCode');
+        const btnDownloadCode = document.getElementById('btnDownloadCode');
+        if (btnCopyCode) btnCopyCode.disabled = false;
+        if (btnDownloadCode) btnDownloadCode.disabled = false;
 
         const scenarioCard = document.getElementById('scenarioBuilderCard');
         if (scenarioCard) scenarioCard.classList.remove('highlight-green');
@@ -639,6 +649,9 @@
       terminalOutput.style.color = '#60a5fa';
       terminalOutput.textContent = `[TERMINAL] Initiating Playwright Test Runner...\n[TERMINAL] Mode: ${mode.toUpperCase()}\n[TERMINAL] Environment: Node.js / Playwright\n[TERMINAL] Executing script...\n`;
 
+      const cliTerminalCard = document.getElementById('cliTerminalCard');
+      if (cliTerminalCard) cliTerminalCard.classList.add('highlight-red');
+
       try {
         const response = await fetch('/api/v1/run-test', {
           method: 'POST',
@@ -668,6 +681,16 @@
           if (videoContainer && videoPlayer) {
             videoPlayer.src = data.videoUrl;
             videoContainer.style.display = 'block';
+            setTimeout(() => {
+              videoContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 100);
+          }
+        } else {
+          const cliTerminalCard = document.getElementById('cliTerminalCard');
+          if (cliTerminalCard) {
+            setTimeout(() => {
+              cliTerminalCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 100);
           }
         }
       } catch (err) {
@@ -676,6 +699,8 @@
         terminalOutput.textContent = `[ERROR] Failed to communicate with runner service: ${err.message}`;
       } finally {
         btn.disabled = false;
+        const cliTerminalCard = document.getElementById('cliTerminalCard');
+        if (cliTerminalCard) cliTerminalCard.classList.remove('highlight-red');
       }
     }
 
