@@ -451,6 +451,23 @@
       const btnRunTest = document.getElementById('btnRunTest');
       if (btnRunTest) btnRunTest.disabled = true;
 
+      // UX Improvements: Disable steps and highlight container
+      const stepInputs = document.querySelectorAll('#stepList input, #stepList select, #stepList button');
+      stepInputs.forEach(el => el.disabled = true);
+      const btnAddStep = document.getElementById('btnAddStep');
+      if (btnAddStep) btnAddStep.disabled = true;
+      document.querySelectorAll('.step-item').forEach(el => el.setAttribute('draggable', 'false'));
+
+      const scenarioCard = document.getElementById('scenarioBuilderCard');
+      if (scenarioCard) scenarioCard.classList.add('highlight-green');
+
+      const outputCard = document.getElementById('outputSpecCard');
+      if (outputCard) {
+        setTimeout(() => {
+          outputCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
+      }
+
       // 2. REALTIME MONITORING PROCESS DISPLAY
       const targetUrlVal = dslPayload.targetUrl;
       const isDryRun = document.getElementById('dryRun').checked;
@@ -546,6 +563,16 @@
         if (btnText) btnText.textContent = 'Generate Script';
         loader.style.display = 'none';
         if (btnRunTest) btnRunTest.disabled = false;
+
+        // UX Improvements: Re-enable steps and remove highlight
+        const stepInputs = document.querySelectorAll('#stepList input, #stepList select, #stepList button');
+        stepInputs.forEach(el => el.disabled = false);
+        const btnAddStep = document.getElementById('btnAddStep');
+        if (btnAddStep) btnAddStep.disabled = false;
+        document.querySelectorAll('.step-item').forEach(el => el.setAttribute('draggable', 'true'));
+
+        const scenarioCard = document.getElementById('scenarioBuilderCard');
+        if (scenarioCard) scenarioCard.classList.remove('highlight-green');
       }
     }
 
