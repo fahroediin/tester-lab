@@ -12,6 +12,7 @@
     href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600&display=swap"
     rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
   <link rel="stylesheet" href="/css/style.css">
 </head>
 
@@ -128,10 +129,13 @@
           <button type="button" class="btn-pill-outline" onclick="document.getElementById('importSpecInput').click()">
             Upload .spec File
           </button>
-          <input type="file" id="importFlowInput" accept=".json" style="display: none;"
+          <input type="file" id="importFlowInput" accept=".json,.yaml,.yml" style="display: none;"
             onchange="handleImportFlow(event)">
           <button type="button" class="btn-pill-outline" onclick="document.getElementById('importFlowInput').click()">
-            Import JSON Flow
+            Import Flow (JSON/YAML)
+          </button>
+          <button type="button" class="btn-pill-outline" onclick="exportYamlFlow()">
+            Export Flow (YAML)
           </button>
           <button type="button" class="btn-pill-outline" onclick="loadSampleScenario()">
             Load Sample Flow

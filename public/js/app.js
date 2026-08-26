@@ -138,6 +138,33 @@
       return parsedSteps;
     }
 
+    function exportYamlFlow() {
+      const data = {
+        testSuite: document.getElementById('testSuite').value,
+        targetUrl: document.getElementById('targetUrl').value,
+        framework: document.getElementById('framework').value,
+        language: document.getElementById('language').value,
+        steps: steps.map(s => {
+          const out = { action: s.action };
+          if (s.targetLabel) out.targetLabel = s.targetLabel;
+          if (s.value) out.value = s.value;
+          if (s.expected) out.expected = s.expected;
+          if (s.description) out.description = s.description;
+          if (s.options) out.options = s.options;
+          return out;
+        })
+      };
+      
+      const yamlStr = jsyaml.dump(data, { indent: 2, lineWidth: -1 });
+      const baseFilename = (data.testSuite || 'flow').trim().replace(/\s+/g, '_');
+      
+      const blob = new Blob([yamlStr], { type: 'text/yaml' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `${baseFilename}.yaml`;
+      link.click();
+    }
+
     function handleImportFlow(event) {
       const file = event.target.files[0];
       if (!file) return;
@@ -145,7 +172,13 @@
       const reader = new FileReader();
       reader.onload = function (e) {
         try {
-          const data = JSON.parse(e.target.result);
+          const content = e.target.result;
+          let data;
+          if (file.name.endsWith('.yaml') || file.name.endsWith('.yml')) {
+            data = jsyaml.load(content);
+          } else {
+            data = JSON.parse(content);
+          }
 
           if (data.testSuite) document.getElementById('testSuite').value = data.testSuite;
           if (data.targetUrl) document.getElementById('targetUrl').value = data.targetUrl;
