@@ -11,7 +11,8 @@
     "start": "node dist/server/index.js",
     "cli": "ts-node src/cli/index.ts",
     "demo": "ts-node examples/demo-server.ts",
-    "generate": "ts-node src/cli/index.ts generate"
+    "generate": "ts-node src/cli/index.ts generate",
+    "gen-yaml": "ts-node scripts/generate-yaml.ts"
   },
   "keywords": [
     "testing",

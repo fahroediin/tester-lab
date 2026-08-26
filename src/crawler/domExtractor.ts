@@ -89,8 +89,7 @@ export class DOMExtractor {
             await this.performActionOnPage(page, { ...step, action: effectiveAction }, resolved);
             // Only wait heavily on clicks (page transitions). Fills and selects just need a short reactive delay.
             if (effectiveAction === 'click') {
-              await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
-              await page.waitForTimeout(1000); // hard delay for heavy JS frameworks to finish rendering
+              await page.waitForTimeout(1000); // short delay for heavy JS frameworks to finish rendering
             } else {
               await page.waitForTimeout(100); // short delay for frontend frameworks (React/Vue/OutSystems) reactivity
             }
@@ -130,6 +129,8 @@ export class DOMExtractor {
 
     if (step.action === 'fill' && step.value) {
       await locator.fill(step.value, { force: true, timeout: 5000 });
+      await locator.press('Space').catch(() => {});
+      await locator.press('Backspace').catch(() => {});
     } else if (step.action === 'click') {
       // Use waitForURL pattern instead of deprecated waitForNavigation
       const currentUrl = page.url();
