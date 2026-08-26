@@ -39,6 +39,20 @@
             renderSteps();
           }
 
+          // Attempt to extract Test Suite Name
+          const testSuiteMatch = specContent.match(/test\(['"](.*?)['"]/) || specContent.match(/describe\(['"](.*?)['"]/);
+          if (testSuiteMatch) {
+            const suiteInput = document.getElementById('testSuite');
+            if (suiteInput) suiteInput.value = testSuiteMatch[1];
+          }
+
+          // Attempt to extract Target URL
+          const targetUrlMatch = specContent.match(/page\.goto\(['"](.*?)['"]\)/) || specContent.match(/cy\.visit\(['"](.*?)['"]\)/);
+          if (targetUrlMatch) {
+            const urlInput = document.getElementById('targetUrl');
+            if (urlInput) urlInput.value = targetUrlMatch[1];
+          }
+
           // Set language selection based on extension
           const langSelect = document.getElementById('language');
           if (langSelect) {
@@ -296,6 +310,24 @@
       steps[index][field] = val;
     }
 
+    function moveStepUp(index) {
+      if (index > 0) {
+        const temp = steps[index];
+        steps[index] = steps[index - 1];
+        steps[index - 1] = temp;
+        renderSteps();
+      }
+    }
+
+    function moveStepDown(index) {
+      if (index < steps.length - 1) {
+        const temp = steps[index];
+        steps[index] = steps[index + 1];
+        steps[index + 1] = temp;
+        renderSteps();
+      }
+    }
+
     function renderSteps() {
       const container = document.getElementById('stepList');
       const badge = document.getElementById('stepCountBadge');
@@ -331,7 +363,11 @@
               <option value="assert_visible" ${step.action === 'assert_visible' ? 'selected' : ''}>Assert Visible</option>
               <option value="wait" ${step.action === 'wait' ? 'selected' : ''}>Wait Delay</option>
             </select>
-            <button class="btn-remove" onclick="removeStep(${idx})">Remove</button>
+            <div style="display: flex; gap: 4px; margin-left: auto;">
+              <button class="btn-pill-outline" onclick="moveStepUp(${idx})" ${idx === 0 ? 'disabled' : ''} title="Move Up" style="padding: 4px 8px;">↑</button>
+              <button class="btn-pill-outline" onclick="moveStepDown(${idx})" ${idx === steps.length - 1 ? 'disabled' : ''} title="Move Down" style="padding: 4px 8px;">↓</button>
+              <button class="btn-remove" onclick="removeStep(${idx})">Remove</button>
+            </div>
           </div>
 
           <div class="grid-2">
