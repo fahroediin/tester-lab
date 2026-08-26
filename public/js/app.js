@@ -92,13 +92,24 @@
       const parsedSteps = [];
       
       for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
+        let line = lines[i].trim();
         if (!line.startsWith('await ')) continue;
         
         let description = '';
-        if (i > 0 && lines[i-1].trim().startsWith('//')) {
-          description = lines[i-1].trim().replace('//', '').trim();
+        // Find previous comment, skipping empty lines
+        let commentIndex = i - 1;
+        while (commentIndex >= 0 && !lines[commentIndex].trim()) {
+           commentIndex--;
+        }
+        if (commentIndex >= 0 && lines[commentIndex].trim().startsWith('//')) {
+          description = lines[commentIndex].trim().replace('//', '').trim();
           description = description.replace(/^Step\s+\d+:\s*/i, '');
+        }
+
+        // Accumulate until semicolon to handle multi-line statements (like those formatted by Prettier)
+        while (!line.endsWith(';') && i < lines.length - 1) {
+          i++;
+          line += ' ' + lines[i].trim();
         }
 
         // Handle old legacyAction or action helper
