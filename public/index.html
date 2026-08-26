@@ -124,18 +124,9 @@
       <div class="card-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
         <div class="card-title">Scenario Builder</div>
         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-          <input type="file" id="importSpecInput" accept=".ts,.js,.spec.ts,.spec.js" style="display: none;"
-            onchange="handleImportSpec(event)">
-          <button type="button" class="btn-pill-outline" onclick="document.getElementById('importSpecInput').click()">
-            Upload .spec File
-          </button>
-          <input type="file" id="importFlowInput" accept=".json,.yaml,.yml" style="display: none;"
-            onchange="handleImportFlow(event)">
-          <button type="button" class="btn-pill-outline" onclick="document.getElementById('importFlowInput').click()">
-            Import Flow (JSON/YAML)
-          </button>
-          <button type="button" class="btn-pill-outline" onclick="exportYamlFlow()">
-            Export Flow (YAML)
+          <input type="file" id="importFileInput" accept=".ts,.js,.spec.ts,.spec.js,.json,.yaml,.yml" style="display: none;" onchange="handleImportFile(event)">
+          <button type="button" class="btn-pill-outline" onclick="document.getElementById('importFileInput').click()">
+            Import File (.spec/.json/.yaml)
           </button>
           <button type="button" class="btn-pill-outline" onclick="loadSampleScenario()">
             Load Sample Flow

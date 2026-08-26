@@ -14,254 +14,128 @@
       renderSteps();
     }
 
-    function handleImportSpec(event) {
+    function handleImportFile(event) {
       const file = event.target.files[0];
       if (!file) return;
 
       const reader = new FileReader();
       reader.onload = function(e) {
         try {
-          const specContent = e.target.result;
-          if (!specContent || !specContent.trim()) {
-            Swal.fire({ icon: 'warning', title: 'Empty File', text: 'The uploaded spec file is empty.', confirmButtonColor: '#005bbf' });
-            return;
-          }
-
-          resetTerminalOutput();
-          latestGeneratedCode = specContent;
-          const codeOutput = document.getElementById('codeOutput');
-          if (codeOutput) codeOutput.textContent = specContent;
-
-          // Attempt to parse back the UI steps
-          const parsedSteps = parseSpecToSteps(specContent);
-          if (parsedSteps.length > 0) {
-            steps = parsedSteps;
-            renderSteps();
-          }
-
-          // Attempt to extract Test Suite Name
-          const testSuiteMatch = specContent.match(/test\(['"](.*?)['"]/) || specContent.match(/describe\(['"](.*?)['"]/);
-          if (testSuiteMatch) {
-            const suiteInput = document.getElementById('testSuite');
-            if (suiteInput) suiteInput.value = testSuiteMatch[1];
-          }
-
-          // Attempt to extract Target URL
-          const targetUrlMatch = specContent.match(/page\.goto\(['"](.*?)['"]\)/) || specContent.match(/cy\.visit\(['"](.*?)['"]\)/);
-          if (targetUrlMatch) {
-            const urlInput = document.getElementById('targetUrl');
-            if (urlInput) urlInput.value = targetUrlMatch[1];
-          }
-
-          // Set language selection based on extension
-          const langSelect = document.getElementById('language');
-          if (langSelect) {
-            if (file.name.endsWith('.js')) {
-              langSelect.value = 'javascript';
-            } else {
-              langSelect.value = 'typescript';
-            }
-          }
-
-          const statusBadgeContainer = document.getElementById('statusBadgeContainer');
-          if (statusBadgeContainer) {
-            statusBadgeContainer.innerHTML = '<span class="status-chip chip-pass">Spec File Loaded</span>';
-          }
-
-          Swal.fire({
-            icon: 'success',
-            title: 'Spec File Loaded',
-            text: `Successfully imported "${file.name}". Click "Run Script Now" to execute.`,
-            timer: 2500,
-            showConfirmButton: false,
-            toast: true,
-            position: 'top-end'
-          });
-
-          // Enable actions
-          const btnCopyCode = document.getElementById('btnCopyCode');
-          const btnDownloadCode = document.getElementById('btnDownloadCode');
-          const btnRunTest = document.getElementById('btnRunTest');
-          if (btnCopyCode) btnCopyCode.disabled = false;
-          if (btnDownloadCode) btnDownloadCode.disabled = false;
-          if (btnRunTest) btnRunTest.disabled = false;
-
-        } catch (err) {
-          Swal.fire({ icon: 'error', title: 'Import Failed', text: 'Failed to read spec file: ' + err.message, confirmButtonColor: '#005bbf' });
-        }
-      };
-      reader.readAsText(file);
-
-      // Reset input value to allow importing the same file again
-      event.target.value = '';
-    }
-
-    function parseSpecToSteps(specContent) {
-      const lines = specContent.split('\n');
-      const parsedSteps = [];
-      
-      for (let i = 0; i < lines.length; i++) {
-        let line = lines[i].trim();
-        if (!line.startsWith('await ')) continue;
-        
-        let description = '';
-        // Find previous comment, skipping empty lines
-        let commentIndex = i - 1;
-        while (commentIndex >= 0 && !lines[commentIndex].trim()) {
-           commentIndex--;
-        }
-        if (commentIndex >= 0 && lines[commentIndex].trim().startsWith('//')) {
-          description = lines[commentIndex].trim().replace('//', '').trim();
-          description = description.replace(/^Step\s+\d+:\s*/i, '');
-        }
-
-        // Accumulate until semicolon to handle multi-line statements (like those formatted by Prettier)
-        while (!line.endsWith(';') && i < lines.length - 1) {
-          i++;
-          line += ' ' + lines[i].trim();
-        }
-
-        // Handle old legacyAction or action helper
-        const actionHelperMatch = line.match(/(?:legacyAction|action)\(['"](fill|select)['"],\s*['"](.*?)['"],\s*['"](.*?)['"]\)/);
-        if (actionHelperMatch) {
-           parsedSteps.push({ action: actionHelperMatch[1], targetLabel: actionHelperMatch[2], value: actionHelperMatch[3], description });
-           continue;
-        }
-
-        // Try to extract the target label from locators
-        let targetLabel = '';
-        const locatorStrMatch = line.match(/(getByTestId|getByLabel|getByPlaceholder|getByText|locator)\((.*?)\)/);
-        if (locatorStrMatch) {
-          const innerArgs = locatorStrMatch[2];
-          const strMatch = innerArgs.match(/['"](.*?)['"]/);
-          if (strMatch) targetLabel = strMatch[1];
-        } else if (line.includes('getByRole')) {
-          const roleNameMatch = line.match(/name:\s*(?:new\s+RegExp\(['"]|['"])(.*?)(?:['"]\s*,\s*['"]i['"]\)|['"])/);
-          if (roleNameMatch) targetLabel = roleNameMatch[1];
-          else {
-             const roleMatch = line.match(/getByRole\(['"](.*?)['"]/);
-             if (roleMatch) targetLabel = roleMatch[1];
-          }
-        }
-
-        // Handle maestro.interact
-        if (line.includes('maestro.interact')) {
-           const actionMatch = line.match(/,\s*['"](click|fill|select|check|uncheck|upload|assert_visible|assert_text)['"]/);
-           if (!actionMatch) continue;
-           const action = actionMatch[1];
-           
-           let value = '';
-           if (['fill', 'select', 'upload'].includes(action)) {
-             const valMatch = line.match(/,\s*['"](?:click|fill|select|check|uncheck|upload|assert_visible|assert_text)['"]\s*,\s*['"](.*?)['"]/);
-             if (valMatch) value = valMatch[1];
-           } else if (action === 'assert_text') {
-             const valMatch = line.match(/,\s*undefined\s*,\s*['"](.*?)['"]/);
-             if (valMatch) value = valMatch[1];
-           }
-           
-           parsedSteps.push({ action, targetLabel, value, description });
-           continue;
-        }
-
-        // Handle old format
-        if (line.includes('.fill(')) {
-          const valMatch = line.match(/\.fill\(['"](.*?)['"]/);
-          if (valMatch) parsedSteps.push({ action: 'fill', targetLabel, value: valMatch[1], description });
-        } else if (line.includes('.click(')) {
-          parsedSteps.push({ action: 'click', targetLabel, value: '', description });
-        } else if (line.includes('.selectOption(')) {
-          const valMatch = line.match(/\.selectOption\(['"](.*?)['"]/);
-          if (valMatch) parsedSteps.push({ action: 'select', targetLabel, value: valMatch[1], description });
-        } else if (line.includes('.check(')) {
-          parsedSteps.push({ action: 'check', targetLabel, value: '', description });
-        } else if (line.includes('.uncheck(')) {
-          parsedSteps.push({ action: 'uncheck', targetLabel, value: '', description });
-        } else if (line.includes('.setInputFiles(')) {
-          const valMatch = line.match(/\.setInputFiles\(['"](.*?)['"]/);
-          if (valMatch) parsedSteps.push({ action: 'upload', targetLabel, value: valMatch[1], description });
-        } else if (line.includes('toHaveURL(')) {
-          const urlMatch = line.match(/RegExp\(['"](.*?)['"]/) || line.match(/toHaveURL\(['"](.*?)['"]/);
-          if (urlMatch) parsedSteps.push({ action: 'assert_url', targetLabel: '', value: urlMatch[1], description });
-        } else if (line.includes('toContainText(')) {
-          const textMatch = line.match(/toContainText\((?:new\s+RegExp\(['"]|['"])(.*?)(?:['"]\s*,\s*['"]i['"]\)|['"])/);
-          if (textMatch) parsedSteps.push({ action: 'assert_text', targetLabel, value: textMatch[1], description });
-        } else if (line.includes('toBeVisible(')) {
-          parsedSteps.push({ action: 'assert_visible', targetLabel, value: '', description });
-        } else if (line.includes('.waitForTimeout(')) {
-          const waitMatch = line.match(/waitForTimeout\((\d+)\)/);
-          if (waitMatch) parsedSteps.push({ action: 'wait', targetLabel: '', value: waitMatch[1], description });
-        }
-      }
-      return parsedSteps;
-    }
-
-    function exportYamlFlow() {
-      const data = {
-        testSuite: document.getElementById('testSuite').value,
-        targetUrl: document.getElementById('targetUrl').value,
-        framework: document.getElementById('framework').value,
-        language: document.getElementById('language').value,
-        steps: steps.map(s => {
-          const out = { action: s.action };
-          if (s.targetLabel) out.targetLabel = s.targetLabel;
-          if (s.value) out.value = s.value;
-          if (s.expected) out.expected = s.expected;
-          if (s.description) out.description = s.description;
-          if (s.options) out.options = s.options;
-          return out;
-        })
-      };
-      
-      const yamlStr = jsyaml.dump(data, { indent: 2, lineWidth: -1 });
-      const baseFilename = (data.testSuite || 'flow').trim().replace(/\s+/g, '_');
-      
-      const blob = new Blob([yamlStr], { type: 'text/yaml' });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = `${baseFilename}.yaml`;
-      link.click();
-    }
-
-    function handleImportFlow(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = function (e) {
-        try {
           const content = e.target.result;
-          let data;
-          if (file.name.endsWith('.yaml') || file.name.endsWith('.yml')) {
-            data = jsyaml.load(content);
+          const fileName = file.name.toLowerCase();
+          
+          if (fileName.endsWith('.json') || fileName.endsWith('.yaml') || fileName.endsWith('.yml')) {
+            // Flow import logic
+            let data;
+            if (fileName.endsWith('.yaml') || fileName.endsWith('.yml')) {
+              data = jsyaml.load(content);
+            } else {
+              data = JSON.parse(content);
+            }
+
+            if (data.testSuite) document.getElementById('testSuite').value = data.testSuite;
+            if (data.targetUrl) document.getElementById('targetUrl').value = data.targetUrl;
+            if (data.framework) {
+              document.getElementById('framework').value = data.framework;
+              onFrameworkChange(); // update language options
+            }
+            if (data.language) {
+              // Need a tiny timeout because onFrameworkChange modifies the DOM options
+              setTimeout(() => {
+                document.getElementById('language').value = data.language;
+              }, 10);
+            }
+
+            if (Array.isArray(data.steps)) {
+              steps = data.steps.map(s => ({
+                action: s.action || 'fill',
+                targetLabel: s.targetLabel || '',
+                // map expected to value for assert actions
+                value: s.value !== undefined ? s.value : (s.expected !== undefined ? s.expected : ''),
+                description: s.description || ''
+              }));
+              renderSteps();
+            }
+            
+            Swal.fire({
+              icon: 'success',
+              title: 'Flow File Loaded',
+              text: `Successfully imported "${file.name}".`,
+              timer: 2500,
+              showConfirmButton: false,
+              toast: true,
+              position: 'top-end'
+            });
+
           } else {
-            data = JSON.parse(content);
+            // Spec import logic (.spec.ts, .spec.js, .ts, .js)
+            if (!content || !content.trim()) {
+              Swal.fire({ icon: 'warning', title: 'Empty File', text: 'The uploaded spec file is empty.', confirmButtonColor: '#005bbf' });
+              return;
+            }
+
+            resetTerminalOutput();
+            latestGeneratedCode = content;
+            const codeOutput = document.getElementById('codeOutput');
+            if (codeOutput) codeOutput.textContent = content;
+
+            // Attempt to parse back the UI steps
+            const parsedSteps = parseSpecToSteps(content);
+            if (parsedSteps.length > 0) {
+              steps = parsedSteps;
+              renderSteps();
+            }
+
+            // Attempt to extract Test Suite Name
+            const testSuiteMatch = content.match(/test\(['"](.*?)['"]/) || content.match(/describe\(['"](.*?)['"]/);
+            if (testSuiteMatch) {
+              const suiteInput = document.getElementById('testSuite');
+              if (suiteInput) suiteInput.value = testSuiteMatch[1];
+            }
+
+            // Attempt to extract Target URL
+            const targetUrlMatch = content.match(/page\.goto\(['"](.*?)['"]\)/) || content.match(/cy\.visit\(['"](.*?)['"]\)/);
+            if (targetUrlMatch) {
+              const urlInput = document.getElementById('targetUrl');
+              if (urlInput) urlInput.value = targetUrlMatch[1];
+            }
+
+            // Set language selection based on extension
+            const langSelect = document.getElementById('language');
+            if (langSelect) {
+              if (fileName.endsWith('.js')) {
+                langSelect.value = 'javascript';
+              } else {
+                langSelect.value = 'typescript';
+              }
+            }
+
+            const statusBadgeContainer = document.getElementById('statusBadgeContainer');
+            if (statusBadgeContainer) {
+              statusBadgeContainer.innerHTML = '<span class="status-chip chip-pass">Spec File Loaded</span>';
+            }
+
+            Swal.fire({
+              icon: 'success',
+              title: 'Spec File Loaded',
+              text: `Successfully imported "${file.name}". Click "Run Script Now" to execute.`,
+              timer: 2500,
+              showConfirmButton: false,
+              toast: true,
+              position: 'top-end'
+            });
+
+            // Enable actions
+            const btnCopyCode = document.getElementById('btnCopyCode');
+            const btnDownloadCode = document.getElementById('btnDownloadCode');
+            const btnRunTest = document.getElementById('btnRunTest');
+            if (btnCopyCode) btnCopyCode.disabled = false;
+            if (btnDownloadCode) btnDownloadCode.disabled = false;
+            if (btnRunTest) btnRunTest.disabled = false;
           }
 
-          if (data.testSuite) document.getElementById('testSuite').value = data.testSuite;
-          if (data.targetUrl) document.getElementById('targetUrl').value = data.targetUrl;
-          if (data.framework) {
-            document.getElementById('framework').value = data.framework;
-            onFrameworkChange(); // update language options
-          }
-          if (data.language) {
-            // Need a tiny timeout because onFrameworkChange modifies the DOM options
-            setTimeout(() => {
-              document.getElementById('language').value = data.language;
-            }, 10);
-          }
-
-          if (Array.isArray(data.steps)) {
-            steps = data.steps.map(s => ({
-              action: s.action || 'fill',
-              targetLabel: s.targetLabel || '',
-              // map expected to value for assert actions
-              value: s.value !== undefined ? s.value : (s.expected !== undefined ? s.expected : ''),
-              description: s.description || ''
-            }));
-            renderSteps();
-          }
         } catch (err) {
-          Swal.fire({ icon: 'error', title: 'Import Failed', text: 'Failed to parse JSON file: ' + err.message, confirmButtonColor: '#005bbf' });
+          Swal.fire({ icon: 'error', title: 'Import Failed', text: 'Failed to read/parse file: ' + err.message, confirmButtonColor: '#005bbf' });
         }
       };
       reader.readAsText(file);
