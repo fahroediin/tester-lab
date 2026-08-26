@@ -113,11 +113,11 @@ export class DOMExtractor {
     if (type === 'getByTestId') {
       locator = page.getByTestId(val).first();
     } else if (type === 'getByLabel') {
-      locator = page.getByLabel(val, { exact: true }).first();
+      locator = page.getByLabel(val).first();
     } else if (type === 'getByRole') {
       locator = page.getByRole(val as any, { name: resolved.roleName }).first();
     } else if (type === 'getByPlaceholder') {
-      locator = page.getByPlaceholder(val, { exact: true }).first();
+      locator = page.getByPlaceholder(val).first();
     } else if (type === 'getByText') {
       locator = page.getByText(val).first();
     } else {
