@@ -40,9 +40,9 @@ test('{{testSuite}}', async ({ page }) => {
     {{#if (eq selectorType "getByTestId")}}
   await page.getByTestId('{{{selectorValue}}}').fill('{{{value}}}', { force: true });
     {{else if (eq selectorType "getByLabel")}}
-  await page.getByLabel('{{{selectorValue}}}', { exact: true }).fill('{{{value}}}', { force: true });
+  await page.getByLabel('{{{selectorValue}}}').fill('{{{value}}}', { force: true });
     {{else if (eq selectorType "getByRole")}}
-  await page.getByRole('{{{selectorValue}}}', { name: '{{{roleName}}}', exact: true }).fill('{{{value}}}', { force: true });
+  await page.getByRole('{{{selectorValue}}}', { name: '{{{roleName}}}' }).fill('{{{value}}}', { force: true });
     {{else if (eq selectorType "getByPlaceholder")}}
   await page.getByPlaceholder('{{{selectorValue}}}').fill('{{{value}}}', { force: true });
     {{else if (eq selectorType "getByText")}}
@@ -63,7 +63,7 @@ test('{{testSuite}}', async ({ page }) => {
     {{#if (eq selectorType "getByTestId")}}
   await page.getByTestId('{{{selectorValue}}}').click({ force: true });
     {{else if (eq selectorType "getByLabel")}}
-  await page.getByLabel('{{{selectorValue}}}', { exact: true }).click({ force: true });
+  await page.getByLabel('{{{selectorValue}}}').click({ force: true });
     {{else if (eq selectorType "getByRole")}}
   await page.getByRole('{{{selectorValue}}}', { name: '{{{roleName}}}' }).first().click({ force: true });
     {{else if (eq selectorType "getByPlaceholder")}}
@@ -78,7 +78,7 @@ test('{{testSuite}}', async ({ page }) => {
     {{#if (eq selectorType "getByTestId")}}
   await page.getByTestId('{{{selectorValue}}}').selectOption('{{{value}}}', { force: true });
     {{else if (eq selectorType "getByLabel")}}
-  await page.getByLabel('{{{selectorValue}}}', { exact: true }).selectOption('{{{value}}}', { force: true });
+  await page.getByLabel('{{{selectorValue}}}').selectOption('{{{value}}}', { force: true });
     {{else}}
       {{#if ../needsRobustHelper}}
         {{#if targetLabel}}
@@ -95,9 +95,9 @@ test('{{testSuite}}', async ({ page }) => {
     {{#if (eq selectorType "getByTestId")}}
   await page.getByTestId('{{{selectorValue}}}').check({ force: true });
     {{else if (eq selectorType "getByLabel")}}
-  await page.getByLabel('{{{selectorValue}}}', { exact: true }).check({ force: true });
+  await page.getByLabel('{{{selectorValue}}}').check({ force: true });
     {{else if (eq selectorType "getByRole")}}
-  await page.getByRole('{{{selectorValue}}}', { name: '{{{roleName}}}', exact: true }).check({ force: true });
+  await page.getByRole('{{{selectorValue}}}', { name: '{{{roleName}}}' }).check({ force: true });
     {{else}}
   await page.locator('{{{selectorValue}}}').check({ force: true });
     {{/if}}
@@ -106,7 +106,7 @@ test('{{testSuite}}', async ({ page }) => {
     {{#if (eq selectorType "getByTestId")}}
   await page.getByTestId('{{{selectorValue}}}').uncheck({ force: true });
     {{else if (eq selectorType "getByLabel")}}
-  await page.getByLabel('{{{selectorValue}}}', { exact: true }).uncheck({ force: true });
+  await page.getByLabel('{{{selectorValue}}}').uncheck({ force: true });
     {{else}}
   await page.locator('{{{selectorValue}}}').uncheck({ force: true });
     {{/if}}
@@ -115,7 +115,7 @@ test('{{testSuite}}', async ({ page }) => {
     {{#if (eq selectorType "getByTestId")}}
   await page.getByTestId('{{{selectorValue}}}').setInputFiles('{{{value}}}');
     {{else if (eq selectorType "getByLabel")}}
-  await page.getByLabel('{{{selectorValue}}}', { exact: true }).setInputFiles('{{{value}}}');
+  await page.getByLabel('{{{selectorValue}}}').setInputFiles('{{{value}}}');
     {{else if (eq selectorType "getByRole")}}
   await page.getByRole('{{{selectorValue}}}', { name: '{{{roleName}}}' }).first().setInputFiles('{{{value}}}');
     {{else if (eq selectorType "getByPlaceholder")}}
