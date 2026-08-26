@@ -25,8 +25,38 @@ import {
   requireApprovedUser
 } from './authMiddleware.js';
 import { globalTestRunnerQueue } from './queueManager.js';
+import { sanitizeCode } from './codeSanitizer.js';
 
 const execAsync = promisify(exec);
+
+/**
+ * Build a sanitized environment object for child processes.
+ * Only includes variables required for Playwright to function.
+ * ALL secrets (JWT_SECRET, ADMIN_PASSWORD, etc.) are stripped.
+ */
+function getSanitizedEnv(): Record<string, string> {
+  const ALLOWED_ENV_KEYS = [
+    'PATH', 'HOME', 'USER', 'LANG', 'LC_ALL', 'SHELL',
+    'DISPLAY', 'XAUTHORITY', 'DBUS_SESSION_BUS_ADDRESS',
+    'XDG_RUNTIME_DIR', 'XDG_CONFIG_HOME', 'XDG_DATA_HOME',
+    'TMPDIR', 'TMP', 'TEMP',
+    'PLAYWRIGHT_BROWSERS_PATH',
+    'CHROMIUM_FLAGS', 'CHROME_FLAGS',
+    'PUPPETEER_CHROMIUM_REVISION',
+    'NODE_PATH',
+    'SystemRoot', 'APPDATA', 'LOCALAPPDATA', 'ProgramFiles',
+    'ProgramFiles(x86)', 'CommonProgramFiles', 'USERPROFILE',
+    'HOMEDRIVE', 'HOMEPATH', 'PATHEXT', 'COMSPEC', 'windir',
+  ];
+
+  const sanitized: Record<string, string> = {};
+  for (const key of ALLOWED_ENV_KEYS) {
+    if (process.env[key]) {
+      sanitized[key] = process.env[key]!;
+    }
+  }
+  return sanitized;
+}
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -493,6 +523,22 @@ app.post('/api/v1/run-test', authenticateJWT, requireApprovedUser, async (req: A
       });
     }
 
+    // Layer 2: Code Content Validation — block dangerous patterns
+    const sanitizeResult = sanitizeCode(code);
+    if (!sanitizeResult.safe) {
+      addLog({
+        userId: req.user!.id,
+        username: req.user!.username,
+        action: 'Run Test Blocked',
+        details: `Code rejected: ${sanitizeResult.violations.join('; ')}`
+      });
+      return res.status(403).json({
+        success: false,
+        error: 'Submitted code contains blocked patterns that are not allowed for security reasons.',
+        violations: sanitizeResult.violations
+      });
+    }
+
     // Enqueue task into Concurrency Manager (Max 3 concurrent runs)
     const runResult = await globalTestRunnerQueue.enqueue(async () => {
       const startTime = Date.now();
@@ -538,7 +584,7 @@ export default defineConfig({
         const { stdout, stderr } = await execAsync(command, {
           cwd: process.cwd(),
           env: {
-            ...process.env,
+            ...getSanitizedEnv(),
             NODE_PATH: path.join(process.cwd(), 'node_modules')
           }
         });
