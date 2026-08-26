@@ -209,8 +209,10 @@ export class HeuristicMatcher {
     if (labelText) {
       if (labelText === target) {
         if (90 > primaryScore) { primaryScore = 90; primaryReason = 'Exact Associated Label Match'; }
-      } else if (labelText.includes(target) || target.includes(labelText)) {
-        if (75 > primaryScore) { primaryScore = 75; primaryReason = 'Partial Associated Label Match'; }
+      } else if ((labelText.includes(target) || target.includes(labelText)) && labelText.length > 3 && target.length > 3) {
+        // Prevent tiny strings from falsely matching huge strings
+        const ratio = Math.min(labelText.length, target.length) / Math.max(labelText.length, target.length);
+        if (ratio > 0.4 && 75 > primaryScore) { primaryScore = 75; primaryReason = 'Partial Associated Label Match'; }
       }
     }
 
@@ -219,8 +221,9 @@ export class HeuristicMatcher {
       const accName = ariaLabel || innerText;
       if (accName === target) {
         if (88 > primaryScore) { primaryScore = 88; primaryReason = `Exact ARIA Role (${cand.role}) & Name Match`; }
-      } else if (accName.includes(target) || target.includes(accName)) {
-        if (70 > primaryScore) { primaryScore = 70; primaryReason = `Partial ARIA Role (${cand.role}) & Name Match`; }
+      } else if ((accName.includes(target) || target.includes(accName)) && accName.length > 3 && target.length > 3) {
+        const ratio = Math.min(accName.length, target.length) / Math.max(accName.length, target.length);
+        if (ratio > 0.4 && 70 > primaryScore) { primaryScore = 70; primaryReason = `Partial ARIA Role (${cand.role}) & Name Match`; }
       }
     }
 
@@ -228,8 +231,9 @@ export class HeuristicMatcher {
     if (innerText) {
       if (innerText === target) {
         if (85 > primaryScore) { primaryScore = 85; primaryReason = 'Exact InnerText Match'; }
-      } else if (innerText.includes(target)) {
-        if (60 > primaryScore) { primaryScore = 60; primaryReason = 'Partial InnerText Match'; }
+      } else if (innerText.includes(target) && innerText.length > 3 && target.length > 3) {
+        const ratio = Math.min(innerText.length, target.length) / Math.max(innerText.length, target.length);
+        if (ratio > 0.3 && 60 > primaryScore) { primaryScore = 60; primaryReason = 'Partial InnerText Match'; }
       }
     }
 
@@ -237,15 +241,17 @@ export class HeuristicMatcher {
     if (placeholder) {
       if (placeholder === target) {
         if (80 > primaryScore) { primaryScore = 80; primaryReason = 'Exact Placeholder Match'; }
-      } else if (placeholder.includes(target)) {
-        if (65 > primaryScore) { primaryScore = 65; primaryReason = 'Partial Placeholder Match'; }
+      } else if (placeholder.includes(target) && placeholder.length > 3 && target.length > 3) {
+        const ratio = Math.min(placeholder.length, target.length) / Math.max(placeholder.length, target.length);
+        if (ratio > 0.4 && 65 > primaryScore) { primaryScore = 65; primaryReason = 'Partial Placeholder Match'; }
       }
     }
     if (ariaLabel) {
       if (ariaLabel === target) {
         if (80 > primaryScore) { primaryScore = 80; primaryReason = 'Exact Aria-Label Match'; }
-      } else if (ariaLabel.includes(target)) {
-        if (65 > primaryScore) { primaryScore = 65; primaryReason = 'Partial Aria-Label Match'; }
+      } else if (ariaLabel.includes(target) && ariaLabel.length > 3 && target.length > 3) {
+        const ratio = Math.min(ariaLabel.length, target.length) / Math.max(ariaLabel.length, target.length);
+        if (ratio > 0.4 && 65 > primaryScore) { primaryScore = 65; primaryReason = 'Partial Aria-Label Match'; }
       }
     }
 

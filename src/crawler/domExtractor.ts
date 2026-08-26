@@ -128,9 +128,8 @@ export class DOMExtractor {
     }
 
     if (step.action === 'fill' && step.value) {
-      await locator.fill(step.value, { force: true, timeout: 5000 });
-      await locator.press('Space').catch(() => {});
-      await locator.press('Backspace').catch(() => {});
+      await locator.fill('');
+      await locator.pressSequentially(step.value, { delay: 50, timeout: 5000 });
     } else if (step.action === 'click') {
       // Use waitForURL pattern instead of deprecated waitForNavigation
       const currentUrl = page.url();
