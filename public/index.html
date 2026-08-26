@@ -239,9 +239,14 @@
           <label
             style="font-family: var(--font-mono); font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.2px; color: var(--primary); margin: 0;">Generated
             Playwright Code</label>
-          <div class="code-actions">
-            <button class="btn-pill-outline" id="btnCopyCode" onclick="copyCode()">Copy Code</button>
-            <button class="btn-pill-outline" id="btnDownloadCode" onclick="downloadCode()">Download File</button>
+          <div class="code-actions" style="display: flex; gap: 8px; align-items: center;">
+            <select id="exportFormat" style="padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border); font-size: 13px; font-family: var(--font-sans); background: var(--bg); cursor: pointer; outline: none; color: var(--foreground);">
+              <option value="code">Code (.spec/.js)</option>
+              <option value="yaml">Flow (.yaml)</option>
+              <option value="json">Flow (.json)</option>
+            </select>
+            <button class="btn-pill-outline" id="btnCopyCode" onclick="copyCode()">Copy</button>
+            <button class="btn-pill-outline" id="btnDownloadCode" onclick="downloadCode()">Download</button>
           </div>
         </div>
 

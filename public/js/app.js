@@ -694,25 +694,77 @@
     }
 
     function copyCode() {
-      const code = document.getElementById('codeOutput').textContent;
-      navigator.clipboard.writeText(code).then(() => {
-        Swal.fire({ icon: 'success', title: 'Copied!', text: 'Generated code copied to clipboard!', timer: 2000, showConfirmButton: false, toast: true, position: 'top-end' });
+      const format = document.getElementById('exportFormat') ? document.getElementById('exportFormat').value : 'code';
+      let contentToCopy = '';
+      if (format === 'code') {
+         contentToCopy = document.getElementById('codeOutput').textContent;
+      } else {
+         const data = {
+           testSuite: document.getElementById('testSuite').value,
+           targetUrl: document.getElementById('targetUrl').value,
+           framework: document.getElementById('framework').value,
+           language: document.getElementById('language').value,
+           steps: steps.map(s => {
+             const out = { action: s.action, targetLabel: s.targetLabel, description: s.description };
+             if (s.value) out.value = s.value;
+             if (s.options) out.options = s.options;
+             return out;
+           })
+         };
+         if (format === 'yaml') {
+            contentToCopy = jsyaml.dump(data, { indent: 2, lineWidth: -1 });
+         } else if (format === 'json') {
+            contentToCopy = JSON.stringify(data, null, 2);
+         }
+      }
+
+      navigator.clipboard.writeText(contentToCopy).then(() => {
+        Swal.fire({ icon: 'success', title: 'Copied!', text: 'Content copied to clipboard!', timer: 2000, showConfirmButton: false, toast: true, position: 'top-end' });
       });
     }
 
     function downloadCode() {
-      const code = document.getElementById('codeOutput').textContent;
-      const lang = document.getElementById('language').value;
+      const format = document.getElementById('exportFormat') ? document.getElementById('exportFormat').value : 'code';
       const testSuiteName = document.getElementById('testSuite').value;
       
       let baseFilename = testSuiteName.trim().replace(/\s+/g, '_');
       if (!baseFilename) {
         baseFilename = 'test-spec';
       }
-      
-      const filename = `${baseFilename}.${lang === 'javascript' ? 'spec.js' : 'spec.ts'}`;
 
-      const blob = new Blob([code], { type: 'text/plain' });
+      let content = '';
+      let filename = '';
+      let mimeType = 'text/plain';
+
+      if (format === 'code') {
+        content = document.getElementById('codeOutput').textContent;
+        const lang = document.getElementById('language').value;
+        filename = `${baseFilename}.${lang === 'javascript' ? 'spec.js' : 'spec.ts'}`;
+      } else {
+         const data = {
+           testSuite: document.getElementById('testSuite').value,
+           targetUrl: document.getElementById('targetUrl').value,
+           framework: document.getElementById('framework').value,
+           language: document.getElementById('language').value,
+           steps: steps.map(s => {
+             const out = { action: s.action, targetLabel: s.targetLabel, description: s.description };
+             if (s.value) out.value = s.value;
+             if (s.options) out.options = s.options;
+             return out;
+           })
+         };
+         if (format === 'yaml') {
+            content = jsyaml.dump(data, { indent: 2, lineWidth: -1 });
+            filename = `${baseFilename}.yaml`;
+            mimeType = 'text/yaml';
+         } else if (format === 'json') {
+            content = JSON.stringify(data, null, 2);
+            filename = `${baseFilename}.json`;
+            mimeType = 'application/json';
+         }
+      }
+
+      const blob = new Blob([content], { type: mimeType });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
       link.download = filename;
