@@ -245,8 +245,8 @@
               <option value="yaml">Flow (.yaml)</option>
               <option value="json">Flow (.json)</option>
             </select>
-            <button class="btn-pill-outline" id="btnCopyCode" onclick="copyCode()">Copy</button>
-            <button class="btn-pill-outline" id="btnDownloadCode" onclick="downloadCode()">Download</button>
+            <button class="btn-pill-outline" id="btnCopyCode" onclick="copyCode()" disabled>Copy</button>
+            <button class="btn-pill-outline" id="btnDownloadCode" onclick="downloadCode()" disabled>Download</button>
           </div>
         </div>
 
@@ -275,7 +275,7 @@
               <option value="headless">Headless Mode</option>
               <option value="headed">Headed Mode (Visual Browser)</option>
             </select>
-            <button class="btn-pill-primary" id="btnRunTest" onclick="runGeneratedTest()" style="padding: 6px 14px; font-size: 12px; height: 32px;">
+            <button class="btn-pill-primary" id="btnRunTest" onclick="runGeneratedTest()" style="padding: 6px 14px; font-size: 12px; height: 32px;" disabled>
               Run Script Now
             </button>
           </div>

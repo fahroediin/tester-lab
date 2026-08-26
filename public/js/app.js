@@ -77,6 +77,15 @@
             toast: true,
             position: 'top-end'
           });
+
+          // Enable actions
+          const btnCopyCode = document.getElementById('btnCopyCode');
+          const btnDownloadCode = document.getElementById('btnDownloadCode');
+          const btnRunTest = document.getElementById('btnRunTest');
+          if (btnCopyCode) btnCopyCode.disabled = false;
+          if (btnDownloadCode) btnDownloadCode.disabled = false;
+          if (btnRunTest) btnRunTest.disabled = false;
+
         } catch (err) {
           Swal.fire({ icon: 'error', title: 'Import Failed', text: 'Failed to read spec file: ' + err.message, confirmButtonColor: '#005bbf' });
         }
