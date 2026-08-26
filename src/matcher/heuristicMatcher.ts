@@ -382,7 +382,7 @@ export class HeuristicMatcher {
       const cleanText = cand.innerText.replace(/[\uE000-\uF8FF\u2000-\u206F]/g, '').trim();
       return {
         selectorType: 'getByText',
-        selectorValue: cleanText || target
+        selectorValue: cleanText.length > target.length * 1.5 ? target : (cleanText || target)
       };
     }
 
