@@ -87,46 +87,69 @@
           description = description.replace(/^Step\s+\d+:\s*/i, '');
         }
 
-        const actionHelperMatch = line.match(/action\(['"](fill|select)['"],\s*['"](.*?)['"],\s*['"](.*?)['"]\)/);
+        // Handle old legacyAction or action helper
+        const actionHelperMatch = line.match(/(?:legacyAction|action)\(['"](fill|select)['"],\s*['"](.*?)['"],\s*['"](.*?)['"]\)/);
         if (actionHelperMatch) {
            parsedSteps.push({ action: actionHelperMatch[1], targetLabel: actionHelperMatch[2], value: actionHelperMatch[3], description });
            continue;
         }
 
-        const locatorMatch = line.match(/getByTestId\(['"](.*?)['"]\)|getByLabel\(['"](.*?)['"]|getByRole\(['"].*?['"]|getByPlaceholder\(['"](.*?)['"]\)|getByText\(['"](.*?)['"]\)|locator\(['"](.*?)['"]\)/);
+        // Try to extract the target label from locators
         let targetLabel = '';
-        if (locatorMatch) {
-          targetLabel = locatorMatch[1] || locatorMatch[2] || locatorMatch[4] || locatorMatch[5] || locatorMatch[6] || '';
-          if (line.includes('getByRole')) {
-            const roleNameMatch = line.match(/name:\s*['"](.*?)['"]/);
-            if (roleNameMatch) targetLabel = roleNameMatch[1];
-            else {
-               const roleMatch = line.match(/getByRole\(['"](.*?)['"]/);
-               if (roleMatch) targetLabel = roleMatch[1];
-            }
+        const locatorStrMatch = line.match(/(getByTestId|getByLabel|getByPlaceholder|getByText|locator)\((.*?)\)/);
+        if (locatorStrMatch) {
+          const innerArgs = locatorStrMatch[2];
+          const strMatch = innerArgs.match(/['"](.*?)['"]/);
+          if (strMatch) targetLabel = strMatch[1];
+        } else if (line.includes('getByRole')) {
+          const roleNameMatch = line.match(/name:\s*(?:new\s+RegExp\(['"]|['"])(.*?)(?:['"]\s*,\s*['"]i['"]\)|['"])/);
+          if (roleNameMatch) targetLabel = roleNameMatch[1];
+          else {
+             const roleMatch = line.match(/getByRole\(['"](.*?)['"]/);
+             if (roleMatch) targetLabel = roleMatch[1];
           }
         }
 
+        // Handle maestro.interact
+        if (line.includes('maestro.interact')) {
+           const actionMatch = line.match(/,\s*['"](click|fill|select|check|uncheck|upload|assert_visible|assert_text)['"]/);
+           if (!actionMatch) continue;
+           const action = actionMatch[1];
+           
+           let value = '';
+           if (['fill', 'select', 'upload'].includes(action)) {
+             const valMatch = line.match(/,\s*['"](?:click|fill|select|check|uncheck|upload|assert_visible|assert_text)['"]\s*,\s*['"](.*?)['"]/);
+             if (valMatch) value = valMatch[1];
+           } else if (action === 'assert_text') {
+             const valMatch = line.match(/,\s*undefined\s*,\s*['"](.*?)['"]/);
+             if (valMatch) value = valMatch[1];
+           }
+           
+           parsedSteps.push({ action, targetLabel, value, description });
+           continue;
+        }
+
+        // Handle old format
         if (line.includes('.fill(')) {
-          const valMatch = line.match(/\.fill\(['"](.*?)['"]\)/);
+          const valMatch = line.match(/\.fill\(['"](.*?)['"]/);
           if (valMatch) parsedSteps.push({ action: 'fill', targetLabel, value: valMatch[1], description });
         } else if (line.includes('.click(')) {
           parsedSteps.push({ action: 'click', targetLabel, value: '', description });
         } else if (line.includes('.selectOption(')) {
-          const valMatch = line.match(/\.selectOption\(['"](.*?)['"]\)/);
+          const valMatch = line.match(/\.selectOption\(['"](.*?)['"]/);
           if (valMatch) parsedSteps.push({ action: 'select', targetLabel, value: valMatch[1], description });
         } else if (line.includes('.check(')) {
           parsedSteps.push({ action: 'check', targetLabel, value: '', description });
         } else if (line.includes('.uncheck(')) {
           parsedSteps.push({ action: 'uncheck', targetLabel, value: '', description });
         } else if (line.includes('.setInputFiles(')) {
-          const valMatch = line.match(/\.setInputFiles\(['"](.*?)['"]\)/);
+          const valMatch = line.match(/\.setInputFiles\(['"](.*?)['"]/);
           if (valMatch) parsedSteps.push({ action: 'upload', targetLabel, value: valMatch[1], description });
         } else if (line.includes('toHaveURL(')) {
-          const urlMatch = line.match(/RegExp\(['"](.*?)['"]\)/) || line.match(/toHaveURL\(['"](.*?)['"]\)/);
+          const urlMatch = line.match(/RegExp\(['"](.*?)['"]/) || line.match(/toHaveURL\(['"](.*?)['"]/);
           if (urlMatch) parsedSteps.push({ action: 'assert_url', targetLabel: '', value: urlMatch[1], description });
         } else if (line.includes('toContainText(')) {
-          const textMatch = line.match(/\.toContainText\(['"](.*?)['"]\)/);
+          const textMatch = line.match(/toContainText\((?:new\s+RegExp\(['"]|['"])(.*?)(?:['"]\s*,\s*['"]i['"]\)|['"])/);
           if (textMatch) parsedSteps.push({ action: 'assert_text', targetLabel, value: textMatch[1], description });
         } else if (line.includes('toBeVisible(')) {
           parsedSteps.push({ action: 'assert_visible', targetLabel, value: '', description });
