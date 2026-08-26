@@ -80,7 +80,11 @@ export class DOMExtractor {
         // Perform action on crawler page to transition DOM state for subsequent steps
         // IMPORTANT: Use resolved.action (auto-corrected by matcher) instead of step.action (original DSL)
         const effectiveAction = resolved.action;
-        if (resolved.matchScore > 0 && ['fill', 'click', 'select', 'check', 'uncheck', 'upload'].includes(effectiveAction)) {
+        
+        if (effectiveAction === 'wait') {
+          const waitTime = parseInt(step.value || '1000', 10);
+          await page.waitForTimeout(waitTime);
+        } else if (resolved.matchScore > 0 && ['fill', 'click', 'select', 'check', 'uncheck', 'upload'].includes(effectiveAction)) {
           try {
             await this.performActionOnPage(page, { ...step, action: effectiveAction }, resolved);
             // Only wait heavily on clicks (page transitions). Fills and selects just need a short reactive delay.
@@ -129,7 +133,19 @@ export class DOMExtractor {
     } else if (step.action === 'click') {
       // Use waitForURL pattern instead of deprecated waitForNavigation
       const currentUrl = page.url();
-      await locator.click({ force: true, timeout: 5000 });
+      try {
+        await locator.click({ force: true, timeout: 3000 });
+      } catch (e) {
+        if (step.targetLabel) {
+          try {
+            await page.locator(`text="${step.targetLabel}"`).first().click({ force: true, timeout: 2000 });
+          } catch (e2) {
+            throw e;
+          }
+        } else {
+          throw e;
+        }
+      }
       // Wait briefly for potential navigation
       await page.waitForURL((url) => url.toString() !== currentUrl, { timeout: 3000 }).catch(() => {});
     } else if (step.action === 'select' && step.value) {
