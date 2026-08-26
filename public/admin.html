@@ -137,11 +137,16 @@
       height: 34px !important;
     }
 
-    .btn-pill-outline:hover {
+    .btn-pill-outline:hover:not(:disabled) {
       background-color: #f8fafc !important;
       border-color: #94a3b8 !important;
       color: var(--action-blue) !important;
       transform: translateY(-1px) !important;
+    }
+
+    .btn-pill-outline:disabled {
+      opacity: 0.5;
+      cursor: not-allowed !important;
     }
 
     .container {
@@ -150,6 +155,44 @@
       margin: 32px auto;
       padding: 0 24px;
       flex: 1;
+    }
+
+    /* Tabs Styling */
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--hairline);
+      margin-bottom: 24px;
+      gap: 16px;
+    }
+
+    .tab-button {
+      background: none;
+      border: none;
+      padding: 12px 16px;
+      font-family: var(--font-body);
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--body-muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s ease;
+    }
+
+    .tab-button:hover {
+      color: var(--ink);
+    }
+
+    .tab-button.active {
+      color: var(--ink);
+      border-bottom: 2px solid var(--action-blue);
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
     }
 
     .card {
@@ -236,6 +279,16 @@
       color: var(--coral);
     }
 
+    .pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+      margin-top: 24px;
+      font-size: 13px;
+      color: var(--body-muted);
+    }
+
     footer {
       border-top: 1px solid var(--hairline);
       background: var(--canvas);
@@ -278,62 +331,78 @@
   </header>
 
   <div class="container">
-    <div class="card">
-      <div class="card-header">
-        <div>
-          <div class="card-title">User Registration Requests</div>
-          <div class="card-subtitle">Review, approve, or reject pending account requests for Tester Lab</div>
-        </div>
-        <button type="button" class="btn-pill-outline" onclick="loadUsers()">Refresh Data</button>
-      </div>
+    
+    <div class="tabs">
+      <button class="tab-button active" onclick="switchTab('users')" id="tab-btn-users">User Management</button>
+      <button class="tab-button" onclick="switchTab('logs')" id="tab-btn-logs">Activity Logs</button>
+    </div>
 
-      <div style="overflow-x: auto;">
-        <table class="summary-table">
-          <thead>
-            <tr>
-              <th>Username</th>
-              <th>Email</th>
-              <th>Role</th>
-              <th>Status</th>
-              <th>Registered At</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="userTableBody">
-            <tr>
-              <td colspan="6" style="text-align: center; padding: 24px;">Loading user accounts...</td>
-            </tr>
-          </tbody>
-        </table>
+    <!-- USERS TAB -->
+    <div class="tab-content active" id="tab-users">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">User Registration Requests</div>
+            <div class="card-subtitle">Review, approve, or reject pending account requests for Tester Lab</div>
+          </div>
+          <button type="button" class="btn-pill-outline" onclick="fetchUsers()">Refresh Data</button>
+        </div>
+
+        <div style="overflow-x: auto;">
+          <table class="summary-table">
+            <thead>
+              <tr>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Registered At</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="userTableBody">
+              <tr>
+                <td colspan="6" style="text-align: center; padding: 24px;">Loading user accounts...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div id="usersPagination" class="pagination"></div>
       </div>
     </div>
-    <div class="card" style="margin-top: 32px;">
-      <div class="card-header">
-        <div>
-          <div class="card-title">Activity Logs</div>
-          <div class="card-subtitle">Recent user activities and system events</div>
-        </div>
-        <button type="button" class="btn-pill-outline" onclick="loadLogs()">Refresh Logs</button>
-      </div>
 
-      <div style="overflow-x: auto;">
-        <table class="summary-table">
-          <thead>
-            <tr>
-              <th>Timestamp</th>
-              <th>Username</th>
-              <th>Action</th>
-              <th>Details</th>
-            </tr>
-          </thead>
-          <tbody id="logsTableBody">
-            <tr>
-              <td colspan="4" style="text-align: center; padding: 24px;">Loading activity logs...</td>
-            </tr>
-          </tbody>
-        </table>
+    <!-- LOGS TAB -->
+    <div class="tab-content" id="tab-logs">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Activity Logs</div>
+            <div class="card-subtitle">Recent user activities and system events</div>
+          </div>
+          <button type="button" class="btn-pill-outline" onclick="fetchLogs()">Refresh Logs</button>
+        </div>
+
+        <div style="overflow-x: auto;">
+          <table class="summary-table">
+            <thead>
+              <tr>
+                <th>Timestamp</th>
+                <th>Username</th>
+                <th>Action</th>
+                <th>Details</th>
+              </tr>
+            </thead>
+            <tbody id="logsTableBody">
+              <tr>
+                <td colspan="4" style="text-align: center; padding: 24px;">Loading activity logs...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div id="logsPagination" class="pagination"></div>
       </div>
     </div>
+
   </div>
 
   <footer>
@@ -343,6 +412,12 @@
 
   <script>
     const authToken = localStorage.getItem('tester_jwt_token') || '';
+
+    let allUsers = [];
+    let allLogs = [];
+    let currentUsersPage = 1;
+    let currentLogsPage = 1;
+    const ITEMS_PER_PAGE = 10;
 
     function getAuthHeaders() {
       return {
@@ -380,14 +455,51 @@
           badge.textContent = `${data.user.username} (${data.user.role})`;
         }
 
-        await loadUsers();
-        await loadLogs();
+        await fetchUsers();
+        await fetchLogs();
       } catch (err) {
         window.location.href = '/';
       }
     }
 
-    async function loadUsers() {
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab-button').forEach(el => el.classList.remove('active'));
+      
+      document.getElementById(`tab-${tabName}`).classList.add('active');
+      document.getElementById(`tab-btn-${tabName}`).classList.add('active');
+    }
+
+    function renderPagination(containerId, currentPage, totalItems, type) {
+      const container = document.getElementById(containerId);
+      const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+      
+      if (totalPages <= 1) {
+        container.innerHTML = '';
+        return;
+      }
+      
+      const prevDisabled = currentPage === 1 ? 'disabled' : '';
+      const nextDisabled = currentPage === totalPages ? 'disabled' : '';
+      
+      container.innerHTML = `
+        <button class="btn-pill-outline" ${prevDisabled} onclick="changePage('${type}', -1)">Previous</button>
+        <span>Page ${currentPage} of ${totalPages}</span>
+        <button class="btn-pill-outline" ${nextDisabled} onclick="changePage('${type}', 1)">Next</button>
+      `;
+    }
+
+    function changePage(type, delta) {
+      if (type === 'users') {
+        currentUsersPage += delta;
+        renderUsersTable();
+      } else {
+        currentLogsPage += delta;
+        renderLogsTable();
+      }
+    }
+
+    async function fetchUsers() {
       const tbody = document.getElementById('userTableBody');
       if (!tbody) return;
       tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 24px;">Loading user accounts...</td></tr>';
@@ -403,47 +515,62 @@
           return;
         }
 
-        tbody.innerHTML = '';
-        if (data.users.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 24px;">No user accounts found.</td></tr>';
-          return;
-        }
-
-        data.users.forEach((u) => {
-          const tr = document.createElement('tr');
-          const statusClass = u.status === 'approved' ? 'status-approved' : (u.status === 'rejected' ? 'status-rejected' : 'status-pending');
-
-          let actionBtns = '';
-          if (u.status === 'pending') {
-            actionBtns = `
-              <button class="btn-pill-outline" onclick="approveUser('${u.id}')" style="border-color:#16a34a; color:#16a34a; padding:4px 10px; font-size:12px;">Approve</button>
-              <button class="btn-pill-outline" onclick="rejectUser('${u.id}')" style="border-color:#dc2626; color:#dc2626; padding:4px 10px; font-size:12px;">Reject</button>
-            `;
-          } else if (u.status === 'rejected') {
-            actionBtns = `
-              <button class="btn-pill-outline" onclick="approveUser('${u.id}')" style="border-color:#16a34a; color:#16a34a; padding:4px 10px; font-size:12px;">Approve</button>
-            `;
-          } else {
-            actionBtns = `<span style="font-size:12px; color:var(--body-muted);">Approved</span>`;
-          }
-
-          if (u.username !== 'admin') {
-            actionBtns += ` <button class="btn-pill-outline" onclick="deleteUserAccount('${u.id}')" style="padding:4px 10px; font-size:12px;">Delete</button>`;
-          }
-
-          tr.innerHTML = `
-            <td><strong>${u.username}</strong></td>
-            <td>${u.email}</td>
-            <td><span style="font-family:var(--font-mono); font-size:11px;">${u.role}</span></td>
-            <td><span class="status-badge ${statusClass}">${u.status}</span></td>
-            <td><span style="font-size:12px;">${new Date(u.createdAt).toLocaleString()}</span></td>
-            <td><div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">${actionBtns}</div></td>
-          `;
-          tbody.appendChild(tr);
-        });
+        allUsers = data.users || [];
+        currentUsersPage = 1;
+        renderUsersTable();
       } catch (err) {
         tbody.innerHTML = `<tr><td colspan="6" style="color:var(--coral); text-align:center; padding: 24px;">Failed to load accounts: ${err.message}</td></tr>`;
       }
+    }
+
+    function renderUsersTable() {
+      const tbody = document.getElementById('userTableBody');
+      if (!tbody) return;
+
+      if (allUsers.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 24px;">No user accounts found.</td></tr>';
+        document.getElementById('usersPagination').innerHTML = '';
+        return;
+      }
+
+      const startIdx = (currentUsersPage - 1) * ITEMS_PER_PAGE;
+      const pageUsers = allUsers.slice(startIdx, startIdx + ITEMS_PER_PAGE);
+
+      tbody.innerHTML = '';
+      pageUsers.forEach((u) => {
+        const tr = document.createElement('tr');
+        const statusClass = u.status === 'approved' ? 'status-approved' : (u.status === 'rejected' ? 'status-rejected' : 'status-pending');
+
+        let actionBtns = '';
+        if (u.status === 'pending') {
+          actionBtns = `
+            <button class="btn-pill-outline" onclick="approveUser('${u.id}')" style="border-color:#16a34a; color:#16a34a; padding:4px 10px; font-size:12px;">Approve</button>
+            <button class="btn-pill-outline" onclick="rejectUser('${u.id}')" style="border-color:#dc2626; color:#dc2626; padding:4px 10px; font-size:12px;">Reject</button>
+          `;
+        } else if (u.status === 'rejected') {
+          actionBtns = `
+            <button class="btn-pill-outline" onclick="approveUser('${u.id}')" style="border-color:#16a34a; color:#16a34a; padding:4px 10px; font-size:12px;">Approve</button>
+          `;
+        } else {
+          actionBtns = `<span style="font-size:12px; color:var(--body-muted);">Approved</span>`;
+        }
+
+        if (u.username !== 'admin') {
+          actionBtns += ` <button class="btn-pill-outline" onclick="deleteUserAccount('${u.id}')" style="padding:4px 10px; font-size:12px;">Delete</button>`;
+        }
+
+        tr.innerHTML = `
+          <td><strong>${u.username}</strong></td>
+          <td>${u.email}</td>
+          <td><span style="font-family:var(--font-mono); font-size:11px;">${u.role}</span></td>
+          <td><span class="status-badge ${statusClass}">${u.status}</span></td>
+          <td><span style="font-size:12px;">${new Date(u.createdAt).toLocaleString()}</span></td>
+          <td><div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">${actionBtns}</div></td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      renderPagination('usersPagination', currentUsersPage, allUsers.length, 'users');
     }
 
     async function approveUser(id) {
@@ -455,7 +582,8 @@
         const data = await response.json();
         if (data.success) {
           Swal.fire({ icon: 'success', title: 'Account Approved', text: data.message, timer: 1800, showConfirmButton: false, toast: true, position: 'top-end' });
-          await loadUsers();
+          await fetchUsers();
+          await fetchLogs();
         } else {
           Swal.fire({ icon: 'error', title: 'Action Failed', text: data.error, confirmButtonColor: '#005bbf' });
         }
@@ -473,7 +601,8 @@
         const data = await response.json();
         if (data.success) {
           Swal.fire({ icon: 'info', title: 'Account Rejected', text: data.message, timer: 1800, showConfirmButton: false, toast: true, position: 'top-end' });
-          await loadUsers();
+          await fetchUsers();
+          await fetchLogs();
         } else {
           Swal.fire({ icon: 'error', title: 'Action Failed', text: data.error, confirmButtonColor: '#005bbf' });
         }
@@ -503,7 +632,8 @@
         const data = await response.json();
         if (data.success) {
           Swal.fire({ icon: 'success', title: 'Account Deleted', text: data.message, timer: 1800, showConfirmButton: false, toast: true, position: 'top-end' });
-          await loadUsers();
+          await fetchUsers();
+          await fetchLogs();
         } else {
           Swal.fire({ icon: 'error', title: 'Action Failed', text: data.error, confirmButtonColor: '#005bbf' });
         }
@@ -512,7 +642,7 @@
       }
     }
 
-    async function loadLogs() {
+    async function fetchLogs() {
       const tbody = document.getElementById('logsTableBody');
       if (!tbody) return;
       tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 24px;">Loading activity logs...</td></tr>';
@@ -528,34 +658,49 @@
           return;
         }
 
-        tbody.innerHTML = '';
-        if (data.logs.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 24px;">No activity logs found.</td></tr>';
-          return;
-        }
-
-        data.logs.forEach((log) => {
-          const tr = document.createElement('tr');
-          let actionClass = '';
-          if (log.action.includes('Failed') || log.action.includes('Reject') || log.action.includes('Delete')) {
-            actionClass = 'color: #dc2626;'; 
-          } else if (log.action.includes('Approve') || log.action.includes('Success')) {
-            actionClass = 'color: #16a34a;'; 
-          } else {
-            actionClass = 'color: var(--action-blue);';
-          }
-          
-          tr.innerHTML = `
-            <td style="white-space: nowrap; font-family: var(--font-mono); font-size: 11px;">${new Date(log.timestamp).toLocaleString()}</td>
-            <td><strong>${log.username}</strong></td>
-            <td><span style="font-family: var(--font-mono); font-size: 12px; font-weight: 600; ${actionClass}">${log.action}</span></td>
-            <td style="color: var(--body-muted);">${log.details}</td>
-          `;
-          tbody.appendChild(tr);
-        });
+        allLogs = data.logs || [];
+        currentLogsPage = 1;
+        renderLogsTable();
       } catch (err) {
         tbody.innerHTML = `<tr><td colspan="4" style="color:var(--coral); text-align:center; padding: 24px;">Failed to load logs: ${err.message}</td></tr>`;
       }
+    }
+
+    function renderLogsTable() {
+      const tbody = document.getElementById('logsTableBody');
+      if (!tbody) return;
+
+      if (allLogs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 24px;">No activity logs found.</td></tr>';
+        document.getElementById('logsPagination').innerHTML = '';
+        return;
+      }
+
+      const startIdx = (currentLogsPage - 1) * ITEMS_PER_PAGE;
+      const pageLogs = allLogs.slice(startIdx, startIdx + ITEMS_PER_PAGE);
+
+      tbody.innerHTML = '';
+      pageLogs.forEach((log) => {
+        const tr = document.createElement('tr');
+        let actionClass = '';
+        if (log.action.includes('Failed') || log.action.includes('Reject') || log.action.includes('Delete')) {
+          actionClass = 'color: #dc2626;'; 
+        } else if (log.action.includes('Approve') || log.action.includes('Success')) {
+          actionClass = 'color: #16a34a;'; 
+        } else {
+          actionClass = 'color: var(--action-blue);';
+        }
+        
+        tr.innerHTML = `
+          <td style="white-space: nowrap; font-family: var(--font-mono); font-size: 11px;">${new Date(log.timestamp).toLocaleString()}</td>
+          <td><strong>${log.username}</strong></td>
+          <td><span style="font-family: var(--font-mono); font-size: 12px; font-weight: 600; ${actionClass}">${log.action}</span></td>
+          <td style="color: var(--body-muted);">${log.details}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      renderPagination('logsPagination', currentLogsPage, allLogs.length, 'logs');
     }
 
     function handleLogout() {
