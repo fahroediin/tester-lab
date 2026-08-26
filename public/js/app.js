@@ -600,7 +600,14 @@
     function downloadCode() {
       const code = document.getElementById('codeOutput').textContent;
       const lang = document.getElementById('language').value;
-      const filename = `test-spec.${lang === 'javascript' ? 'spec.js' : 'spec.ts'}`;
+      const testSuiteName = document.getElementById('testSuite').value;
+      
+      let baseFilename = testSuiteName.trim().replace(/\s+/g, '_');
+      if (!baseFilename) {
+        baseFilename = 'test-spec';
+      }
+      
+      const filename = `${baseFilename}.${lang === 'javascript' ? 'spec.js' : 'spec.ts'}`;
 
       const blob = new Blob([code], { type: 'text/plain' });
       const link = document.createElement('a');
