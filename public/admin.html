@@ -473,11 +473,12 @@
                 <th>Type</th>
                 <th>Details</th>
                 <th>Attached File</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody id="feedbacksTableBody">
               <tr>
-                <td colspan="4" style="text-align: center; padding: 24px;">Loading feedbacks...</td>
+                <td colspan="5" style="text-align: center; padding: 24px;">Loading feedbacks...</td>
               </tr>
             </tbody>
           </table>
@@ -802,7 +803,7 @@
     async function fetchFeedbacks() {
       const tbody = document.getElementById('feedbacksTableBody');
       if (!tbody) return;
-      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 24px;">Loading feedbacks...</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 24px;">Loading feedbacks...</td></tr>';
 
       try {
         const response = await fetch('/api/v1/admin/feedbacks?limit=1000', {
@@ -811,7 +812,7 @@
         const data = await response.json();
 
         if (!data.success) {
-          tbody.innerHTML = `<tr><td colspan="4" style="color:var(--coral); text-align:center; padding: 24px;">${data.error}</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="5" style="color:var(--coral); text-align:center; padding: 24px;">${data.error}</td></tr>`;
           return;
         }
 
@@ -819,7 +820,7 @@
         currentFeedbacksPage = 1;
         renderFeedbacksTable();
       } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="4" style="color:var(--coral); text-align:center; padding: 24px;">Failed to load feedbacks: ${err.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" style="color:var(--coral); text-align:center; padding: 24px;">Failed to load feedbacks: ${err.message}</td></tr>`;
       }
     }
 
@@ -828,7 +829,7 @@
       if (!tbody) return;
 
       if (allFeedbacks.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 24px;">No user feedbacks found.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 24px;">No user feedbacks found.</td></tr>';
         document.getElementById('feedbacksPagination').innerHTML = '';
         return;
       }
@@ -856,8 +857,10 @@
           <td>
             <div style="display: flex; align-items: center; justify-content: flex-start; gap: 12px;">
               ${fileCol}
-              <button class="btn-pill-outline" onclick="deleteFeedback('${f.id}')" style="padding:4px 10px; font-size:11px; color:#dc2626; border-color:#dc2626;">Delete</button>
             </div>
+          </td>
+          <td>
+            <button class="btn-pill-outline" onclick="deleteFeedback('${f.id}')" style="padding:4px 10px; font-size:11px; color:#dc2626; border-color:#dc2626;">Delete</button>
           </td>
         `;
         tbody.appendChild(tr);
