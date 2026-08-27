@@ -26,6 +26,73 @@
       }
     }
 
+    function parseSpecToSteps(code) {
+      const parsedSteps = [];
+      const lines = code.split('\n');
+      
+      let currentStep = null;
+      
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        
+        const stepMatch = line.match(/\/\/\s*Step\s*\d+:\s*(.*)/i);
+        if (stepMatch) {
+          currentStep = {
+            action: 'fill',
+            targetLabel: '',
+            value: '',
+            description: stepMatch[1].trim()
+          };
+          
+          const descMatch = currentStep.description.match(/^([a-z_]+)\s*->\s*(.*)/i);
+          if (descMatch) {
+            currentStep.action = descMatch[1].toLowerCase();
+            currentStep.targetLabel = descMatch[2].trim();
+          }
+          continue;
+        }
+        
+        if (currentStep) {
+          if (line.includes('maestro.interact') || line.includes('legacyAction')) {
+            const argsMatch = line.match(/'([^'\\]*(?:\\.[^'\\]*)*)'/g);
+            if (argsMatch && argsMatch.length > 0) {
+               const cleanedArgs = argsMatch.map(s => s.replace(/^'|'$/g, ''));
+               if (!currentStep.targetLabel && cleanedArgs.length > 0) {
+                 currentStep.targetLabel = cleanedArgs[0];
+               }
+               if (cleanedArgs.length > 1) {
+                 // Try to guess if it's an action name like 'fill', 'click'
+                 const actionIdx = cleanedArgs.findIndex(a => ['fill', 'click', 'select', 'check'].includes(a));
+                 if (actionIdx !== -1) currentStep.action = cleanedArgs[actionIdx];
+                 
+                 // Usually the last arg is the value if it's a fill/select
+                 if (currentStep.action === 'fill' || currentStep.action === 'select') {
+                   currentStep.value = cleanedArgs[cleanedArgs.length - 1];
+                 }
+               }
+            }
+            parsedSteps.push(currentStep);
+            currentStep = null;
+          } else if (line.includes('page.waitForTimeout(')) {
+            const timeoutMatch = line.match(/waitForTimeout\((\d+)\)/);
+            if (timeoutMatch) {
+              currentStep.action = 'wait';
+              currentStep.value = timeoutMatch[1];
+            }
+            parsedSteps.push(currentStep);
+            currentStep = null;
+          } else if (line.includes('expect(')) {
+            currentStep.action = line.includes('toHaveURL') ? 'assert_url' : 'assert_text';
+            const valMatch = line.match(/'([^']*)'/);
+            if (valMatch) currentStep.value = valMatch[1];
+            parsedSteps.push(currentStep);
+            currentStep = null;
+          }
+        }
+      }
+      return parsedSteps;
+    }
+
     function loadSampleScenario() {
       document.getElementById('testSuite').value = 'Standard Web Login Verification';
       document.getElementById('targetUrl').value = 'https://the-internet.herokuapp.com/login';
