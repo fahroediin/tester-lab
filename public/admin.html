@@ -488,23 +488,7 @@
 
   </div>
 
-  <!-- Feedback Detail Modal -->
-  <div class="modal-overlay" id="feedbackDetailModal" style="display: none;">
-    <div class="modal-card">
-      <div class="modal-header">
-        <h3>Feedback Details</h3>
-        <button class="modal-close" onclick="closeFeedbackDetail()">&times;</button>
-      </div>
-      <div style="margin-top: 16px;">
-        <div class="form-group" style="margin-top: 12px;">
-          <textarea id="feedbackDetailText" rows="10" readonly style="width: 100%; background: var(--canvas); cursor: text; resize: none;"></textarea>
-        </div>
-        <div style="margin-top: 24px; display: flex; justify-content: flex-end;">
-          <button class="btn-pill-outline" onclick="closeFeedbackDetail()">Close</button>
-        </div>
-      </div>
-    </div>
-  </div>
+
 
   <footer>
     <div>TESTER LAB • ADMIN PORTAL</div>
@@ -863,19 +847,15 @@
           fileCol = `<a href="/feedbacks/attachments/${f.attachment}" target="_blank" style="color:var(--action-blue); text-decoration:none; font-weight:500;">View File ↗</a>`;
         }
 
-        // Preview snippet
-        let snippet = f.details.length > 50 ? f.details.substring(0, 50) + '...' : f.details;
-
         tr.innerHTML = `
           <td>${ts}</td>
           <td><span class="status-chip" style="background:#e2e8f0; color:#334155; border:none;">${f.type}</span></td>
-          <td style="max-width:300px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${f.details.replace(/"/g, '&quot;')}">
-            ${snippet}
+          <td style="max-width:400px; white-space:normal; word-wrap:break-word; color:var(--body-muted);">
+            ${f.details}
           </td>
           <td>
-            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+            <div style="display: flex; align-items: center; justify-content: flex-start; gap: 8px;">
               ${fileCol}
-              <button class="btn-pill-outline" onclick="openFeedbackDetail(${globalIdx})" style="padding:4px 10px; font-size:11px;">View Details</button>
             </div>
           </td>
         `;
@@ -883,18 +863,6 @@
       });
 
       renderPagination('feedbacksPagination', currentFeedbacksPage, allFeedbacks.length, 'feedbacks');
-    }
-
-    function openFeedbackDetail(index) {
-      const feedback = allFeedbacks[index];
-      if (feedback) {
-        document.getElementById('feedbackDetailText').value = feedback.details;
-        document.getElementById('feedbackDetailModal').style.display = 'flex';
-      }
-    }
-
-    function closeFeedbackDetail() {
-      document.getElementById('feedbackDetailModal').style.display = 'none';
     }
 
     window.onload = verifyAdminAuth;
