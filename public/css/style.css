@@ -236,7 +236,7 @@ textarea:focus {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  max-height: 1320px;
+  max-height: 820px;
   overflow-y: auto;
   padding-right: 8px;
 }
