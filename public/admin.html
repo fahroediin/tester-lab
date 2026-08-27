@@ -854,8 +854,9 @@
             ${f.details}
           </td>
           <td>
-            <div style="display: flex; align-items: center; justify-content: flex-start; gap: 8px;">
+            <div style="display: flex; align-items: center; justify-content: flex-start; gap: 12px;">
               ${fileCol}
+              <button class="btn-pill-outline" onclick="deleteFeedback('${f.id}')" style="padding:4px 10px; font-size:11px; color:#dc2626; border-color:#dc2626;">Delete</button>
             </div>
           </td>
         `;
@@ -863,6 +864,36 @@
       });
 
       renderPagination('feedbacksPagination', currentFeedbacksPage, allFeedbacks.length, 'feedbacks');
+    }
+
+    async function deleteFeedback(id) {
+      const confirm = await Swal.fire({
+        title: 'Delete Feedback?',
+        text: "This action cannot be undone.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#66666e',
+        confirmButtonText: 'Yes, delete it!'
+      });
+
+      if (!confirm.isConfirmed) return;
+
+      try {
+        const response = await fetch(`/api/v1/admin/feedbacks/${id}`, {
+          method: 'DELETE',
+          headers: getAuthHeaders()
+        });
+        const data = await response.json();
+        if (data.success) {
+          Swal.fire({ icon: 'success', title: 'Deleted!', text: data.message, timer: 1800, showConfirmButton: false, toast: true, position: 'top-end' });
+          await fetchFeedbacks();
+        } else {
+          Swal.fire({ icon: 'error', title: 'Action Failed', text: data.error, confirmButtonColor: '#005bbf' });
+        }
+      } catch (err) {
+        Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#005bbf' });
+      }
     }
 
     window.onload = verifyAdminAuth;

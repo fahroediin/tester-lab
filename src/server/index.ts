@@ -361,6 +361,55 @@ app.get('/api/v1/admin/feedbacks', authenticateJWT, requireAdmin, (req: Authenti
 });
 
 /**
+ * DELETE /api/v1/admin/feedbacks/:id
+ * Delete user feedback (Admin only)
+ */
+app.delete('/api/v1/admin/feedbacks/:id', authenticateJWT, requireAdmin, (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const feedbackDir = path.join(process.cwd(), 'data', 'feedbacks');
+    const logFile = path.join(feedbackDir, 'feedbacks.json');
+    
+    if (!fs.existsSync(logFile)) {
+      return res.status(404).json({ success: false, error: 'Feedbacks not found' });
+    }
+    
+    let feedbacks: any[] = JSON.parse(fs.readFileSync(logFile, 'utf-8'));
+    const index = feedbacks.findIndex(f => f.id === id);
+    
+    if (index === -1) {
+      return res.status(404).json({ success: false, error: 'Feedback not found' });
+    }
+    
+    const feedback = feedbacks[index];
+    
+    // Delete attachment if it exists
+    if (feedback.attachment) {
+      const attachmentPath = path.join(feedbackDir, 'attachments', feedback.attachment);
+      if (fs.existsSync(attachmentPath)) {
+        fs.unlinkSync(attachmentPath);
+      }
+    }
+    
+    // Remove from array and save
+    feedbacks.splice(index, 1);
+    fs.writeFileSync(logFile, JSON.stringify(feedbacks, null, 2));
+    
+    addLog({
+      userId: req.user!.id,
+      username: req.user!.username,
+      action: 'Admin Delete Feedback',
+      details: `Deleted feedback ID '${id}'`
+    });
+
+    return res.json({ success: true, message: 'Feedback deleted successfully' });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message || 'Server error' });
+  }
+});
+
+
+/**
  * POST /api/v1/admin/users/:id/approve
  * Approve user registration request (Admin only)
  */
