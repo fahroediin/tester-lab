@@ -77,13 +77,16 @@ test('{{testSuite}}', async ({ page }) => {
     );
 
     const template = Handlebars.compile(templateSource);
+    const testTimeout = process.env.PLAYWRIGHT_TIMEOUT ? parseInt(process.env.PLAYWRIGHT_TIMEOUT, 10) : 120000;
+    
     const rawCode = template({
       testSuite: config.testSuite,
       sanitizedTestSuite: config.testSuite.replace(/[^a-zA-Z0-9]/g, ''),
       targetUrl: config.targetUrl,
       viewport: config.viewport,
       resolvedSteps,
-      needsRobustHelper
+      needsRobustHelper,
+      testTimeout
     });
 
     let formattedCode = rawCode;
