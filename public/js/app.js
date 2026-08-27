@@ -2,6 +2,18 @@
     let isGeneratingScript = false;
     let latestGeneratedCode = '';
 
+    function toggleSummaryTable() {
+      const container = document.getElementById('summaryTableContainer');
+      const btn = document.getElementById('btnToggleTable');
+      if (container.style.display === 'none') {
+        container.style.display = 'block';
+        btn.innerText = 'Collapse';
+      } else {
+        container.style.display = 'none';
+        btn.innerText = 'Expand';
+      }
+    }
+
     function loadSampleScenario() {
       document.getElementById('testSuite').value = 'Standard Web Login Verification';
       document.getElementById('targetUrl').value = 'https://the-internet.herokuapp.com/login';

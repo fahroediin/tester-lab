@@ -206,10 +206,14 @@
         </div>
 
         <div id="summarySection" style="display: none;">
-          <div
-            style="font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.28px; margin-bottom: 12px; color: var(--slate);">
-            Matching Strategy & Scores:
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <div
+              style="font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.28px; color: var(--slate);">
+              Matching Strategy & Scores:
+            </div>
+            <button class="btn-pill-outline" id="btnToggleTable" onclick="toggleSummaryTable()" style="font-size: 11px; padding: 4px 10px; min-height: unset; height: auto;">Collapse</button>
           </div>
+          <div id="summaryTableContainer">
           <table class="summary-table">
             <thead>
               <tr>
@@ -221,6 +225,7 @@
             </thead>
             <tbody id="summaryTableBody"></tbody>
           </table>
+          </div>
         </div>
       </div>
 
