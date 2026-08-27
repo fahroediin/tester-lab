@@ -1,6 +1,9 @@
 import { test, expect } from '@playwright/test';
 
 test('{{testSuite}}', async ({ page }) => {
+  // Set explicit timeout for long E2E flows (120 seconds)
+  test.setTimeout(120000);
+
   // Set viewport if configured
   {{#if viewport}}
   await page.setViewportSize({ width: {{viewport.width}}, height: {{viewport.height}} });

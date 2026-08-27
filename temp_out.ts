@@ -121,7 +121,7 @@ test('DEV TERRAL', async ({ page }) => {
   console.log('__STEP_START__ 9');
   // Step 9: wait -> jeda sebelum pilih pelanggan
 
-  await page.waitForTimeout(3000);
+  await page.waitForTimeout(1000);
 
   console.log('__STEP_START__ 10');
   // Step 10: click -> Pilih JAMES ZHAO
@@ -132,7 +132,7 @@ test('DEV TERRAL', async ({ page }) => {
   console.log('__STEP_START__ 11');
   // Step 11: wait -> jeda setelah pilih pelanggan
 
-  await page.waitForTimeout(3000);
+  await page.waitForTimeout(1000);
 
   console.log('__STEP_START__ 12');
   // Step 12: fill -> Lokasi Asal
@@ -146,78 +146,87 @@ test('DEV TERRAL', async ({ page }) => {
   console.log('__STEP_START__ 13');
   // Step 13: wait -> jeda sebelum pilih lokasi asal
 
-  await page.waitForTimeout(3000);
+  await page.waitForTimeout(1000);
 
   console.log('__STEP_START__ 14');
   // Step 14: click -> Pilih Q BUKIT MUTIARA INDONESIA
+  // [WARNING]: Ambiguous Element Detected: Multiple candidates matched 'Q BUKIT MUTIARA INDONESIA' with score 40. Selected top-left element <div>.
 
-  await maestro.interact(page.getByRole('link', { name: new RegExp('Done', 'i') }), 'click');
+  await maestro.interact(page.getByText(new RegExp('q bukit mutiara indonesia', 'i')), 'click');
 
   console.log('__STEP_START__ 15');
   // Step 15: wait -> jeda setelah pilih lokasi asal
 
-  await page.waitForTimeout(3000);
+  await page.waitForTimeout(1000);
 
   console.log('__STEP_START__ 16');
   // Step 16: fill -> Lokasi Tujuan
-  // [WARNING]: Low match score (0) for target: 'Lokasi Tujuan'. Using fallback text locator.
 
-  await legacyAction('fill', 'Lokasi Tujuan', 'PLANT BRIK SUNTER');
+  await maestro.interact(
+    page.getByPlaceholder(new RegExp('Ketik lokasi tujuan...', 'i')),
+    'fill',
+    'PLANT BRIK SUNTER'
+  );
 
   console.log('__STEP_START__ 17');
   // Step 17: wait -> jeda sebelum pilih lokasi tujuan
 
-  await page.waitForTimeout(3000);
+  await page.waitForTimeout(1000);
 
   console.log('__STEP_START__ 18');
   // Step 18: click -> Pilih PLANT BRIK SUNTER
-  // [WARNING]: Low match score (0) for target: 'PLANT BRIK SUNTER'. Using fallback text locator.
+  // [WARNING]: Ambiguous Element Detected: Multiple candidates matched 'PLANT BRIK SUNTER' with score 40. Selected top-left element <div>.
 
-  await maestro.interact(page.locator('text="PLANT BRIK SUNTER"'), 'click');
+  await maestro.interact(page.getByText(new RegExp('plant brik sunter', 'i')), 'click');
 
   console.log('__STEP_START__ 19');
   // Step 19: wait -> jeda setelah pilih lokasi tujuan
 
-  await page.waitForTimeout(3000);
+  await page.waitForTimeout(1000);
 
   console.log('__STEP_START__ 20');
   // Step 20: fill -> Nama Material
-  // [WARNING]: Low match score (0) for target: 'Nama Material'. Using fallback text locator.
 
-  await legacyAction('fill', 'Nama Material', 'BATU ANDESIT');
+  await maestro.interact(
+    page.getByPlaceholder(new RegExp('Ketik nama material...', 'i')),
+    'fill',
+    'BATU ANDESIT'
+  );
 
   console.log('__STEP_START__ 21');
   // Step 21: wait -> jeda sebelum pilih material
 
-  await page.waitForTimeout(3000);
+  await page.waitForTimeout(1000);
 
   console.log('__STEP_START__ 22');
   // Step 22: click -> Pilih BATU ANDESIT
-  // [WARNING]: Low match score (0) for target: 'BATU ANDESIT'. Using fallback text locator.
+  // [WARNING]: Ambiguous Element Detected: Multiple candidates matched 'BATU ANDESIT' with score 40. Selected top-left element <div>.
 
-  await maestro.interact(page.locator('text="BATU ANDESIT"'), 'click');
+  await maestro.interact(page.getByText(new RegExp('batu andesit', 'i')), 'click');
 
   console.log('__STEP_START__ 23');
   // Step 23: wait -> jeda setelah pilih material
 
-  await page.waitForTimeout(3000);
+  await page.waitForTimeout(1000);
 
   console.log('__STEP_START__ 24');
   // Step 24: select -> Jenis Kendaraan
-  // [WARNING]: Low match score (0) for target: 'Jenis Kendaraan'. Using fallback text locator.
 
   await legacyAction('select', 'Jenis Kendaraan', 'Internal');
 
   console.log('__STEP_START__ 25');
   // Step 25: fill -> Nopol Kendaraan
-  // [WARNING]: Low match score (0) for target: 'Nopol Kendaraan'. Using fallback text locator.
 
-  await legacyAction('fill', 'Nopol Kendaraan', 'B 9568 SYL');
+  await maestro.interact(
+    page.getByPlaceholder(new RegExp('Ketik no. polisi kendaraan...', 'i')),
+    'fill',
+    'B 9568 SYL'
+  );
 
   console.log('__STEP_START__ 26');
   // Step 26: wait -> jeda sebelum pilih nopol
 
-  await page.waitForTimeout(3000);
+  await page.waitForTimeout(1000);
 
   console.log('__STEP_START__ 27');
   // Step 27: click -> Pilih B 9568 SYL
@@ -228,18 +237,21 @@ test('DEV TERRAL', async ({ page }) => {
   console.log('__STEP_START__ 28');
   // Step 28: wait -> jeda setelah pilih nopol
 
-  await page.waitForTimeout(3000);
+  await page.waitForTimeout(1000);
 
   console.log('__STEP_START__ 29');
   // Step 29: fill -> Nama Sopir
-  // [WARNING]: Low match score (0) for target: 'Nama Sopir'. Using fallback text locator.
 
-  await legacyAction('fill', 'Nama Sopir', 'RUSTAM');
+  await maestro.interact(
+    page.getByPlaceholder(new RegExp('Ketik nama sopir...', 'i')),
+    'fill',
+    'RUSTAM'
+  );
 
   console.log('__STEP_START__ 30');
   // Step 30: wait -> jeda sebelum pilih sopir
 
-  await page.waitForTimeout(3000);
+  await page.waitForTimeout(1000);
 
   console.log('__STEP_START__ 31');
   // Step 31: click -> Pilih RUSTAM
@@ -250,18 +262,21 @@ test('DEV TERRAL', async ({ page }) => {
   console.log('__STEP_START__ 32');
   // Step 32: wait -> jeda setelah pilih sopir
 
-  await page.waitForTimeout(3000);
+  await page.waitForTimeout(1000);
 
   console.log('__STEP_START__ 33');
   // Step 33: fill -> No. Surat Jalan
-  // [WARNING]: Low match score (0) for target: 'No. Surat Jalan'. Using fallback text locator.
 
-  await legacyAction('fill', 'No. Surat Jalan', '135696');
+  await maestro.interact(
+    page.getByPlaceholder(new RegExp('Ketik no. surat jalan...', 'i')),
+    'fill',
+    '135696'
+  );
 
   console.log('__STEP_START__ 34');
   // Step 34: wait -> jeda sebelum pilih surat jalan
 
-  await page.waitForTimeout(3000);
+  await page.waitForTimeout(1000);
 
   console.log('__STEP_START__ 35');
   // Step 35: click -> Pilih 135696
@@ -272,18 +287,21 @@ test('DEV TERRAL', async ({ page }) => {
   console.log('__STEP_START__ 36');
   // Step 36: wait -> jeda setelah pilih surat jalan
 
-  await page.waitForTimeout(3000);
+  await page.waitForTimeout(1000);
 
   console.log('__STEP_START__ 37');
   // Step 37: fill -> Nomor DO
-  // [WARNING]: Low match score (0) for target: 'Nomor DO'. Using fallback text locator.
 
-  await legacyAction('fill', 'Nomor DO', '242304');
+  await maestro.interact(
+    page.getByPlaceholder(new RegExp('Ketik nomor DO...', 'i')),
+    'fill',
+    '242304'
+  );
 
   console.log('__STEP_START__ 38');
   // Step 38: wait -> jeda sebelum pilih nomor do
 
-  await page.waitForTimeout(3000);
+  await page.waitForTimeout(1000);
 
   console.log('__STEP_START__ 39');
   // Step 39: click -> Pilih 242304
@@ -294,16 +312,15 @@ test('DEV TERRAL', async ({ page }) => {
   console.log('__STEP_START__ 40');
   // Step 40: wait -> jeda setelah pilih nomor do
 
-  await page.waitForTimeout(3000);
+  await page.waitForTimeout(1000);
 
   console.log('__STEP_START__ 41');
   // Step 41: check -> Uang Jalan Dimuka
-  // [WARNING]: Low match score (0) for target: 'Uang Jalan Dimuka'. Using fallback text locator.
 
-  await maestro.interact(page.locator('text="Uang Jalan Dimuka"'), 'click');
+  await maestro.interact(page.locator('input[name="has_travel_allowance"]'), 'click');
 
   console.log('__STEP_START__ 42');
   // Step 42: wait ->
 
-  await page.waitForTimeout(3000);
+  await page.waitForTimeout(1000);
 });

@@ -36,14 +36,10 @@ steps:
   - action: wait
     targetLabel: ''
     description: wait -> jeda sebelum pilih pelanggan
-    value: '3000'
+    value: '1000'
   - action: click
     targetLabel: JAMES ZHAO
     description: click -> Pilih JAMES ZHAO
-  - action: wait
-    targetLabel: ''
-    description: wait -> jeda setelah pilih pelanggan
-    value: '3000'
   - action: fill
     targetLabel: Lokasi Asal
     description: fill -> Lokasi Asal
@@ -51,14 +47,10 @@ steps:
   - action: wait
     targetLabel: ''
     description: wait -> jeda sebelum pilih lokasi asal
-    value: '3000'
+    value: '1000'
   - action: click
     targetLabel: Q BUKIT MUTIARA INDONESIA
     description: click -> Pilih Q BUKIT MUTIARA INDONESIA
-  - action: wait
-    targetLabel: ''
-    description: wait -> jeda setelah pilih lokasi asal
-    value: '3000'
   - action: fill
     targetLabel: Lokasi Tujuan
     description: fill -> Lokasi Tujuan
@@ -66,14 +58,10 @@ steps:
   - action: wait
     targetLabel: ''
     description: wait -> jeda sebelum pilih lokasi tujuan
-    value: '3000'
+    value: '1000'
   - action: click
     targetLabel: PLANT BRIK SUNTER
     description: click -> Pilih PLANT BRIK SUNTER
-  - action: wait
-    targetLabel: ''
-    description: wait -> jeda setelah pilih lokasi tujuan
-    value: '3000'
   - action: fill
     targetLabel: Nama Material
     description: fill -> Nama Material
@@ -81,14 +69,10 @@ steps:
   - action: wait
     targetLabel: ''
     description: wait -> jeda sebelum pilih material
-    value: '3000'
+    value: '1000'
   - action: click
     targetLabel: BATU ANDESIT
     description: click -> Pilih BATU ANDESIT
-  - action: wait
-    targetLabel: ''
-    description: wait -> jeda setelah pilih material
-    value: '3000'
   - action: select
     targetLabel: Jenis Kendaraan
     description: select -> Jenis Kendaraan
@@ -96,67 +80,39 @@ steps:
   - action: fill
     targetLabel: Nopol Kendaraan
     description: fill -> Nopol Kendaraan
-    value: B 9568 SYL
+    value: B 9888 RE
   - action: wait
     targetLabel: ''
     description: wait -> jeda sebelum pilih nopol
-    value: '3000'
+    value: '1000'
   - action: click
-    targetLabel: B 9568 SYL
-    description: click -> Pilih B 9568 SYL
-  - action: wait
-    targetLabel: ''
-    description: wait -> jeda setelah pilih nopol
-    value: '3000'
+    targetLabel: B 9888 RE
+    description: click -> Pilih B 9888 RE
   - action: fill
     targetLabel: Nama Sopir
     description: fill -> Nama Sopir
-    value: RUSTAM
+    value: DAI WIBOWO
   - action: wait
     targetLabel: ''
     description: wait -> jeda sebelum pilih sopir
-    value: '3000'
+    value: '1000'
   - action: click
-    targetLabel: RUSTAM
+    targetLabel: DAI WIBOWO
     description: click -> Pilih RUSTAM
-  - action: wait
-    targetLabel: ''
-    description: wait -> jeda setelah pilih sopir
-    value: '3000'
   - action: fill
     targetLabel: No. Surat Jalan
     description: fill -> No. Surat Jalan
     value: '135696'
-  - action: wait
-    targetLabel: ''
-    description: wait -> jeda sebelum pilih surat jalan
-    value: '3000'
-  - action: click
-    targetLabel: '135696'
-    description: click -> Pilih 135696
-  - action: wait
-    targetLabel: ''
-    description: wait -> jeda setelah pilih surat jalan
-    value: '3000'
   - action: fill
     targetLabel: Nomor DO
     description: fill -> Nomor DO
     value: '242304'
-  - action: wait
-    targetLabel: ''
-    description: wait -> jeda sebelum pilih nomor do
-    value: '3000'
-  - action: click
-    targetLabel: '242304'
-    description: click -> Pilih 242304
-  - action: wait
-    targetLabel: ''
-    description: wait -> jeda setelah pilih nomor do
-    value: '3000'
   - action: click
     targetLabel: Uang Jalan Dimuka
     description: check -> Uang Jalan Dimuka
-  - action: wait
-    targetLabel: ''
-    description: wait ->
-    value: '3000'
+  - action: click
+    targetLabel: Simpan
+    description: ''
+  - action: click
+    targetLabel: Kirim
+    description: ''
