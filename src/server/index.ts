@@ -67,6 +67,7 @@ app.use(express.json({ limit: '10mb' }));
 // Serve static files from public directory
 app.use(express.static(path.join(process.cwd(), 'public')));
 app.use(express.static(path.join(process.cwd(), 'dist', 'public')));
+app.use('/feedbacks/attachments', express.static(path.join(process.cwd(), 'data', 'feedbacks', 'attachments')));
 
 const generator = new TestScriptGenerator();
 const extractor = new DOMExtractor();
@@ -319,6 +320,44 @@ app.get('/api/v1/admin/logs', authenticateJWT, requireAdmin, (req: Authenticated
     success: true,
     logs
   });
+});
+
+/**
+ * GET /api/v1/admin/feedbacks
+ * List all user feedbacks (Admin only)
+ */
+app.get('/api/v1/admin/feedbacks', authenticateJWT, requireAdmin, (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    
+    const feedbackDir = path.join(process.cwd(), 'data', 'feedbacks');
+    const logFile = path.join(feedbackDir, 'feedbacks.json');
+    
+    let feedbacks: any[] = [];
+    if (fs.existsSync(logFile)) {
+      feedbacks = JSON.parse(fs.readFileSync(logFile, 'utf-8'));
+    }
+    
+    // Sort newest first
+    feedbacks.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    
+    const total = feedbacks.length;
+    const startIndex = (page - 1) * limit;
+    const endIndex = page * limit;
+    
+    const paginatedFeedbacks = feedbacks.slice(startIndex, endIndex);
+    
+    return res.json({
+      success: true,
+      feedbacks: paginatedFeedbacks,
+      total,
+      page,
+      limit
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message || 'Server error' });
+  }
 });
 
 /**

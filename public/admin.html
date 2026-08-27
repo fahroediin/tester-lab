@@ -335,6 +335,7 @@
     <div class="tabs">
       <button class="tab-button active" onclick="switchTab('users')" id="tab-btn-users">User Management</button>
       <button class="tab-button" onclick="switchTab('logs')" id="tab-btn-logs">Activity Logs</button>
+      <button class="tab-button" onclick="switchTab('feedbacks')" id="tab-btn-feedbacks">Feedbacks</button>
     </div>
 
     <!-- USERS TAB -->
@@ -403,6 +404,56 @@
       </div>
     </div>
 
+    <!-- FEEDBACKS TAB -->
+    <div class="tab-content" id="tab-feedbacks">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">User Feedbacks</div>
+            <div class="card-subtitle">Review feedback and bug reports from users</div>
+          </div>
+          <button type="button" class="btn-pill-outline" onclick="fetchFeedbacks(1)">Refresh Feedbacks</button>
+        </div>
+
+        <div style="overflow-x: auto;">
+          <table class="summary-table">
+            <thead>
+              <tr>
+                <th>Timestamp</th>
+                <th>Type</th>
+                <th>Details</th>
+                <th>Attached File</th>
+              </tr>
+            </thead>
+            <tbody id="feedbacksTableBody">
+              <tr>
+                <td colspan="4" style="text-align: center; padding: 24px;">Loading feedbacks...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div id="feedbacksPagination" class="pagination"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Feedback Detail Modal -->
+  <div class="modal-overlay" id="feedbackDetailModal" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Feedback Details</h3>
+        <button class="modal-close" onclick="closeFeedbackDetail()">&times;</button>
+      </div>
+      <div style="margin-top: 16px;">
+        <div class="form-group" style="margin-top: 12px;">
+          <textarea id="feedbackDetailText" rows="10" readonly style="width: 100%; background: var(--canvas); cursor: text; resize: none;"></textarea>
+        </div>
+        <div style="margin-top: 24px; display: flex; justify-content: flex-end;">
+          <button class="btn-pill-outline" onclick="closeFeedbackDetail()">Close</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <footer>
@@ -415,8 +466,10 @@
 
     let allUsers = [];
     let allLogs = [];
+    let allFeedbacks = [];
     let currentUsersPage = 1;
     let currentLogsPage = 1;
+    let currentFeedbacksPage = 1;
     const ITEMS_PER_PAGE = 10;
 
     function getAuthHeaders() {
@@ -457,6 +510,7 @@
 
         await fetchUsers();
         await fetchLogs();
+        await fetchFeedbacks();
       } catch (err) {
         window.location.href = '/';
       }
@@ -493,9 +547,12 @@
       if (type === 'users') {
         currentUsersPage += delta;
         renderUsersTable();
-      } else {
+      } else if (type === 'logs') {
         currentLogsPage += delta;
         renderLogsTable();
+      } else if (type === 'feedbacks') {
+        currentFeedbacksPage += delta;
+        renderFeedbacksTable();
       }
     }
 
@@ -708,8 +765,89 @@
       window.location.href = '/';
     }
 
-    // Initialize admin verification on load
-    verifyAdminAuth();
+    async function fetchFeedbacks() {
+      const tbody = document.getElementById('feedbacksTableBody');
+      if (!tbody) return;
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 24px;">Loading feedbacks...</td></tr>';
+
+      try {
+        const response = await fetch('/api/v1/admin/feedbacks?limit=1000', {
+          headers: getAuthHeaders()
+        });
+        const data = await response.json();
+
+        if (!data.success) {
+          tbody.innerHTML = `<tr><td colspan="4" style="color:var(--coral); text-align:center; padding: 24px;">${data.error}</td></tr>`;
+          return;
+        }
+
+        allFeedbacks = data.feedbacks || [];
+        currentFeedbacksPage = 1;
+        renderFeedbacksTable();
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="4" style="color:var(--coral); text-align:center; padding: 24px;">Failed to load feedbacks: ${err.message}</td></tr>`;
+      }
+    }
+
+    function renderFeedbacksTable() {
+      const tbody = document.getElementById('feedbacksTableBody');
+      if (!tbody) return;
+
+      if (allFeedbacks.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 24px;">No user feedbacks found.</td></tr>';
+        document.getElementById('feedbacksPagination').innerHTML = '';
+        return;
+      }
+
+      const startIdx = (currentFeedbacksPage - 1) * ITEMS_PER_PAGE;
+      const pageFeedbacks = allFeedbacks.slice(startIdx, startIdx + ITEMS_PER_PAGE);
+
+      tbody.innerHTML = '';
+      pageFeedbacks.forEach((f, idx) => {
+        const globalIdx = startIdx + idx;
+        const tr = document.createElement('tr');
+        const ts = new Date(f.timestamp).toLocaleString();
+        
+        let fileCol = '<span style="color:var(--slate); font-style:italic;">No File</span>';
+        if (f.attachment) {
+          fileCol = `<a href="/feedbacks/attachments/${f.attachment}" target="_blank" style="color:var(--action-blue); text-decoration:none; font-weight:500;">View File ↗</a>`;
+        }
+
+        // Preview snippet
+        let snippet = f.details.length > 50 ? f.details.substring(0, 50) + '...' : f.details;
+
+        tr.innerHTML = `
+          <td>${ts}</td>
+          <td><span class="status-chip" style="background:#e2e8f0; color:#334155; border:none;">${f.type}</span></td>
+          <td style="max-width:300px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${f.details.replace(/"/g, '&quot;')}">
+            ${snippet}
+          </td>
+          <td>
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+              ${fileCol}
+              <button class="btn-pill-outline" onclick="openFeedbackDetail(${globalIdx})" style="padding:4px 10px; font-size:11px;">View Details</button>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      renderPagination('feedbacksPagination', currentFeedbacksPage, allFeedbacks.length, 'feedbacks');
+    }
+
+    function openFeedbackDetail(index) {
+      const feedback = allFeedbacks[index];
+      if (feedback) {
+        document.getElementById('feedbackDetailText').value = feedback.details;
+        document.getElementById('feedbackDetailModal').style.display = 'flex';
+      }
+    }
+
+    function closeFeedbackDetail() {
+      document.getElementById('feedbackDetailModal').style.display = 'none';
+    }
+
+    window.onload = verifyAdminAuth;
   </script>
 
 </body>
