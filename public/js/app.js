@@ -14,6 +14,18 @@
       }
     }
 
+    function toggleCodeContainer() {
+      const container = document.getElementById('generatedCodeContainer');
+      const btn = document.getElementById('btnToggleCode');
+      if (container.style.display === 'none') {
+        container.style.display = 'block';
+        btn.innerText = 'Collapse';
+      } else {
+        container.style.display = 'none';
+        btn.innerText = 'Expand';
+      }
+    }
+
     function loadSampleScenario() {
       document.getElementById('testSuite').value = 'Standard Web Login Verification';
       document.getElementById('targetUrl').value = 'https://the-internet.herokuapp.com/login';

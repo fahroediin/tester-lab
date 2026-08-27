@@ -243,20 +243,23 @@
             </select>
             <button class="btn-pill-outline" id="btnCopyCode" onclick="copyCode()" disabled>Copy</button>
             <button class="btn-pill-outline" id="btnDownloadCode" onclick="downloadCode()" disabled>Download</button>
+            <button class="btn-pill-outline" id="btnToggleCode" onclick="toggleCodeContainer()">Collapse</button>
           </div>
         </div>
 
-        <div class="agent-console">
-          <div class="console-header">
-            <div class="console-dots">
-              <div class="console-dot dot-red"></div>
-              <div class="console-dot dot-yellow"></div>
-              <div class="console-dot dot-green"></div>
+        <div id="generatedCodeContainer">
+          <div class="agent-console">
+            <div class="console-header">
+              <div class="console-dots">
+                <div class="console-dot dot-red"></div>
+                <div class="console-dot dot-yellow"></div>
+                <div class="console-dot dot-green"></div>
+              </div>
+              <div class="console-title" id="consoleTitle">Playwright Code Spec</div>
             </div>
-            <div class="console-title" id="consoleTitle">Playwright Code Spec</div>
+            <div class="code-preview" id="codeOutput">// Generated Playwright script will appear here after clicking
+              'Generate Script'...</div>
           </div>
-          <div class="code-preview" id="codeOutput">// Generated Playwright script will appear here after clicking
-            'Generate Script'...</div>
         </div>
       </div>
 
