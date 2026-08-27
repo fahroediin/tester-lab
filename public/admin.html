@@ -633,31 +633,35 @@
         const tr = document.createElement('tr');
         const statusClass = u.status === 'approved' ? 'status-approved' : (u.status === 'rejected' ? 'status-rejected' : 'status-pending');
 
-        let actionBtns = '';
+        let statusBtns = '';
         if (u.status === 'pending') {
-          actionBtns = `
+          statusBtns = `
             <button class="btn-pill-outline" onclick="approveUser('${u.id}')" style="border-color:#16a34a; color:#16a34a; padding:4px 10px; font-size:12px;">Approve</button>
             <button class="btn-pill-outline" onclick="rejectUser('${u.id}')" style="border-color:#dc2626; color:#dc2626; padding:4px 10px; font-size:12px;">Reject</button>
           `;
         } else if (u.status === 'rejected') {
-          actionBtns = `
+          statusBtns = `
             <button class="btn-pill-outline" onclick="approveUser('${u.id}')" style="border-color:#16a34a; color:#16a34a; padding:4px 10px; font-size:12px;">Approve</button>
           `;
-        } else {
-          actionBtns = `<span style="font-size:12px; color:var(--body-muted);">Approved</span>`;
         }
 
+        let actionBtns = '';
         if (u.username !== 'admin') {
-          actionBtns += ` <button class="btn-pill-outline" onclick="deleteUserAccount('${u.id}')" style="padding:4px 10px; font-size:12px;">Delete</button>`;
+          actionBtns = `<button class="btn-pill-outline" onclick="deleteUserAccount('${u.id}')" style="padding:4px 10px; font-size:12px; color:#dc2626; border-color:#dc2626;">Delete</button>`;
         }
 
         tr.innerHTML = `
           <td><strong>${u.username}</strong></td>
           <td>${u.email}</td>
           <td><span style="font-family:var(--font-mono); font-size:11px;">${u.role}</span></td>
-          <td><span class="status-badge ${statusClass}">${u.status}</span></td>
+          <td>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="status-badge ${statusClass}">${u.status}</span>
+              ${statusBtns}
+            </div>
+          </td>
           <td><span style="font-size:12px;">${new Date(u.createdAt).toLocaleString()}</span></td>
-          <td><div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">${actionBtns}</div></td>
+          <td><div style="display:flex; align-items:center; justify-content:flex-start; gap:6px;">${actionBtns}</div></td>
         `;
         tbody.appendChild(tr);
       });
