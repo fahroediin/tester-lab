@@ -26,6 +26,82 @@
       }
     }
 
+    function openFeedbackModal() {
+      document.getElementById('feedbackModal').style.display = 'flex';
+      document.getElementById('feedbackDetails').value = '';
+      document.getElementById('feedbackAttachment').value = '';
+    }
+
+    function closeFeedbackModal() {
+      document.getElementById('feedbackModal').style.display = 'none';
+    }
+
+    async function submitFeedback() {
+      const type = document.getElementById('feedbackType').value;
+      const details = document.getElementById('feedbackDetails').value.trim();
+      const attachmentInput = document.getElementById('feedbackAttachment');
+      
+      if (!details) {
+        Swal.fire({ icon: 'warning', title: 'Missing Details', text: 'Please provide feedback details.', toast: true, position: 'top-end' });
+        return;
+      }
+      
+      const file = attachmentInput.files[0];
+      let fileBase64 = null;
+      let filename = null;
+      
+      if (file) {
+        // Validate size (client-side)
+        if (file.size > 5242880) { // 5MB
+          Swal.fire({ icon: 'error', title: 'File Too Large', text: 'Attachment exceeds 5MB limit.', toast: true, position: 'top-end' });
+          return;
+        }
+        
+        // Validate extension (client-side)
+        const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+        if (!['.png', '.jpg', '.jpeg', '.bmp'].includes(ext)) {
+          Swal.fire({ icon: 'error', title: 'Invalid Format', text: 'Only PNG, JPG, JPEG, and BMP are allowed.', toast: true, position: 'top-end' });
+          return;
+        }
+        
+        // Read file as Base64
+        fileBase64 = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = error => reject(error);
+          reader.readAsDataURL(file);
+        });
+        filename = file.name;
+      }
+      
+      const btnSubmit = document.getElementById('btnSubmitFeedback');
+      const loader = document.getElementById('feedbackLoader');
+      btnSubmit.disabled = true;
+      loader.style.display = 'inline-block';
+      
+      try {
+        const response = await fetch('/api/v1/feedback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type, details, fileBase64, filename })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          closeFeedbackModal();
+          Swal.fire({ icon: 'success', title: 'Feedback Submitted', text: 'Thank you for your feedback!', timer: 3000, showConfirmButton: false, toast: true, position: 'top-end' });
+        } else {
+          Swal.fire({ icon: 'error', title: 'Submission Failed', text: data.error || 'Unknown error occurred.', toast: true, position: 'top-end' });
+        }
+      } catch (err) {
+        Swal.fire({ icon: 'error', title: 'Network Error', text: 'Could not connect to server.', toast: true, position: 'top-end' });
+      } finally {
+        btnSubmit.disabled = false;
+        loader.style.display = 'none';
+      }
+    }
+
     function parseSpecToSteps(code) {
       const parsedSteps = [];
       const lines = code.split('\n');

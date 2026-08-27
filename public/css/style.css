@@ -583,6 +583,34 @@ footer {
   cursor: pointer;
 }
 
+/* Floating Feedback Button */
+.floating-feedback-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background-color: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 9999px;
+  padding: 12px 20px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  z-index: 999;
+  transition: transform 0.2s, background-color 0.2s, box-shadow 0.2s;
+}
+
+.floating-feedback-btn:hover {
+  transform: translateY(-2px);
+  background-color: var(--action-blue);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
 /* Responsive Media Queries */
 @media (max-width: 1024px) {
   .container {
