@@ -333,7 +333,14 @@ textarea:focus {
   font-size: 12px;
   padding: 4px 8px;
   margin-left: auto;
-  border-radius: 4px;
+  border-radius: var(--radius);
+  transition: background 0.2s;
+}
+
+.btn-remove:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 .btn-remove:hover {
