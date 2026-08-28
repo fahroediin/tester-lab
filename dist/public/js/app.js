@@ -928,6 +928,12 @@
       const btnAddStep = document.getElementById('btnAddStep');
       if (btnAddStep) btnAddStep.disabled = true;
 
+      // Refresh (hide/clear) previous Video Recording
+      const videoContainer = document.getElementById('videoContainer');
+      const videoPlayer = document.getElementById('videoPlayer');
+      if (videoContainer) videoContainer.style.display = 'none';
+      if (videoPlayer) videoPlayer.src = '';
+
       try {
         const response = await fetch('/api/v1/run-test', {
           method: 'POST',
