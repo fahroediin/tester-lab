@@ -454,11 +454,9 @@
         </div>
 
         <div style="display: flex; flex-direction: column; gap: 16px; margin-top: 12px;">
-          <div class="agent-console">
-            <div class="console-header">
-              <div class="console-title">Example 1: Generate Playwright Test Script (POST /api/v1/generate-script)</div>
-            </div>
-            <pre class="code-preview" style="max-height: 200px; overflow-y: auto; font-size: 12px;">curl -X POST "https://tester-lab.mibot.my.id/api/v1/generate-script" \
+          <div style="background: var(--surface-2); border-radius: 8px; padding: 14px; border: 1px solid var(--hairline);">
+            <div style="font-size: 12px; font-weight: 600; color: var(--body-muted); margin-bottom: 8px;">Generate Playwright Test Script (POST /api/v1/generate-script)</div>
+            <pre style="font-family: var(--font-mono); font-size: 12px; color: var(--action-blue); overflow-x: auto; margin: 0; background: transparent; padding: 0;">curl -X POST "https://tester-lab.mibot.my.id/api/v1/generate-script" \
   -H "X-API-Key: tl_live_YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -474,11 +472,9 @@
   }'</pre>
           </div>
 
-          <div class="agent-console">
-            <div class="console-header">
-              <div class="console-title">Example 2: Execute Test Script on Server (POST /api/v1/run-test)</div>
-            </div>
-            <pre class="code-preview" style="max-height: 180px; overflow-y: auto; font-size: 12px;">curl -X POST "https://tester-lab.mibot.my.id/api/v1/run-test" \
+          <div style="background: var(--surface-2); border-radius: 8px; padding: 14px; border: 1px solid var(--hairline);">
+            <div style="font-size: 12px; font-weight: 600; color: var(--body-muted); margin-bottom: 8px;">Execute Test Script on Server (POST /api/v1/run-test)</div>
+            <pre style="font-family: var(--font-mono); font-size: 12px; color: var(--action-blue); overflow-x: auto; margin: 0; background: transparent; padding: 0;">curl -X POST "https://tester-lab.mibot.my.id/api/v1/run-test" \
   -H "X-API-Key: tl_live_YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -490,6 +486,8 @@
         </div>
       </div>
     </div> <!-- END TAB API KEYS -->
+
+  </div> <!-- END MAIN APP CONTAINER -->
 
   <!-- History Detail Modal -->
   <div class="modal-overlay" id="historyDetailModal" style="display: none; z-index: 2000;">

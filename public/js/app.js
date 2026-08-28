@@ -1130,6 +1130,12 @@
         ${adminBtn}
         <button type="button" class="btn-pill-outline" onclick="handleLogout()">Sign Out</button>
       `;
+
+      // Hide API Keys tab in Workspace if the user is an admin (Admin manages API keys in Admin Console)
+      const navApiKeys = document.getElementById('navApiKeys');
+      if (navApiKeys) {
+        navApiKeys.style.display = currentUser.role === 'admin' ? 'none' : 'inline-block';
+      }
     }
 
     // Removed legacy openAuthModal functions as they are replaced by heroLoginSection inline flow
