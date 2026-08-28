@@ -40,13 +40,8 @@
 
   <div id="appNav" style="display: none; background: var(--surface); border-bottom: 1px solid var(--hairline); padding: 0 32px; margin-bottom: 24px;">
     <div style="display: flex; gap: 24px; max-width: 1400px; margin: 0 auto; padding-top: 12px;">
-      <div style="display: flex; gap: 24px;">
-        <a href="#" id="navBuilder" class="nav-tab active" onclick="switchTab('builder')" style="padding-bottom: 12px; font-weight: 500; color: var(--primary); border-bottom: 2px solid var(--primary); text-decoration: none;">Scenario Builder</a>
-        <a href="#" id="navHistory" class="nav-tab" onclick="switchTab('history')" style="padding-bottom: 12px; font-weight: 500; color: var(--slate); text-decoration: none;">Flow History</a>
-      </div>
-      <div style="margin-left: auto; display: flex; align-items: center; padding-bottom: 12px;">
-        <button id="btnConfigure" class="btn-pill-outline" onclick="openConfigModal()" style="display: none; height: 32px; font-size: 12px;">⚙️ Configure</button>
-      </div>
+      <a href="#" id="navBuilder" class="nav-tab active" onclick="switchTab('builder')" style="padding-bottom: 12px; font-weight: 500; color: var(--primary); border-bottom: 2px solid var(--primary); text-decoration: none;">Scenario Builder</a>
+      <a href="#" id="navHistory" class="nav-tab" onclick="switchTab('history')" style="padding-bottom: 12px; font-weight: 500; color: var(--slate); text-decoration: none;">Flow History</a>
     </div>
   </div>
 
@@ -446,34 +441,6 @@
           </div>
         </div>
         
-      </div>
-    </div>
-  </div>
-
-  <!-- Configuration Modal -->
-  <div class="modal-overlay" id="configModal" style="display: none; z-index: 2000;">
-    <div class="modal-card" style="max-width: 600px; width: 95%;">
-      <div class="modal-header">
-        <h3>App Configuration</h3>
-        <button class="modal-close" onclick="closeConfigModal()">&times;</button>
-      </div>
-      <div style="margin-top: 16px;">
-        <div class="form-group" style="margin-bottom: 12px;">
-          <label>Sample Test Suite Name</label>
-          <input type="text" id="configTestSuite" placeholder="e.g. Standard Web Login">
-        </div>
-        <div class="form-group" style="margin-bottom: 16px;">
-          <label>Sample Target URL</label>
-          <input type="text" id="configTargetUrl" placeholder="https://example.com/login">
-        </div>
-        <div class="form-group" style="margin-bottom: 16px;">
-          <label>Sample Steps (JSON Format)</label>
-          <textarea id="configStepsJson" rows="8" style="font-family: var(--font-mono); font-size: 12px; line-height: 1.4;" placeholder='[ { "action": "fill", "targetLabel": "Username", "value": "admin", "description": "" } ]'></textarea>
-        </div>
-        <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px;">
-          <button class="btn-pill-outline" onclick="closeConfigModal()">Cancel</button>
-          <button class="btn-primary" onclick="saveConfiguration()">Save Changes</button>
-        </div>
       </div>
     </div>
   </div>

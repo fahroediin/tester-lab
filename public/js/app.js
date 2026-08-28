@@ -972,11 +972,6 @@
           if (mainApp) mainApp.style.display = 'block';
           
           await loadAppConfig();
-
-          const btnConfigure = document.getElementById('btnConfigure');
-          if (btnConfigure) {
-            btnConfigure.style.display = currentUser.role === 'admin' ? 'flex' : 'none';
-          }
         } else {
           authToken = '';
           localStorage.removeItem('tester_jwt_token');
@@ -1517,57 +1512,6 @@
         }
       } catch (err) {
         console.error('Failed to load app config', err);
-      }
-    }
-
-    function openConfigModal() {
-      if (!appConfig) return;
-      document.getElementById('configTestSuite').value = appConfig.sampleTestSuite || '';
-      document.getElementById('configTargetUrl').value = appConfig.sampleTargetUrl || '';
-      document.getElementById('configStepsJson').value = JSON.stringify(appConfig.sampleSteps || [], null, 2);
-      document.getElementById('configModal').style.display = 'flex';
-    }
-
-    function closeConfigModal() {
-      document.getElementById('configModal').style.display = 'none';
-    }
-
-    async function saveConfiguration() {
-      const suite = document.getElementById('configTestSuite').value;
-      const url = document.getElementById('configTargetUrl').value;
-      const stepsStr = document.getElementById('configStepsJson').value;
-
-      let parsedSteps = [];
-      try {
-        parsedSteps = JSON.parse(stepsStr);
-        if (!Array.isArray(parsedSteps)) throw new Error('Steps must be a JSON array');
-      } catch (e) {
-        Swal.fire({ icon: 'error', title: 'Invalid JSON', text: 'Sample Steps must be a valid JSON array.', toast: true, position: 'top-end' });
-        return;
-      }
-
-      try {
-        const res = await fetch('/api/v1/config', {
-          method: 'POST',
-          headers: getAuthHeaders(),
-          body: JSON.stringify({
-            sampleTestSuite: suite,
-            sampleTargetUrl: url,
-            sampleSteps: parsedSteps
-          })
-        });
-        const data = await res.json();
-        if (data.success) {
-          appConfig = data.data;
-          Swal.fire({ icon: 'success', title: 'Saved', text: 'Configuration saved successfully.', toast: true, position: 'top-end' });
-          closeConfigModal();
-          // reload sample scenario if we are in builder
-          loadSampleScenario();
-        } else {
-          Swal.fire({ icon: 'error', title: 'Save Failed', text: data.error, toast: true, position: 'top-end' });
-        }
-      } catch (err) {
-        Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to save configuration', toast: true, position: 'top-end' });
       }
     }
 

@@ -382,10 +382,11 @@
 
   <div class="container">
     
-    <div class="tabs">
+    <div class="tabs-container">
       <button class="tab-button active" onclick="switchTab('users')" id="tab-btn-users">User Management</button>
       <button class="tab-button" onclick="switchTab('logs')" id="tab-btn-logs">Activity Logs</button>
       <button class="tab-button" onclick="switchTab('feedbacks')" id="tab-btn-feedbacks">Feedbacks</button>
+      <button class="tab-button" onclick="switchTab('config')" id="tab-btn-config">System Configuration</button>
     </div>
 
     <!-- USERS TAB -->
@@ -487,6 +488,39 @@
       </div>
     </div>
 
+    <!-- SYSTEM CONFIGURATION TAB -->
+    <div class="tab-content" id="tab-config">
+      <div class="card">
+        <div class="card-header" style="border-bottom: none; padding-bottom: 0;">
+          <div>
+            <div class="card-title">System Configuration</div>
+            <div class="card-subtitle">Manage global application settings and defaults</div>
+          </div>
+          <button type="button" class="btn-primary" onclick="saveConfiguration()">Save Changes</button>
+        </div>
+        
+        <div style="padding-top: 16px; border-top: 1px solid var(--hairline); margin-top: 16px;">
+          <h4 style="font-family: var(--font-display); font-size: 15px; margin-bottom: 16px;">Sample Flow Configuration</h4>
+          
+          <div class="form-group" style="margin-bottom: 16px; max-width: 600px;">
+            <label style="font-weight: 500; font-size: 12px; color: var(--body-muted); display: block; margin-bottom: 6px;">Test Suite Name</label>
+            <input type="text" id="configTestSuite" placeholder="e.g. Standard Web Login" style="width: 100%; padding: 10px 14px; border: 1px solid var(--hairline); border-radius: 8px; font-family: var(--font-body); font-size: 13px; outline: none; transition: border-color 0.2s;">
+          </div>
+          
+          <div class="form-group" style="margin-bottom: 16px; max-width: 600px;">
+            <label style="font-weight: 500; font-size: 12px; color: var(--body-muted); display: block; margin-bottom: 6px;">Target URL</label>
+            <input type="text" id="configTargetUrl" placeholder="https://example.com/login" style="width: 100%; padding: 10px 14px; border: 1px solid var(--hairline); border-radius: 8px; font-family: var(--font-body); font-size: 13px; outline: none; transition: border-color 0.2s;">
+          </div>
+          
+          <div class="form-group" style="margin-bottom: 16px; max-width: 800px;">
+            <label style="font-weight: 500; font-size: 12px; color: var(--body-muted); display: block; margin-bottom: 6px;">Execution Steps (JSON Array)</label>
+            <textarea id="configStepsJson" rows="12" style="width: 100%; padding: 12px 14px; border: 1px solid var(--hairline); border-radius: 8px; font-family: var(--font-mono); font-size: 13px; line-height: 1.5; outline: none; transition: border-color 0.2s; resize: vertical;" placeholder='[\n  {\n    "action": "fill",\n    "targetLabel": "Username",\n    "value": "admin",\n    "description": ""\n  }\n]'></textarea>
+            <div style="font-size: 11px; color: var(--body-muted); margin-top: 6px;">Format must be a valid JSON array of step objects.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 
 
@@ -551,12 +585,29 @@
       }
     }
 
-    function switchTab(tabName) {
-      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-      document.querySelectorAll('.tab-button').forEach(el => el.classList.remove('active'));
-      
-      document.getElementById(`tab-${tabName}`).classList.add('active');
-      document.getElementById(`tab-btn-${tabName}`).classList.add('active');
+    async function switchTab(tabId) {
+      const tabs = ['users', 'logs', 'feedbacks', 'config'];
+      tabs.forEach(t => {
+        const btn = document.getElementById(`tab-btn-${t}`);
+        const content = document.getElementById(`tab-${t}`);
+        if (btn) btn.classList.remove('active');
+        if (content) content.classList.remove('active');
+      });
+
+      const activeBtn = document.getElementById(`tab-btn-${tabId}`);
+      const activeContent = document.getElementById(`tab-${tabId}`);
+      if (activeBtn) activeBtn.classList.add('active');
+      if (activeContent) activeContent.classList.add('active');
+
+      if (tabId === 'users' && allUsers.length === 0) {
+        await fetchUsers();
+      } else if (tabId === 'logs' && allLogs.length === 0) {
+        await fetchLogs();
+      } else if (tabId === 'feedbacks' && allFeedbacks.length === 0) {
+        await fetchFeedbacks();
+      } else if (tabId === 'config') {
+        await fetchConfig();
+      }
     }
 
     function renderPagination(containerId, currentPage, totalItems, type) {
