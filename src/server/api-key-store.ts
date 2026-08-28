@@ -51,6 +51,21 @@ export function hashApiKey(rawKey: string): string {
  * Returns the raw key string ONLY once upon creation.
  */
 export async function generateApiKey(userId: string, name: string = 'Default API Key'): Promise<GeneratedApiKey> {
+  const trimmedName = (name || '').trim() || 'Default API Key';
+
+  // Disallow duplicate API Key name/description for the same user (active or revoked)
+  const { data: existingKey } = await supabase
+    .from('api_keys')
+    .select('id, name')
+    .eq('user_id', userId)
+    .ilike('name', trimmedName)
+    .limit(1)
+    .single();
+
+  if (existingKey) {
+    throw new Error(`An API key with the name "${trimmedName}" already exists. Please choose a different name.`);
+  }
+
   const randomBytes = crypto.randomBytes(32).toString('hex');
   const rawKey = `tl_live_${randomBytes}`;
   const keyHash = hashApiKey(rawKey);
@@ -60,7 +75,7 @@ export async function generateApiKey(userId: string, name: string = 'Default API
     .from('api_keys')
     .insert({
       user_id: userId,
-      name: name.trim() || 'Default API Key',
+      name: trimmedName,
       key_hash: keyHash,
       key_prefix: keyPrefix,
       status: 'active'

@@ -1844,6 +1844,8 @@
     }
 
     // --- API KEYS MANAGEMENT ---
+    let allUserApiKeys = [];
+
     async function loadUserApiKeys() {
       const tbody = document.getElementById('apiKeyTableBody');
       if (!tbody) return;
@@ -1858,6 +1860,7 @@
         }
 
         const keys = data.data || [];
+        allUserApiKeys = keys;
         if (keys.length === 0) {
           tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--slate); padding: 24px;">No API keys generated yet. Click "+ Generate New Key" above.</td></tr>';
           return;
@@ -1880,7 +1883,7 @@
             <td>
               <div style="display: flex; align-items: center; gap: 8px;">
                 <code style="font-family: var(--font-mono); font-size: 12px; background: var(--surface-2); padding: 4px 8px; border-radius: 6px; border: 1px solid var(--hairline);">${escapeHtml(k.keyPrefix)}</code>
-                <button type="button" class="btn-icon" onclick="copyTableKeyPrefix('${escapeHtml(k.keyPrefix)}')" title="Copy Token" aria-label="Copy Token">
+                <button type="button" class="btn-icon" onclick="copyTableKey('${k.id}', '${escapeHtml(k.keyPrefix)}')" title="Copy API Key" aria-label="Copy API Key">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
@@ -1900,14 +1903,23 @@
       }
     }
 
-    function copyTableKeyPrefix(token) {
-      if (!token) return;
-      navigator.clipboard.writeText(token);
-      showSnackbar({
-        type: 'success',
-        title: 'Copied!',
-        message: `Token "${token}" copied to clipboard.`
-      });
+    function copyTableKey(id, prefix) {
+      const fullKey = localStorage.getItem('tester_apikey_' + id) || localStorage.getItem('tester_apikey_prefix_' + prefix);
+      if (fullKey) {
+        navigator.clipboard.writeText(fullKey);
+        showSnackbar({
+          type: 'success',
+          title: 'Full API Key Copied!',
+          message: 'Full API Key copied to clipboard.'
+        });
+      } else {
+        navigator.clipboard.writeText(prefix);
+        showSnackbar({
+          type: 'info',
+          title: 'Token Prefix Copied',
+          message: 'Full token was only displayed once upon generation. Copied key prefix.'
+        });
+      }
     }
 
     function copySnippetCode(elementId) {
@@ -1927,13 +1939,18 @@
         title: 'Generate New API Key',
         input: 'text',
         inputLabel: 'API Key Name / Description',
-        inputValue: 'CI/CD Pipeline',
+        inputValue: '',
+        inputPlaceholder: 'e.g. CI/CD Pipeline, Staging Automation',
         showCancelButton: true,
         confirmButtonText: 'Generate Key',
         confirmButtonColor: '#005bbf',
         inputValidator: (value) => {
           if (!value || !value.trim()) {
             return 'Please enter a name for this API key';
+          }
+          const isDuplicate = (allUserApiKeys || []).some(k => k.name.trim().toLowerCase() === value.trim().toLowerCase());
+          if (isDuplicate) {
+            return `An API key named "${value.trim()}" already exists. Please choose a unique name.`;
           }
         }
       });
@@ -1948,6 +1965,10 @@
         });
         const data = await res.json();
         if (data.success && data.data) {
+          // Cache full key for current user session
+          localStorage.setItem('tester_apikey_' + data.data.id, data.data.rawKey);
+          localStorage.setItem('tester_apikey_prefix_' + data.data.keyPrefix, data.data.rawKey);
+
           const banner = document.getElementById('newKeyBanner');
           const input = document.getElementById('newKeyInput');
           if (banner && input) {
