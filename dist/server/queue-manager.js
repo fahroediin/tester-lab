@@ -1,12 +1,25 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.globalTestRunnerQueue = exports.ConcurrencyQueueManager = void 0;
-const MAX_CONCURRENT_RUNS = 3;
+exports.globalTestGeneratorQueue = exports.globalTestRunnerQueue = exports.ConcurrencyQueueManager = void 0;
+const getMaxConcurrentTests = () => {
+    const envVal = process.env.MAX_CONCURRENT_TESTS;
+    if (envVal && !isNaN(parseInt(envVal, 10)) && parseInt(envVal, 10) > 0) {
+        return parseInt(envVal, 10);
+    }
+    return 3;
+};
+const getMaxConcurrentGenerations = () => {
+    const envVal = process.env.MAX_CONCURRENT_GENERATIONS;
+    if (envVal && !isNaN(parseInt(envVal, 10)) && parseInt(envVal, 10) > 0) {
+        return parseInt(envVal, 10);
+    }
+    return 5;
+};
 class ConcurrencyQueueManager {
     maxConcurrent;
     activeCount = 0;
     queue = [];
-    constructor(maxConcurrent = MAX_CONCURRENT_RUNS) {
+    constructor(maxConcurrent = 3) {
         this.maxConcurrent = maxConcurrent;
     }
     enqueue(taskFn) {
@@ -48,4 +61,7 @@ class ConcurrencyQueueManager {
     }
 }
 exports.ConcurrencyQueueManager = ConcurrencyQueueManager;
-exports.globalTestRunnerQueue = new ConcurrencyQueueManager(3);
+/** Queue for executing Playwright test runs */
+exports.globalTestRunnerQueue = new ConcurrencyQueueManager(getMaxConcurrentTests());
+/** Queue for executing crawler-based test script generations */
+exports.globalTestGeneratorQueue = new ConcurrencyQueueManager(getMaxConcurrentGenerations());

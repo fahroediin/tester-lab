@@ -8,7 +8,7 @@ import { authenticateJWT, requireApprovedUser } from '../auth-middleware.js';
 import type { AuthenticatedRequest } from '../auth-middleware.js';
 import { addLog } from '../activity-log-store.js';
 import { sanitizeCode } from '../code-sanitizer.js';
-import { globalTestRunnerQueue } from '../queue-manager.js';
+import { globalTestRunnerQueue, globalTestGeneratorQueue } from '../queue-manager.js';
 import { getSanitizedEnv, findVideoFile } from '../lib/sanitized-env.js';
 import { addHistory, updateHistory } from '../flow-history-store.js';
 import { TestScriptGenerator } from '../../index.js';
@@ -37,9 +37,11 @@ testRoutes.post('/generate-script', authenticateJWT, requireApprovedUser, async 
       return;
     }
 
-    const result = await generator.generate(dsl, {
-      dryRun: !!dryRun,
-      outPath
+    const result = await globalTestGeneratorQueue.enqueue(async () => {
+      return generator.generate(dsl, {
+        dryRun: !!dryRun,
+        outPath
+      });
     });
 
     if (!result.success) {

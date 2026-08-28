@@ -1,4 +1,18 @@
-const MAX_CONCURRENT_RUNS = 3;
+const getMaxConcurrentTests = (): number => {
+  const envVal = process.env.MAX_CONCURRENT_TESTS;
+  if (envVal && !isNaN(parseInt(envVal, 10)) && parseInt(envVal, 10) > 0) {
+    return parseInt(envVal, 10);
+  }
+  return 3;
+};
+
+const getMaxConcurrentGenerations = (): number => {
+  const envVal = process.env.MAX_CONCURRENT_GENERATIONS;
+  if (envVal && !isNaN(parseInt(envVal, 10)) && parseInt(envVal, 10) > 0) {
+    return parseInt(envVal, 10);
+  }
+  return 5;
+};
 
 export class ConcurrencyQueueManager {
   private maxConcurrent: number;
@@ -9,7 +23,7 @@ export class ConcurrencyQueueManager {
     reject: (reason: unknown) => void;
   }> = [];
 
-  constructor(maxConcurrent: number = MAX_CONCURRENT_RUNS) {
+  constructor(maxConcurrent: number = 3) {
     this.maxConcurrent = maxConcurrent;
   }
 
@@ -54,4 +68,8 @@ export class ConcurrencyQueueManager {
   }
 }
 
-export const globalTestRunnerQueue = new ConcurrencyQueueManager(3);
+/** Queue for executing Playwright test runs */
+export const globalTestRunnerQueue = new ConcurrencyQueueManager(getMaxConcurrentTests());
+
+/** Queue for executing crawler-based test script generations */
+export const globalTestGeneratorQueue = new ConcurrencyQueueManager(getMaxConcurrentGenerations());

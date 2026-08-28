@@ -37,9 +37,11 @@ exports.testRoutes.post('/generate-script', auth_middleware_js_1.authenticateJWT
             });
             return;
         }
-        const result = await generator.generate(dsl, {
-            dryRun: !!dryRun,
-            outPath
+        const result = await queue_manager_js_1.globalTestGeneratorQueue.enqueue(async () => {
+            return generator.generate(dsl, {
+                dryRun: !!dryRun,
+                outPath
+            });
         });
         if (!result.success) {
             await (0, activity_log_store_js_1.addLog)({
