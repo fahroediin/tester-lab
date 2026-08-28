@@ -32,8 +32,9 @@ export class DOMExtractor {
     const page = await context.newPage();
 
     try {
-      await page.goto(url, { waitUntil: 'networkidle', timeout });
-      await page.waitForSelector('input, button, form, a', { timeout: 5000 }).catch((e) => {
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout });
+      await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
+      await page.waitForSelector('input, button, form, a', { timeout: 3000 }).catch((e) => {
         console.warn('[Crawler] Wait for selector timed out, page might be static or slow:', e.message);
       });
       const candidates = await extractCandidatesFromPage(page);
@@ -65,8 +66,9 @@ export class DOMExtractor {
     const results: StepExtractionResult[] = [];
 
     try {
-      await page.goto(config.targetUrl, { waitUntil: 'networkidle', timeout });
-      await page.waitForSelector('input, button, form, a', { timeout: 5000 }).catch((e) => {
+      await page.goto(config.targetUrl, { waitUntil: 'domcontentloaded', timeout });
+      await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
+      await page.waitForSelector('input, button, form, a', { timeout: 3000 }).catch((e) => {
         console.warn('[Crawler] Wait for selector timed out during step execution:', e.message);
       });
 
@@ -152,9 +154,12 @@ export class DOMExtractor {
           throw e;
         }
       }
-      // Wait briefly for potential navigation
-      await page.waitForURL((url) => url.toString() !== currentUrl, { timeout: 3000 }).catch((e) => {
-        console.warn('[Crawler] Navigation did not occur after click:', e.message);
+      // Wait briefly for potential navigation or network requests to settle
+      await Promise.race([
+        page.waitForURL((url) => url.toString() !== currentUrl, { timeout: 1500 }),
+        page.waitForLoadState('networkidle', { timeout: 1500 })
+      ]).catch(() => {
+        // Silently ignore timeouts, as many clicks do not trigger navigation
       });
     } else if (step.action === 'select' && step.value) {
       // Safety check: verify element is actually a <select> before calling selectOption
