@@ -39,6 +39,24 @@ app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/feedback', feedbackRoutes);
 app.use('/api/v1', testRoutes); // testRoutes has endpoints like /generate-script, /inspect-dom, /run-test directly under /api/v1
 
+// Global Error Handler to ensure JSON responses for API errors (e.g. malformed JSON in body-parser)
+app.use((err: any, req: Request, res: Response, next: express.NextFunction) => {
+  console.error('[Global Error Handler]', err.message || err);
+  if (req.path.startsWith('/api/')) {
+    res.status(err.status || 500).json({ 
+      success: false, 
+      error: err.message || 'Internal Server Error' 
+    });
+  } else {
+    next(err);
+  }
+});
+
+// API 404 Fallback
+app.use('/api/*', (req: Request, res: Response) => {
+  res.status(404).json({ success: false, error: `API endpoint not found: ${req.method} ${req.originalUrl}` });
+});
+
 app.listen(port, () => {
   console.log(`Tester Lab backend listening on http://localhost:${port}`);
 });

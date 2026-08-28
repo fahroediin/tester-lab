@@ -1,5 +1,0 @@
-{
-  "success": false,
-  "code": "SCRAPE_ACTION_ERROR",
-  "error": "Action(s) failed to complete. Error code: Failed to scrape the content, err: ActionError: Error in action 4: Element not found"
-}
