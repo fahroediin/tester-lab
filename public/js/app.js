@@ -1807,7 +1807,12 @@
             <td>
               <div style="display: flex; align-items: center; gap: 8px;">
                 <code style="font-family: var(--font-mono); font-size: 12px; background: var(--surface-2); padding: 3px 8px; border-radius: 6px; border: 1px solid var(--hairline);">${escapeHtml(k.keyPrefix)}</code>
-                <button type="button" class="btn-pill-outline" onclick="copyTableKeyPrefix('${escapeHtml(k.keyPrefix)}')" title="Copy Token Prefix" style="padding: 2px 8px; font-size: 11px; height: 24px; min-height: unset; line-height: 1;">Copy</button>
+                <button type="button" class="btn-pill-outline" onclick="copyTableKeyPrefix('${escapeHtml(k.keyPrefix)}')" title="Copy Token" style="display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 24px; min-height: unset; padding: 0; border-radius: 6px;" aria-label="Copy Token">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                </button>
               </div>
             </td>
             <td><span style="font-size: 12px;">${new Date(k.createdAt).toLocaleDateString()}</span></td>

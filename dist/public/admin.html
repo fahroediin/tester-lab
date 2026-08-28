@@ -102,10 +102,55 @@
       background: #090d16;
     }
 
-    /* SweetAlert2 Dark Mode */
+    /* SweetAlert2 Modal Theme & Input Sizing Fix */
     .swal2-popup {
       font-family: var(--font-body) !important;
       border-radius: 16px !important;
+      padding: 24px !important;
+      box-sizing: border-box !important;
+    }
+
+    .swal2-title {
+      font-family: var(--font-display) !important;
+      font-size: 20px !important;
+      font-weight: 600 !important;
+      color: var(--ink) !important;
+    }
+
+    .swal2-input-label {
+      font-family: var(--font-mono) !important;
+      font-size: 11px !important;
+      text-transform: uppercase !important;
+      letter-spacing: 0.28px !important;
+      color: var(--body-muted) !important;
+      margin-top: 8px !important;
+      margin-bottom: 2px !important;
+      display: block !important;
+    }
+
+    .swal2-input,
+    .swal2-textarea,
+    .swal2-select {
+      margin: 12px 0 !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      box-sizing: border-box !important;
+      font-size: 14px !important;
+      padding: 10px 14px !important;
+      height: 44px !important;
+      border-radius: 8px !important;
+      border: 1px solid var(--hairline) !important;
+      background: #ffffff !important;
+      color: var(--ink) !important;
+      font-family: var(--font-body) !important;
+    }
+
+    .swal2-input:focus,
+    .swal2-textarea:focus,
+    .swal2-select:focus {
+      border-color: var(--action-blue) !important;
+      box-shadow: 0 0 0 3px rgba(0, 91, 191, 0.15) !important;
+      outline: none !important;
     }
 
     [data-theme="dark"] .swal2-popup {
@@ -709,7 +754,12 @@
           </div>
           <div style="display: flex; gap: 8px; align-items: center;">
             <input type="text" id="newKeyInputAdmin" readonly style="font-family: var(--font-mono); font-size: 12px; background: var(--card-bg); font-weight: 600; width: 100%;">
-            <button type="button" class="btn-pill-outline" onclick="copyNewApiKeyAdmin()" style="white-space: nowrap; padding: 6px 14px; height: 38px;">Copy</button>
+            <button type="button" class="btn-pill-outline" onclick="copyNewApiKeyAdmin()" title="Copy API Key" style="display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 38px; min-height: unset; padding: 0;" aria-label="Copy API Key">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+            </button>
           </div>
         </div>
 
@@ -1304,7 +1354,12 @@
             <td>
               <div style="display: flex; align-items: center; gap: 8px;">
                 <code style="font-family: var(--font-mono); font-size: 12px; background: var(--surface-2); padding: 3px 8px; border-radius: 6px; border: 1px solid var(--hairline);">${escapeHtml(k.keyPrefix)}</code>
-                <button type="button" class="btn-pill-outline" onclick="copyTableKeyPrefixAdmin('${escapeHtml(k.keyPrefix)}')" title="Copy Token Prefix" style="padding: 2px 8px; font-size: 11px; height: 24px; min-height: unset; line-height: 1;">Copy</button>
+                <button type="button" class="btn-pill-outline" onclick="copyTableKeyPrefixAdmin('${escapeHtml(k.keyPrefix)}')" title="Copy Token" style="display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 24px; min-height: unset; padding: 0; border-radius: 6px;" aria-label="Copy Token">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                </button>
               </div>
             </td>
             <td><span style="font-size: 12px;">${new Date(k.createdAt).toLocaleDateString()}</span></td>

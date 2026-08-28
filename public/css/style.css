@@ -931,10 +931,55 @@ footer {
   }
 }
 
-/* SweetAlert2 Modal Theme Sync */
+/* SweetAlert2 Modal Theme & Input Sizing Fix */
 .swal2-popup {
   font-family: var(--font-body) !important;
   border-radius: 16px !important;
+  padding: 24px !important;
+  box-sizing: border-box !important;
+}
+
+.swal2-title {
+  font-family: var(--font-display) !important;
+  font-size: 20px !important;
+  font-weight: 600 !important;
+  color: var(--ink) !important;
+}
+
+.swal2-input-label {
+  font-family: var(--font-mono) !important;
+  font-size: 11px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.28px !important;
+  color: var(--body-muted) !important;
+  margin-top: 8px !important;
+  margin-bottom: 2px !important;
+  display: block !important;
+}
+
+.swal2-input,
+.swal2-textarea,
+.swal2-select {
+  margin: 12px 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  font-size: 14px !important;
+  padding: 10px 14px !important;
+  height: 44px !important;
+  border-radius: 8px !important;
+  border: 1px solid var(--hairline) !important;
+  background: var(--canvas) !important;
+  color: var(--ink) !important;
+  font-family: var(--font-body) !important;
+}
+
+.swal2-input:focus,
+.swal2-textarea:focus,
+.swal2-select:focus {
+  border-color: var(--action-blue) !important;
+  box-shadow: 0 0 0 3px rgba(24, 99, 220, 0.15) !important;
+  outline: none !important;
 }
 
 [data-theme="dark"] .swal2-popup {

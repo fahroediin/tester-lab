@@ -420,7 +420,12 @@
           </div>
           <div style="display: flex; gap: 8px; align-items: center;">
             <input type="text" id="newKeyInput" readonly style="font-family: var(--font-mono); font-size: 12px; background: var(--surface-2); color: var(--ink); border: 1px solid var(--hairline); padding: 8px 12px; border-radius: 6px; font-weight: 600; width: 100%;">
-            <button type="button" class="btn-pill-outline" onclick="copyNewApiKey()" style="white-space: nowrap; padding: 6px 14px; height: 38px;">Copy</button>
+            <button type="button" class="btn-pill-outline" onclick="copyNewApiKey()" title="Copy API Key" style="display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 38px; min-height: unset; padding: 0;" aria-label="Copy API Key">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+            </button>
           </div>
         </div>
 
