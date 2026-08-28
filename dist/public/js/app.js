@@ -318,6 +318,25 @@
       event.target.value = '';
     }
 
+    function resetGeneratedState() {
+      const generatedCodeCard = document.getElementById('generatedCodeCard');
+      const codeOutput = document.getElementById('codeOutput');
+      const summarySection = document.getElementById('summarySection');
+      const statusBadgeContainer = document.getElementById('statusBadgeContainer');
+      
+      if (generatedCodeCard) generatedCodeCard.style.display = 'none';
+      if (codeOutput) codeOutput.textContent = '';
+      if (summarySection) summarySection.style.display = 'none';
+      if (statusBadgeContainer) statusBadgeContainer.innerHTML = '';
+      
+      const btnCopyCode = document.getElementById('btnCopyCode');
+      const btnDownloadCode = document.getElementById('btnDownloadCode');
+      const btnRunTest = document.getElementById('btnRunTest');
+      if (btnCopyCode) btnCopyCode.disabled = true;
+      if (btnDownloadCode) btnDownloadCode.disabled = true;
+      if (btnRunTest) btnRunTest.disabled = true;
+    }
+
     function addStep() {
       steps.push({ action: 'fill', targetLabel: '', value: '', description: '' });
       renderSteps();
@@ -376,6 +395,7 @@
 
     function updateStep(index, field, val) {
       steps[index][field] = val;
+      resetGeneratedState();
     }
 
     function moveStepUp(index) {
@@ -397,6 +417,7 @@
     }
 
     function renderSteps() {
+      resetGeneratedState();
       const container = document.getElementById('stepList');
       const badge = document.getElementById('stepCountBadge');
       container.innerHTML = '';
@@ -639,6 +660,9 @@
       const isDryRun = document.getElementById('dryRun').checked;
 
       if (consoleTitle) consoleTitle.textContent = 'REALTIME BACKGROUND MONITOR';
+
+      const generatedCodeCard = document.getElementById('generatedCodeCard');
+      if (generatedCodeCard) generatedCodeCard.style.display = 'flex';
 
       codeOutput.textContent =
         `[1/4] INITIALIZING GENERATION PIPELINE...
@@ -1462,6 +1486,9 @@
       
       const codeOutput = document.getElementById('codeOutput');
       if (codeOutput) codeOutput.textContent = h.generatedCode || '// No code available';
+      
+      const generatedCodeCard = document.getElementById('generatedCodeCard');
+      if (generatedCodeCard) generatedCodeCard.style.display = 'flex';
       
       const statusBadgeContainer = document.getElementById('statusBadgeContainer');
       if (statusBadgeContainer) {

@@ -147,11 +147,11 @@
       <div class="grid-2">
         <div class="form-group">
           <label for="testSuite">Test Suite Name</label>
-          <input type="text" id="testSuite" placeholder="e.g. Login Scenario">
+          <input type="text" id="testSuite" placeholder="e.g. Login Scenario" oninput="resetGeneratedState()">
         </div>
         <div class="form-group">
           <label for="framework">Target Framework</label>
-          <select id="framework" onchange="onFrameworkChange()">
+          <select id="framework" onchange="onFrameworkChange(); resetGeneratedState();">
             <option value="playwright">Playwright</option>
             <option value="cypress">Cypress</option>
             <option value="selenium">Selenium WebDriver (Python)</option>
@@ -163,11 +163,11 @@
       <div class="grid-2">
         <div class="form-group">
           <label for="targetUrl">Target Web Application URL</label>
-          <input type="text" id="targetUrl" placeholder="https://example.com/login">
+          <input type="text" id="targetUrl" placeholder="https://example.com/login" oninput="resetGeneratedState()">
         </div>
         <div class="form-group">
           <label for="language">Language / Syntax Format</label>
-          <select id="language">
+          <select id="language" onchange="resetGeneratedState()">
             <option value="typescript">TypeScript (.spec.ts)</option>
             <option value="javascript">JavaScript (.spec.js)</option>
           </select>
@@ -239,7 +239,7 @@
       </div>
 
       <!-- Card 2: Generated Code -->
-      <div class="card">
+      <div class="card" id="generatedCodeCard" style="display: none;">
         <div class="card-header">
           <label
             style="font-family: var(--font-mono); font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.2px; color: var(--primary); margin: 0;">Generated
