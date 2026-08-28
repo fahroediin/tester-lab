@@ -1127,9 +1127,6 @@
         <span style="font-family: var(--font-mono); font-size: 12px; font-weight: 500; color: var(--ink); background: var(--soft-stone); padding: 6px 14px; border-radius: 9999px; border: 1px solid var(--hairline);">
           ${currentUser.username}
         </span>
-        <button type="button" class="btn-pill-outline" onclick="openApiKeyModal()">
-          API Keys
-        </button>
         ${adminBtn}
         <button type="button" class="btn-pill-outline" onclick="handleLogout()">Sign Out</button>
       `;
@@ -1388,32 +1385,52 @@
       }
     }
 
-    // --- Flow History Logic ---
+    // --- Flow Navigation & Tab Logic ---
     function switchTab(tabId) {
       const tabBuilder = document.getElementById('tabBuilder');
       const tabHistory = document.getElementById('tabHistory');
+      const tabApiKeys = document.getElementById('tabApiKeys');
       const navBuilder = document.getElementById('navBuilder');
       const navHistory = document.getElementById('navHistory');
+      const navApiKeys = document.getElementById('navApiKeys');
+
+      // Hide all tabs
+      if (tabBuilder) tabBuilder.style.display = 'none';
+      if (tabHistory) tabHistory.style.display = 'none';
+      if (tabApiKeys) tabApiKeys.style.display = 'none';
+
+      // Reset all nav tab styles
+      [navBuilder, navHistory, navApiKeys].forEach(nav => {
+        if (nav) {
+          nav.classList.remove('active');
+          nav.style.color = 'var(--slate)';
+          nav.style.borderBottom = 'none';
+        }
+      });
 
       if (tabId === 'history') {
-        tabBuilder.style.display = 'none';
-        tabHistory.style.display = 'block';
-        navBuilder.classList.remove('active');
-        navHistory.classList.add('active');
-        navBuilder.style.color = 'var(--slate)';
-        navBuilder.style.borderBottom = 'none';
-        navHistory.style.color = 'var(--primary)';
-        navHistory.style.borderBottom = '2px solid var(--primary)';
+        if (tabHistory) tabHistory.style.display = 'block';
+        if (navHistory) {
+          navHistory.classList.add('active');
+          navHistory.style.color = 'var(--primary)';
+          navHistory.style.borderBottom = '2px solid var(--primary)';
+        }
         loadHistory();
+      } else if (tabId === 'apikeys') {
+        if (tabApiKeys) tabApiKeys.style.display = 'flex';
+        if (navApiKeys) {
+          navApiKeys.classList.add('active');
+          navApiKeys.style.color = 'var(--primary)';
+          navApiKeys.style.borderBottom = '2px solid var(--primary)';
+        }
+        loadUserApiKeys();
       } else {
-        tabHistory.style.display = 'none';
-        tabBuilder.style.display = 'flex';
-        navHistory.classList.remove('active');
-        navBuilder.classList.add('active');
-        navHistory.style.color = 'var(--slate)';
-        navHistory.style.borderBottom = 'none';
-        navBuilder.style.color = 'var(--primary)';
-        navBuilder.style.borderBottom = '2px solid var(--primary)';
+        if (tabBuilder) tabBuilder.style.display = 'flex';
+        if (navBuilder) {
+          navBuilder.classList.add('active');
+          navBuilder.style.color = 'var(--primary)';
+          navBuilder.style.borderBottom = '2px solid var(--primary)';
+        }
       }
     }
 
@@ -1748,19 +1765,6 @@
     }
 
     // --- API KEYS MANAGEMENT ---
-    function openApiKeyModal() {
-      const modal = document.getElementById('apiKeyModal');
-      const newKeyBanner = document.getElementById('newKeyBanner');
-      if (newKeyBanner) newKeyBanner.style.display = 'none';
-      if (modal) modal.style.display = 'flex';
-      loadUserApiKeys();
-    }
-
-    function closeApiKeyModal() {
-      const modal = document.getElementById('apiKeyModal');
-      if (modal) modal.style.display = 'none';
-    }
-
     async function loadUserApiKeys() {
       const tbody = document.getElementById('apiKeyTableBody');
       if (!tbody) return;

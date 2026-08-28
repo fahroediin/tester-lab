@@ -499,6 +499,7 @@
       <button class="tab-button" onclick="switchTab('logs')" id="tab-btn-logs">Activity Logs</button>
       <button class="tab-button" onclick="switchTab('feedbacks')" id="tab-btn-feedbacks">Feedbacks</button>
       <button class="tab-button" onclick="switchTab('config')" id="tab-btn-config">System Configuration</button>
+      <button class="tab-button" onclick="switchTab('apikeys')" id="tab-btn-apikeys">API Keys</button>
     </div>
 
     <!-- USERS TAB -->
@@ -633,6 +634,91 @@
       </div>
     </div>
 
+    <!-- API KEYS TAB -->
+    <div class="tab-content" id="tab-apikeys">
+      <div class="card">
+        <div class="card-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+          <div>
+            <div class="card-title">Admin Developer API Keys</div>
+            <div class="card-subtitle">Manage programmatic API keys for automated integrations and test execution</div>
+          </div>
+          <button type="button" class="btn-primary" onclick="promptCreateApiKeyAdmin()">+ Generate New Key</button>
+        </div>
+
+        <!-- Newly Generated Key Alert Box -->
+        <div id="newKeyBannerAdmin" style="display: none; background: rgba(16, 185, 129, 0.1); border: 1px solid var(--deep-green); padding: 16px; border-radius: 8px; margin: 16px 0;">
+          <div style="font-weight: 600; color: var(--deep-green); font-size: 13px; margin-bottom: 6px;">
+            New API Key Generated
+          </div>
+          <div style="font-size: 12px; color: var(--ink); margin-bottom: 8px;">
+            Please copy this key now. For your security, you will not be able to view it again.
+          </div>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <input type="text" id="newKeyInputAdmin" readonly style="font-family: var(--font-mono); font-size: 12px; background: var(--card-bg); font-weight: 600; width: 100%;">
+            <button type="button" class="btn-pill-outline" onclick="copyNewApiKeyAdmin()" style="white-space: nowrap; padding: 6px 14px; height: 38px;">Copy</button>
+          </div>
+        </div>
+
+        <div style="overflow-x: auto; margin-top: 16px;">
+          <table class="summary-table">
+            <thead>
+              <tr>
+                <th>Key Name</th>
+                <th>API Key Token</th>
+                <th>Created</th>
+                <th>Last Used</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="apiKeyTableBodyAdmin">
+              <tr><td colspan="6" style="text-align: center; color: var(--body-muted);">Loading API keys...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Quick Integration Guide Card -->
+      <div class="card" style="margin-top: 24px;">
+        <div class="card-header">
+          <div class="card-title">Quick Integration Guide</div>
+          <div class="card-subtitle">Pass your API key in the <code>X-API-Key</code> or <code>Authorization: Bearer &lt;key&gt;</code> header.</div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 16px; margin-top: 12px;">
+          <div style="background: #090d16; border-radius: 8px; padding: 14px; border: 1px solid var(--hairline);">
+            <div style="font-size: 12px; font-weight: 600; color: #94a3b8; margin-bottom: 8px;">Generate Playwright Test Script (POST /api/v1/generate-script)</div>
+            <pre style="font-family: var(--font-mono); font-size: 12px; color: #38bdf8; overflow-x: auto; margin: 0;">curl -X POST "https://tester-lab.mibot.my.id/api/v1/generate-script" \
+  -H "X-API-Key: tl_live_YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "dsl": {
+      "testSuite": "Automated Auth Test",
+      "targetUrl": "https://practicetestautomation.com/practice-test-login/",
+      "steps": [
+        { "step": 1, "description": "Type student into Username", "action": "type", "target": "#username", "value": "student" },
+        { "step": 2, "description": "Type Password123 into Password", "action": "type", "target": "#password", "value": "Password123" },
+        { "step": 3, "description": "Click Submit button", "action": "click", "target": "#submit" }
+      ]
+    }
+  }'</pre>
+          </div>
+
+          <div style="background: #090d16; border-radius: 8px; padding: 14px; border: 1px solid var(--hairline);">
+            <div style="font-size: 12px; font-weight: 600; color: #94a3b8; margin-bottom: 8px;">Execute Test Script on Server (POST /api/v1/run-test)</div>
+            <pre style="font-family: var(--font-mono); font-size: 12px; color: #38bdf8; overflow-x: auto; margin: 0;">curl -X POST "https://tester-lab.mibot.my.id/api/v1/run-test" \
+  -H "X-API-Key: tl_live_YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "code": "import { test, expect } from \"@playwright/test\";\ntest(\"sample\", async ({ page }) => {\n  await page.goto(\"https://example.com\");\n});",
+    "language": "typescript",
+    "mode": "headless"
+  }'</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 
 
@@ -698,7 +784,7 @@
     }
 
     async function switchTab(tabId) {
-      const tabs = ['users', 'logs', 'feedbacks', 'config'];
+      const tabs = ['users', 'logs', 'feedbacks', 'config', 'apikeys'];
       tabs.forEach(t => {
         const btn = document.getElementById(`tab-btn-${t}`);
         const content = document.getElementById(`tab-${t}`);
@@ -719,6 +805,8 @@
         await fetchFeedbacks();
       } else if (tabId === 'config') {
         await fetchConfig();
+      } else if (tabId === 'apikeys') {
+        await fetchApiKeysAdmin();
       }
     }
 
@@ -1123,6 +1211,173 @@
       } catch (err) {
         Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to save configuration', confirmButtonColor: '#005bbf' });
       }
+    }
+
+    // --- ADMIN API KEYS LOGIC ---
+    let allApiKeysAdmin = [];
+
+    async function fetchApiKeysAdmin() {
+      const tbody = document.getElementById('apiKeyTableBodyAdmin');
+      if (!tbody) return;
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 24px; color: var(--body-muted);">Loading API keys...</td></tr>';
+
+      try {
+        const response = await fetch('/api/v1/api-keys', { headers: getAuthHeaders() });
+        const data = await response.json();
+        if (!data.success) {
+          tbody.innerHTML = `<tr><td colspan="6" style="color:var(--coral); text-align:center;">${data.error}</td></tr>`;
+          return;
+        }
+
+        allApiKeysAdmin = data.data || [];
+        if (allApiKeysAdmin.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 24px; color: var(--body-muted);">No API keys generated yet. Click "+ Generate New Key" above.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = '';
+        allApiKeysAdmin.forEach((k) => {
+          const tr = document.createElement('tr');
+          const isRevoked = k.status === 'revoked';
+          const statusClass = isRevoked ? 'status-rejected' : 'status-approved';
+
+          const actionBtn = isRevoked
+            ? `<button class="btn-pill-outline" onclick="handleDeleteApiKeyAdmin('${k.id}')" style="padding: 4px 10px; font-size: 11px; color: #dc2626; border-color: #dc2626;">Delete</button>`
+            : `<button class="btn-pill-outline" onclick="handleRevokeApiKeyAdmin('${k.id}')" style="padding: 4px 10px; font-size: 11px; color: #dc2626; border-color: #dc2626;">Revoke</button>`;
+
+          tr.innerHTML = `
+            <td><strong>${escapeHtml(k.name)}</strong></td>
+            <td><code style="font-family: var(--font-mono); font-size: 12px; background: var(--surface-2); padding: 2px 6px; border-radius: 4px;">${escapeHtml(k.keyPrefix)}</code></td>
+            <td><span style="font-size: 12px;">${new Date(k.createdAt).toLocaleDateString()}</span></td>
+            <td><span style="font-size: 12px; color: var(--body-muted);">${k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleString() : 'Never'}</span></td>
+            <td><span class="status-badge ${statusClass}">${k.status.toUpperCase()}</span></td>
+            <td>${actionBtn}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="6" style="color:var(--coral); text-align:center;">Failed to load API keys: ${err.message}</td></tr>`;
+      }
+    }
+
+    async function promptCreateApiKeyAdmin() {
+      const { value: keyName } = await Swal.fire({
+        title: 'Generate New API Key',
+        input: 'text',
+        inputLabel: 'API Key Name / Description',
+        inputValue: 'CI/CD Pipeline',
+        showCancelButton: true,
+        confirmButtonText: 'Generate Key',
+        confirmButtonColor: '#005bbf',
+        inputValidator: (value) => {
+          if (!value || !value.trim()) {
+            return 'Please enter a name for this API key';
+          }
+        }
+      });
+
+      if (!keyName) return;
+
+      try {
+        const res = await fetch('/api/v1/api-keys', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ name: keyName.trim() })
+        });
+        const data = await res.json();
+        if (data.success && data.data) {
+          const banner = document.getElementById('newKeyBannerAdmin');
+          const input = document.getElementById('newKeyInputAdmin');
+          if (banner && input) {
+            input.value = data.data.rawKey;
+            banner.style.display = 'block';
+          }
+          await fetchApiKeysAdmin();
+        } else {
+          Swal.fire({ icon: 'error', title: 'Generation Failed', text: data.error, confirmButtonColor: '#005bbf' });
+        }
+      } catch (err) {
+        Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#005bbf' });
+      }
+    }
+
+    function copyNewApiKeyAdmin() {
+      const input = document.getElementById('newKeyInputAdmin');
+      if (!input || !input.value) return;
+      navigator.clipboard.writeText(input.value);
+      Swal.fire({
+        icon: 'success',
+        title: 'Copied to Clipboard!',
+        text: 'API key copied successfully.',
+        timer: 1500,
+        showConfirmButton: false,
+        toast: true,
+        position: 'top-end'
+      });
+    }
+
+    async function handleRevokeApiKeyAdmin(id) {
+      const result = await Swal.fire({
+        title: 'Revoke API Key?',
+        text: 'Any automation script using this key will immediately stop working.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        confirmButtonText: 'Yes, Revoke Key'
+      });
+
+      if (!result.isConfirmed) return;
+
+      try {
+        const res = await fetch(`/api/v1/api-keys/${id}`, {
+          method: 'DELETE',
+          headers: getAuthHeaders()
+        });
+        const data = await res.json();
+        if (data.success) {
+          Swal.fire({ icon: 'success', title: 'Revoked', text: 'API Key has been revoked.', timer: 1500, showConfirmButton: false, toast: true, position: 'top-end' });
+          await fetchApiKeysAdmin();
+        } else {
+          Swal.fire({ icon: 'error', title: 'Failed', text: data.error, confirmButtonColor: '#005bbf' });
+        }
+      } catch (err) {
+        Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#005bbf' });
+      }
+    }
+
+    async function handleDeleteApiKeyAdmin(id) {
+      const result = await Swal.fire({
+        title: 'Delete Record?',
+        text: 'Permanently remove this revoked key record?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        confirmButtonText: 'Delete'
+      });
+
+      if (!result.isConfirmed) return;
+
+      try {
+        const res = await fetch(`/api/v1/api-keys/${id}/delete`, {
+          method: 'DELETE',
+          headers: getAuthHeaders()
+        });
+        const data = await res.json();
+        if (data.success) {
+          await fetchApiKeysAdmin();
+        } else {
+          Swal.fire({ icon: 'error', title: 'Failed', text: data.error, confirmButtonColor: '#005bbf' });
+        }
+      } catch (err) {
+        Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#005bbf' });
+      }
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/[&<>"']/g, function(m) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m];
+      });
     }
 
     // --- THEME SWITCHER LOGIC ---
