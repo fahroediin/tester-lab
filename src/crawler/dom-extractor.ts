@@ -139,14 +139,12 @@ export class DOMExtractor {
       await locator.fill('');
       await locator.pressSequentially(step.value, { delay: 50, timeout: 5000 });
     } else if (step.action === 'click') {
-      // Use waitForURL pattern instead of deprecated waitForNavigation
-      const currentUrl = page.url();
       try {
-        await locator.click({ force: true, timeout: 3000 });
+        await locator.click({ force: true, timeout: 8000 });
       } catch (e) {
         if (step.targetLabel) {
           try {
-            await page.locator(`text="${step.targetLabel}"`).first().click({ force: true, timeout: 2000 });
+            await page.locator(`text="${step.targetLabel}"`).first().click({ force: true, timeout: 4000 });
           } catch (e2) {
             throw e;
           }
@@ -154,7 +152,8 @@ export class DOMExtractor {
           throw e;
         }
       }
-      // Wait briefly for SPA reactivity
+      // Wait briefly for SPA reactivity or navigation
+      await page.waitForLoadState('domcontentloaded', { timeout: 5000 }).catch(() => {});
       await page.waitForTimeout(500);
     } else if (step.action === 'select' && step.value) {
       // Safety check: verify element is actually a <select> before calling selectOption
