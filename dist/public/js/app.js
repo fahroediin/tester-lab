@@ -640,6 +640,11 @@
       if (btnAddStep) btnAddStep.disabled = true;
       document.querySelectorAll('.step-item').forEach(el => el.setAttribute('draggable', 'false'));
       
+      const generalInputs = document.querySelectorAll('#testSuite, #targetUrl, #framework, #language');
+      generalInputs.forEach(el => el.disabled = true);
+      const topButtons = document.querySelectorAll('#scenarioBuilderCard .card-header button');
+      topButtons.forEach(el => el.disabled = true);
+      
       const btnCopyCode = document.getElementById('btnCopyCode');
       const btnDownloadCode = document.getElementById('btnDownloadCode');
       if (btnCopyCode) btnCopyCode.disabled = true;
@@ -762,6 +767,11 @@
         const btnAddStep = document.getElementById('btnAddStep');
         if (btnAddStep) btnAddStep.disabled = false;
         document.querySelectorAll('.step-item').forEach(el => el.setAttribute('draggable', 'true'));
+        
+        const generalInputs = document.querySelectorAll('#testSuite, #targetUrl, #framework, #language');
+        generalInputs.forEach(el => el.disabled = false);
+        const topButtons = document.querySelectorAll('#scenarioBuilderCard .card-header button');
+        topButtons.forEach(el => el.disabled = false);
         
         const btnCopyCode = document.getElementById('btnCopyCode');
         const btnDownloadCode = document.getElementById('btnDownloadCode');
@@ -900,6 +910,12 @@
       // Disable Execution Steps so they cannot be changed during run
       const stepListInputs = document.querySelectorAll('#stepList input, #stepList select, #stepList button');
       stepListInputs.forEach(el => el.disabled = true);
+      const generalInputs = document.querySelectorAll('#testSuite, #targetUrl, #framework, #language');
+      generalInputs.forEach(el => el.disabled = true);
+      const topButtons = document.querySelectorAll('#scenarioBuilderCard .card-header button');
+      topButtons.forEach(el => el.disabled = true);
+      const btnAddStep = document.getElementById('btnAddStep');
+      if (btnAddStep) btnAddStep.disabled = true;
 
       try {
         const response = await fetch('/api/v1/run-test', {
@@ -956,6 +972,12 @@
         // Re-enable Execution Steps
         const stepListInputs = document.querySelectorAll('#stepList input, #stepList select, #stepList button');
         stepListInputs.forEach(el => el.disabled = false);
+        const generalInputs = document.querySelectorAll('#testSuite, #targetUrl, #framework, #language');
+        generalInputs.forEach(el => el.disabled = false);
+        const topButtons = document.querySelectorAll('#scenarioBuilderCard .card-header button');
+        topButtons.forEach(el => el.disabled = false);
+        const btnAddStep = document.getElementById('btnAddStep');
+        if (btnAddStep) btnAddStep.disabled = false;
       }
     }
 
