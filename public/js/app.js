@@ -1304,7 +1304,7 @@
         const data = await response.json();
         
         if (!data.success) {
-          tbody.innerHTML = \`<tr><td colspan="5" style="text-align: center; color: var(--coral);">\${data.error}</td></tr>\`;
+          tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--coral);">${data.error}</td></tr>`;
           return;
         }
         
@@ -1322,16 +1322,16 @@
           else if (h.status === 'GENERATED') statusColor = 'var(--action-blue)';
           
           const tr = document.createElement('tr');
-          tr.innerHTML = \`
-            <td><span style="font-size: 11px; font-family: var(--font-mono); color: var(--slate);">\${new Date(h.timestamp).toLocaleString()}</span></td>
-            <td><span style="font-weight: 500;">\${h.testSuite}</span></td>
-            <td><span style="font-family: var(--font-mono); font-size: 11px; word-break: break-all;">\${h.targetUrl}</span></td>
-            <td style="text-align: center;"><span style="font-weight: 600; font-size: 11px; color: \${statusColor};">\${h.status}</span></td>
+          tr.innerHTML = `
+            <td><span style="font-size: 11px; font-family: var(--font-mono); color: var(--slate);">${new Date(h.timestamp).toLocaleString()}</span></td>
+            <td><span style="font-weight: 500;">${h.testSuite}</span></td>
+            <td><span style="font-family: var(--font-mono); font-size: 11px; word-break: break-all;">${h.targetUrl}</span></td>
+            <td style="text-align: center;"><span style="font-weight: 600; font-size: 11px; color: ${statusColor};">${h.status}</span></td>
             <td style="text-align: center; display: flex; gap: 8px; justify-content: center;">
-              <button class="btn-pill-outline" onclick="viewHistory('\${h.id}')" style="padding: 4px 10px; font-size: 11px; min-height: unset; height: auto;">View</button>
-              <button class="btn-pill-outline" onclick="deleteHistory('\${h.id}')" style="padding: 4px 10px; font-size: 11px; min-height: unset; height: auto; color: var(--coral); border-color: var(--coral);">Delete</button>
+              <button class="btn-pill-outline" onclick="viewHistory('${h.id}')" style="padding: 4px 10px; font-size: 11px; min-height: unset; height: auto;">View</button>
+              <button class="btn-pill-outline" onclick="deleteHistory('${h.id}')" style="padding: 4px 10px; font-size: 11px; min-height: unset; height: auto; color: var(--coral); border-color: var(--coral);">Delete</button>
             </td>
-          \`;
+          `;
           tbody.appendChild(tr);
         });
       } catch (err) {
@@ -1341,7 +1341,7 @@
 
     async function viewHistory(id) {
       try {
-        const response = await fetch(\`/api/v1/history/\${id}\`, { headers: getAuthHeaders() });
+        const response = await fetch(`/api/v1/history/${id}`, { headers: getAuthHeaders() });
         const data = await response.json();
         if (!data.success) {
           Swal.fire({ icon: 'error', title: 'Error', text: data.error, toast: true, position: 'top-end' });
@@ -1359,7 +1359,7 @@
         else if (h.status === 'RUNNING') statusColor = '#eab308';
         else if (h.status === 'GENERATED') statusColor = 'var(--action-blue)';
         
-        document.getElementById('histStatus').innerHTML = \`<span style="color: \${statusColor}; font-weight: bold;">\${h.status}</span>\`;
+        document.getElementById('histStatus').innerHTML = `<span style="color: ${statusColor}; font-weight: bold;">${h.status}</span>`;
         document.getElementById('histCode').textContent = h.generatedCode || 'No code generated';
         
         // Render Steps
@@ -1369,12 +1369,12 @@
           h.resolvedSteps.forEach(s => {
             const tr = document.createElement('tr');
             const isPassScore = s.matchScore >= 80;
-            tr.innerHTML = \`
-              <td><span style="font-family: var(--font-mono); font-weight: 500;">Step \${s.step}</span></td>
-              <td><span style="font-family: var(--font-mono); color: var(--action-blue);">\${s.action}</span></td>
-              <td><span style="font-family: var(--font-mono);">\${s.selectorType}('\${s.selectorValue}')</span></td>
-              <td><span style="font-weight: 600; color: \${isPassScore ? 'var(--deep-green)' : 'var(--coral)'};">\${s.matchScore}</span></td>
-            \`;
+            tr.innerHTML = `
+              <td><span style="font-family: var(--font-mono); font-weight: 500;">Step ${s.step}</span></td>
+              <td><span style="font-family: var(--font-mono); color: var(--action-blue);">${s.action}</span></td>
+              <td><span style="font-family: var(--font-mono);">${s.selectorType}('${s.selectorValue}')</span></td>
+              <td><span style="font-weight: 600; color: ${isPassScore ? 'var(--deep-green)' : 'var(--coral)'};">${s.matchScore}</span></td>
+            `;
             stepsBody.appendChild(tr);
           });
         } else {
@@ -1406,7 +1406,7 @@
     async function deleteHistory(id) {
       if (!confirm('Are you sure you want to delete this flow history? This will also delete any associated videos.')) return;
       try {
-        const response = await fetch(\`/api/v1/history/\${id}\`, { 
+        const response = await fetch(`/api/v1/history/${id}`, { 
           method: 'DELETE',
           headers: getAuthHeaders() 
         });
