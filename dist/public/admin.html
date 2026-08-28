@@ -837,9 +837,17 @@
         </div>
 
         <div style="display: flex; flex-direction: column; gap: 16px; margin-top: 12px;">
-          <div style="background: #090d16; border-radius: 8px; padding: 14px; border: 1px solid var(--hairline);">
-            <div style="font-size: 12px; font-weight: 600; color: #94a3b8; margin-bottom: 8px;">Generate Playwright Test Script (POST /api/v1/generate-script)</div>
-            <pre style="font-family: var(--font-mono); font-size: 12px; color: #38bdf8; overflow-x: auto; margin: 0;">curl -X POST "https://tester-lab.mibot.my.id/api/v1/generate-script" \
+          <div style="background: var(--surface-2); border-radius: 8px; padding: 14px; border: 1px solid var(--hairline);">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; gap: 8px;">
+              <div style="font-size: 12px; font-weight: 600; color: var(--body-muted);">Generate Playwright Test Script (POST /api/v1/generate-script)</div>
+              <button type="button" class="btn-icon" onclick="copySnippetCode('snippetGenerateScriptAdmin')" title="Copy Code Snippet" aria-label="Copy Code Snippet">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+              </button>
+            </div>
+            <pre id="snippetGenerateScriptAdmin" style="font-family: var(--font-mono); font-size: 12px; color: var(--action-blue); overflow-x: auto; margin: 0; background: transparent; padding: 0;">curl -X POST "https://tester-lab.mibot.my.id/api/v1/generate-script" \
   -H "X-API-Key: tl_live_YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -855,9 +863,17 @@
   }'</pre>
           </div>
 
-          <div style="background: #090d16; border-radius: 8px; padding: 14px; border: 1px solid var(--hairline);">
-            <div style="font-size: 12px; font-weight: 600; color: #94a3b8; margin-bottom: 8px;">Execute Test Script on Server (POST /api/v1/run-test)</div>
-            <pre style="font-family: var(--font-mono); font-size: 12px; color: #38bdf8; overflow-x: auto; margin: 0;">curl -X POST "https://tester-lab.mibot.my.id/api/v1/run-test" \
+          <div style="background: var(--surface-2); border-radius: 8px; padding: 14px; border: 1px solid var(--hairline);">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; gap: 8px;">
+              <div style="font-size: 12px; font-weight: 600; color: var(--body-muted);">Execute Test Script on Server (POST /api/v1/run-test)</div>
+              <button type="button" class="btn-icon" onclick="copySnippetCode('snippetRunTestAdmin')" title="Copy Code Snippet" aria-label="Copy Code Snippet">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+              </button>
+            </div>
+            <pre id="snippetRunTestAdmin" style="font-family: var(--font-mono); font-size: 12px; color: var(--action-blue); overflow-x: auto; margin: 0; background: transparent; padding: 0;">curl -X POST "https://tester-lab.mibot.my.id/api/v1/run-test" \
   -H "X-API-Key: tl_live_YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -1428,6 +1444,22 @@
         icon: 'success',
         title: 'Copied!',
         text: `Token "${token}" copied to clipboard.`,
+        timer: 1500,
+        showConfirmButton: false,
+        toast: true,
+        position: 'top-end'
+      });
+    }
+
+    function copySnippetCode(elementId) {
+      const el = document.getElementById(elementId);
+      if (!el) return;
+      const text = el.textContent || el.innerText;
+      navigator.clipboard.writeText(text);
+      Swal.fire({
+        icon: 'success',
+        title: 'Copied to Clipboard!',
+        text: 'Code snippet copied successfully.',
         timer: 1500,
         showConfirmButton: false,
         toast: true,

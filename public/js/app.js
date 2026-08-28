@@ -1841,6 +1841,22 @@
       });
     }
 
+    function copySnippetCode(elementId) {
+      const el = document.getElementById(elementId);
+      if (!el) return;
+      const text = el.textContent || el.innerText;
+      navigator.clipboard.writeText(text);
+      Swal.fire({
+        icon: 'success',
+        title: 'Copied to Clipboard!',
+        text: 'Code snippet copied successfully.',
+        timer: 1500,
+        showConfirmButton: false,
+        toast: true,
+        position: 'top-end'
+      });
+    }
+
     async function promptCreateApiKey() {
       const { value: keyName } = await Swal.fire({
         title: 'Generate New API Key',
