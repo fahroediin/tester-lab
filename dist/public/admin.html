@@ -1771,6 +1771,10 @@
           const isRevoked = k.status === 'revoked';
           const statusClass = isRevoked ? 'status-rejected' : 'status-approved';
 
+          const actionBtn = isRevoked
+            ? `<button class="btn-pill-outline" onclick="handleDeleteApiKeyAdmin('${k.id}')" style="padding: 4px 10px; font-size: 11px; color: #dc2626; border-color: #dc2626;">Delete</button>`
+            : `<button class="btn-pill-outline" onclick="handleRevokeApiKeyAdmin('${k.id}')" style="padding: 4px 10px; font-size: 11px; color: #dc2626; border-color: #dc2626;">Revoke</button>`;
+
           const rawKey = k.keyPrefix || '';
           const displayKey = (rawKey.length > 22 && !rawKey.includes('...'))
             ? `${rawKey.substring(0, 15)}...${rawKey.substring(rawKey.length - 4)}`
