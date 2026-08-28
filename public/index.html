@@ -128,9 +128,9 @@
   <div class="container" id="mainAppContainer" style="display: none;">
     
     <!-- TAB: SCENARIO BUILDER -->
-    <div id="tabBuilder" style="display: flex; gap: 24px; width: 100%;">
+    <div id="tabBuilder" style="display: flex; flex-wrap: wrap; gap: 24px; width: 100%;">
       <!-- Left Column: Business Flow Builder -->
-    <div class="card" id="scenarioBuilderCard">
+    <div class="card" id="scenarioBuilderCard" style="flex: 1; min-width: 400px;">
       <div class="card-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
         <div class="card-title">Scenario Builder</div>
         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
@@ -206,7 +206,7 @@
     </div>
 
     <!-- Right Column Wrapper -->
-    <div style="display: flex; flex-direction: column; gap: 24px; width: 100%;">
+    <div style="display: flex; flex-direction: column; gap: 24px; flex: 1.5; min-width: 400px;">
       <!-- Card 1: Output Spec & Matching -->
       <div class="card" id="outputSpecCard">
         <div class="card-header">
