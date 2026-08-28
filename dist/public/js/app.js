@@ -1127,8 +1127,8 @@
         <span style="font-family: var(--font-mono); font-size: 12px; font-weight: 500; color: var(--ink); background: var(--soft-stone); padding: 6px 14px; border-radius: 9999px; border: 1px solid var(--hairline);">
           ${currentUser.username}
         </span>
-        <button type="button" class="btn-pill-outline" onclick="openApiKeyModal()" style="display: inline-flex; align-items: center; gap: 4px;">
-          🔑 API Keys
+        <button type="button" class="btn-pill-outline" onclick="openApiKeyModal()">
+          API Keys
         </button>
         ${adminBtn}
         <button type="button" class="btn-pill-outline" onclick="handleLogout()">Sign Out</button>
