@@ -496,7 +496,7 @@
             <div class="card-title">System Configuration</div>
             <div class="card-subtitle">Manage global application settings and defaults</div>
           </div>
-          <button type="button" class="btn-primary" onclick="saveConfiguration()">Save Changes</button>
+          <button type="button" class="btn-pill-outline" onclick="saveConfiguration()">Save</button>
         </div>
         
         <div style="padding-top: 16px; border-top: 1px solid var(--hairline); margin-top: 16px;">
@@ -951,6 +951,65 @@
         }
       } catch (err) {
         Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#005bbf' });
+      }
+    }
+
+    // --- CONFIGURATION LOGIC ---
+    let appConfig = null;
+    
+    async function fetchConfig() {
+      try {
+        const response = await fetch('/api/v1/config', {
+          headers: getAuthHeaders()
+        });
+        const data = await response.json();
+        if (data.success) {
+          appConfig = data.data;
+          document.getElementById('configTestSuite').value = appConfig.sampleTestSuite || '';
+          document.getElementById('configTargetUrl').value = appConfig.sampleTargetUrl || '';
+          document.getElementById('configStepsJson').value = JSON.stringify(appConfig.sampleSteps || [], null, 2);
+        } else {
+          Swal.fire({ icon: 'error', title: 'Error', text: data.error, toast: true, position: 'top-end' });
+        }
+      } catch (err) {
+        console.error('Failed to load configuration:', err);
+        Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to load configuration', toast: true, position: 'top-end' });
+      }
+    }
+
+    async function saveConfiguration() {
+      const suite = document.getElementById('configTestSuite').value;
+      const url = document.getElementById('configTargetUrl').value;
+      const stepsStr = document.getElementById('configStepsJson').value;
+
+      let parsedSteps = [];
+      try {
+        parsedSteps = JSON.parse(stepsStr);
+        if (!Array.isArray(parsedSteps)) throw new Error('Steps must be a JSON array');
+      } catch (e) {
+        Swal.fire({ icon: 'error', title: 'Invalid JSON', text: 'Execution Steps must be a valid JSON array.', confirmButtonColor: '#005bbf' });
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/v1/config', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            sampleTestSuite: suite,
+            sampleTargetUrl: url,
+            sampleSteps: parsedSteps
+          })
+        });
+        const data = await response.json();
+        if (data.success) {
+          appConfig = data.data;
+          Swal.fire({ icon: 'success', title: 'Saved', text: 'Configuration saved successfully.', toast: true, position: 'top-end' });
+        } else {
+          Swal.fire({ icon: 'error', title: 'Save Failed', text: data.error, confirmButtonColor: '#005bbf' });
+        }
+      } catch (err) {
+        Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to save configuration', confirmButtonColor: '#005bbf' });
       }
     }
 
