@@ -458,9 +458,8 @@ textarea:focus {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
-  display: block;
-  overflow-x: auto;
-  white-space: nowrap;
+  display: table;
+  table-layout: auto;
 }
 
 .summary-table th,
