@@ -511,6 +511,50 @@
 
   </div> <!-- END MAIN APP CONTAINER -->
 
+  <!-- Floating Feedback Button -->
+  <button type="button" class="floating-feedback-btn" onclick="openFeedbackModal()" aria-label="Feedback">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+    </svg>
+    Feedback
+  </button>
+
+  <!-- Feedback Modal -->
+  <div class="modal-overlay" id="feedbackModal" style="display: none; z-index: 9999;">
+    <div class="modal-card" style="max-width: 520px; width: 95%;">
+      <div class="modal-header">
+        <h3>Submit Feedback</h3>
+        <button type="button" class="modal-close" onclick="closeFeedbackModal()">&times;</button>
+      </div>
+      <div style="margin-top: 16px;">
+        <div class="form-group">
+          <label for="feedbackType">Feedback Type <span style="color:red">*</span></label>
+          <select id="feedbackType" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--hairline); background: var(--surface-2); color: var(--ink);">
+            <option value="Functional">Functional (Bug / Logic Error)</option>
+            <option value="Defect">Defect (Crash / Error Page)</option>
+            <option value="Cosmetic">Cosmetic (UI / Design Issue)</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-top: 14px;">
+          <label for="feedbackDetails">Information Details <span style="color:red">*</span></label>
+          <textarea id="feedbackDetails" rows="4" placeholder="Describe the issue or suggestion..." style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--hairline); background: var(--surface-2); color: var(--ink); resize: vertical;"></textarea>
+        </div>
+        <div class="form-group" style="margin-top: 14px;">
+          <label for="feedbackAttachment">Attach File (Optional)</label>
+          <div style="font-size: 11px; color: var(--body-muted); margin-bottom: 6px;">Accepted formats: .png, .jpg, .jpeg, .bmp. Max size: 5MB</div>
+          <input type="file" id="feedbackAttachment" accept=".png, .jpg, .jpeg, .bmp" style="width: 100%; padding: 8px; font-size: 12px;">
+        </div>
+        <div style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 10px;">
+          <button type="button" class="btn-pill-outline" onclick="closeFeedbackModal()">Cancel</button>
+          <button type="button" class="btn-pill-primary" id="btnSubmitFeedback" onclick="submitFeedback()" style="background: var(--action-blue) !important; color: #ffffff !important; border-color: var(--action-blue) !important;">
+            <span class="loader" id="feedbackLoader" style="display: none;"></span>
+            <span>Submit</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- History Detail Modal -->
   <div class="modal-overlay" id="historyDetailModal" style="display: none; z-index: 2000;">
     <div class="modal-card" style="max-width: 900px; width: 95%; max-height: 90vh; overflow-y: auto;">
