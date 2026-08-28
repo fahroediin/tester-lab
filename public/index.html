@@ -404,7 +404,10 @@
           <div><span style="color: var(--slate); font-size: 12px;">Test Suite:</span> <b id="histSuite"></b></div>
           <div><span style="color: var(--slate); font-size: 12px;">Target URL:</span> <b id="histUrl"></b></div>
           <div><span style="color: var(--slate); font-size: 12px;">Date:</span> <b id="histDate"></b></div>
-          <div><span style="color: var(--slate); font-size: 12px;">Status:</span> <b id="histStatus"></b></div>
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div><span style="color: var(--slate); font-size: 12px;">Status:</span> <b id="histStatus"></b></div>
+            <button class="btn-primary" onclick="loadHistoryToBuilder()" style="padding: 6px 12px; font-size: 12px; min-height: unset; height: auto;">Load to Builder</button>
+          </div>
         </div>
 
         <!-- Code Section -->

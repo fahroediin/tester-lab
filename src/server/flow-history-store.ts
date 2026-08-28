@@ -13,6 +13,8 @@ export interface FlowHistory {
   generatedCode: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   resolvedSteps: any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  rawDsl?: any;
   videoUrl?: string;
   runLogs?: string;
   durationMs?: number;
@@ -87,6 +89,7 @@ export function updateHistory(id: string, updates: Partial<FlowHistory>): FlowHi
   history[index] = {
     ...existing,
     status: updates.status !== undefined ? updates.status : existing.status,
+    rawDsl: updates.rawDsl !== undefined ? updates.rawDsl : existing.rawDsl,
     videoUrl: updates.videoUrl !== undefined ? updates.videoUrl : existing.videoUrl,
     runLogs: updates.runLogs !== undefined ? updates.runLogs : existing.runLogs,
     durationMs: updates.durationMs !== undefined ? updates.durationMs : existing.durationMs

@@ -69,7 +69,8 @@ testRoutes.post('/generate-script', authenticateJWT, requireApprovedUser, async 
       targetUrl: dsl.targetUrl || '',
       status: 'GENERATED',
       generatedCode: result.code,
-      resolvedSteps: result.resolvedSteps
+      resolvedSteps: result.resolvedSteps,
+      rawDsl: dsl
     });
 
     res.json({

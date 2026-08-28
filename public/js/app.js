@@ -2,6 +2,7 @@
     let isGeneratingScript = false;
     let latestGeneratedCode = '';
     let currentHistoryId = null;
+    let currentViewedHistory = null;
 
     function toggleSummaryTable() {
       const container = document.getElementById('summaryTableContainer');
@@ -1349,6 +1350,8 @@
         }
         
         const h = data.data;
+        currentViewedHistory = h;
+        
         document.getElementById('histSuite').textContent = h.testSuite;
         document.getElementById('histUrl').textContent = h.targetUrl;
         document.getElementById('histDate').textContent = new Date(h.timestamp).toLocaleString();
@@ -1401,6 +1404,74 @@
     function closeHistoryModal() {
       document.getElementById('historyDetailModal').style.display = 'none';
       document.getElementById('historyVideoPlayer').pause();
+    }
+
+    function loadHistoryToBuilder() {
+      if (!currentViewedHistory) return;
+      const h = currentViewedHistory;
+
+      // Populate basic info
+      document.getElementById('testSuite').value = h.testSuite || '';
+      document.getElementById('targetUrl').value = h.targetUrl || '';
+
+      if (h.rawDsl) {
+        if (h.rawDsl.framework) document.getElementById('framework').value = h.rawDsl.framework;
+        onFrameworkChange(); // update language options
+        if (h.rawDsl.language) {
+          setTimeout(() => {
+            document.getElementById('language').value = h.rawDsl.language;
+          }, 10);
+        }
+        
+        if (Array.isArray(h.rawDsl.steps)) {
+          steps = h.rawDsl.steps.map(s => ({
+            action: s.action || 'fill',
+            targetLabel: s.targetLabel || '',
+            value: s.value !== undefined ? s.value : (s.expected !== undefined ? s.expected : ''),
+            description: s.description || ''
+          }));
+        }
+      } else {
+        // Fallback for older history records without rawDsl
+        const parsed = parseSpecToSteps(h.generatedCode);
+        if (parsed.length > 0) steps = parsed;
+      }
+      
+      renderSteps();
+
+      // Populate Code output
+      latestGeneratedCode = h.generatedCode;
+      currentHistoryId = h.id;
+      
+      const codeOutput = document.getElementById('codeOutput');
+      if (codeOutput) codeOutput.textContent = h.generatedCode || '// No code available';
+      
+      const statusBadgeContainer = document.getElementById('statusBadgeContainer');
+      if (statusBadgeContainer) {
+        statusBadgeContainer.innerHTML = '<span class="status-chip chip-pass">Loaded from History</span>';
+      }
+      
+      // Enable action buttons
+      const btnCopyCode = document.getElementById('btnCopyCode');
+      const btnDownloadCode = document.getElementById('btnDownloadCode');
+      const btnRunTest = document.getElementById('btnRunTest');
+      if (btnCopyCode) btnCopyCode.disabled = false;
+      if (btnDownloadCode) btnDownloadCode.disabled = false;
+      if (btnRunTest) btnRunTest.disabled = false;
+
+      // Switch back to builder tab
+      closeHistoryModal();
+      switchTab('builder');
+
+      Swal.fire({
+        icon: 'success',
+        title: 'Loaded',
+        text: 'Scenario successfully loaded into the builder.',
+        timer: 2000,
+        showConfirmButton: false,
+        toast: true,
+        position: 'top-end'
+      });
     }
 
     async function deleteHistory(id) {
