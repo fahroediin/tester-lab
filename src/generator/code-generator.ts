@@ -2,10 +2,10 @@ import fs from 'fs';
 import path from 'path';
 import Handlebars from 'handlebars';
 import * as prettier from 'prettier';
-import { DSLConfig, ResolvedStep, GenerationResult } from '../types/index.js';
+import type { DSLConfig, ResolvedStep, GenerationResult } from '../types/index.js';
 
 // Register Handlebars helper for equality check
-Handlebars.registerHelper('eq', function (a, b) {
+Handlebars.registerHelper('eq', function (a: unknown, b: unknown) {
   return a === b;
 });
 

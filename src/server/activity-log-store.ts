@@ -12,6 +12,8 @@ export interface ActivityLog {
 
 const dataDir = path.join(process.cwd(), 'data');
 const logsFilePath = path.join(dataDir, 'activity-logs.json');
+const MAX_LOG_RETENTION = 2000;
+const DEFAULT_LOG_LIMIT = 100;
 
 let cachedLogs: ActivityLog[] | null = null;
 
@@ -59,8 +61,8 @@ export function addLog(log: Omit<ActivityLog, 'id' | 'timestamp'>): ActivityLog 
   // Add to beginning of array so newest logs are first
   logs.unshift(newLog);
   
-  // Optional: Limit logs size to prevent file bloat (e.g. keep last 1000 logs)
-  if (logs.length > 2000) {
+  // Optional: Limit logs size to prevent file bloat
+  if (logs.length > MAX_LOG_RETENTION) {
     logs.pop();
   }
   
@@ -68,7 +70,7 @@ export function addLog(log: Omit<ActivityLog, 'id' | 'timestamp'>): ActivityLog 
   return newLog;
 }
 
-export function getLogs(limit: number = 100): ActivityLog[] {
+export function getLogs(limit: number = DEFAULT_LOG_LIMIT): ActivityLog[] {
   const logs = loadLogs();
   return logs.slice(0, limit);
 }

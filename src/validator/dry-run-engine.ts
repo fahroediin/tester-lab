@@ -3,8 +3,8 @@ import path from 'path';
 import os from 'os';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { DryRunResult, ResolvedStep, DSLConfig } from '../types/index.js';
-import { CodeGenerator } from '../generator/codeGenerator.js';
+import type { DryRunResult, ResolvedStep, DSLConfig } from '../types/index.js';
+import { CodeGenerator } from '../generator/code-generator.js';
 
 const execAsync = promisify(exec);
 
@@ -93,8 +93,9 @@ export default defineConfig({
         success: true,
         durationMs
       };
-    } catch (error: any) {
-      const errorOutput = (error.stdout || '') + '\n' + (error.stderr || '');
+    } catch (error: unknown) {
+      const err = error as { stdout?: string; stderr?: string; message?: string };
+      const errorOutput = (err.stdout || '') + '\n' + (err.stderr || '');
       console.warn('Initial dry-run failed. Attempting Self-Healing Fallback Strategy...');
 
       // Attempt Self-Healing Strategy (tempDir is still alive here — NOT cleaned up yet)
@@ -115,7 +116,7 @@ export default defineConfig({
 
       return {
         success: false,
-        error: error.stderr || error.stdout || error.message || 'Dry run test execution failed',
+        error: err.stderr || err.stdout || err.message || 'Dry run test execution failed',
         durationMs: Date.now() - startTime
       };
     }
@@ -137,15 +138,17 @@ export default defineConfig({
 
     // Find which step failed by parsing the console.log output
     const stepStarts = [...errorOutput.matchAll(/__STEP_START__ (\d+)/g)];
-    const failedStepNumber = stepStarts.length > 0 ? parseInt(stepStarts[stepStarts.length - 1][1]) : -1;
+    const lastMatch = stepStarts[stepStarts.length - 1];
+    const failedStepNumber = lastMatch && lastMatch[1] ? parseInt(lastMatch[1]) : -1;
 
     let healedAny = false;
 
     for (let i = 0; i < patchedSteps.length; i++) {
       const step = patchedSteps[i];
       // ONLY patch the step that actually failed!
-      if (step.step === failedStepNumber && step.candidatesRank && step.candidatesRank.length > 1) {
+      if (step && step.step === failedStepNumber && step.candidatesRank && step.candidatesRank.length > 1) {
         const rank2 = step.candidatesRank[1];
+        if (!rank2) continue;
         const cand = rank2.candidate;
 
         const oldSelector = `${step.selectorType}('${step.selectorValue}')`;
@@ -174,10 +177,10 @@ export default defineConfig({
         if (newSelector !== oldSelector) {
           patchedSteps[i] = {
             ...step,
-            selectorType: newType,
+            selectorType: newType as any,
             selectorValue: newValue,
             warning: `Self-Healed: Fallback to Rank 2 candidate (${rank2.matchReason})`
-          };
+          } as ResolvedStep;
 
           healedStepsList.push({
             stepNumber: step.step,

@@ -75,13 +75,15 @@ export function loadUsers(): User[] {
   } else {
     // If admin credentials in .env are updated, keep credentials in sync
     const currentAdmin = users[adminIndex];
-    const isPasswordSame = bcrypt.compareSync(password, currentAdmin.passwordHash);
-    if (currentAdmin.username !== username || !isPasswordSame) {
-      users[adminIndex].username = username;
-      users[adminIndex].email = email;
-      users[adminIndex].passwordHash = bcrypt.hashSync(password, 10);
-      users[adminIndex].status = 'approved';
-      saveUsers(users);
+    if (currentAdmin) {
+      const isPasswordSame = bcrypt.compareSync(password, currentAdmin.passwordHash);
+      if (currentAdmin.username !== username || !isPasswordSame) {
+        currentAdmin.username = username;
+        currentAdmin.email = email;
+        currentAdmin.passwordHash = bcrypt.hashSync(password, 10);
+        currentAdmin.status = 'approved';
+        saveUsers(users);
+      }
     }
   }
 
@@ -123,9 +125,12 @@ export function updateUserStatus(id: string, status: 'approved' | 'rejected'): U
   const index = users.findIndex((u) => u.id === id);
   if (index === -1) return null;
 
-  users[index].status = status;
+  const target = users[index];
+  if (!target) return null;
+
+  target.status = status;
   saveUsers(users);
-  return users[index];
+  return target;
 }
 
 export function deleteUser(id: string): boolean {

@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { Command } from 'commander';
 import { TestScriptGenerator } from '../index.js';
-import { DOMExtractor } from '../crawler/domExtractor.js';
+import { DOMExtractor } from '../crawler/dom-extractor.js';
 
 const program = new Command();
 
@@ -60,8 +60,9 @@ program
 
       console.log('\n================ GENERATED CODE ================');
       console.log(result.code);
-    } catch (err: any) {
-      console.error('\n[ERROR] Fatal CLI Error:', err.message || err);
+    } catch (err: unknown) {
+      const error = err as Error;
+      console.error('\n[ERROR] Fatal CLI Error:', error.message || error);
       process.exit(1);
     }
   });
@@ -77,8 +78,9 @@ program
       const candidates = await extractor.extractCandidates(options.url);
       console.log(`\nFound ${candidates.length} interactive candidate elements:\n`);
       console.dir(candidates, { depth: null, colors: true });
-    } catch (err: any) {
-      console.error('\n[ERROR] Fatal CLI Error:', err.message || err);
+    } catch (err: unknown) {
+      const error = err as Error;
+      console.error('\n[ERROR] Fatal CLI Error:', error.message || error);
       process.exit(1);
     }
   });

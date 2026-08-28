@@ -1,24 +1,30 @@
+const MAX_CONCURRENT_RUNS = 3;
+
 export class ConcurrencyQueueManager {
   private maxConcurrent: number;
   private activeCount: number = 0;
   private queue: Array<{
-    taskFn: () => Promise<any>;
-    resolve: (value: any) => void;
-    reject: (reason: any) => void;
+    taskFn: () => Promise<unknown>;
+    resolve: (value: unknown) => void;
+    reject: (reason: unknown) => void;
   }> = [];
 
-  constructor(maxConcurrent: number = 3) {
+  constructor(maxConcurrent: number = MAX_CONCURRENT_RUNS) {
     this.maxConcurrent = maxConcurrent;
   }
 
   public enqueue<T>(taskFn: () => Promise<T>): Promise<T> {
-    return new Promise((resolve, reject) => {
-      this.queue.push({ taskFn, resolve, reject });
+    return new Promise<T>((resolve, reject) => {
+      this.queue.push({ 
+        taskFn: taskFn as () => Promise<unknown>, 
+        resolve: resolve as (value: unknown) => void, 
+        reject: reject as (reason: unknown) => void 
+      });
       this.processQueue();
     });
   }
 
-  private async processQueue() {
+  private async processQueue(): Promise<void> {
     if (this.activeCount >= this.maxConcurrent || this.queue.length === 0) {
       return;
     }
@@ -39,7 +45,7 @@ export class ConcurrencyQueueManager {
     }
   }
 
-  public getStats() {
+  public getStats(): { activeCount: number; queuedCount: number; maxConcurrent: number } {
     return {
       activeCount: this.activeCount,
       queuedCount: this.queue.length,

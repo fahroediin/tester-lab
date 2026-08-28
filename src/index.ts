@@ -1,17 +1,17 @@
 import fs from 'fs';
-import { validateDSL } from './validator/dslValidator.js';
-import { DOMExtractor } from './crawler/domExtractor.js';
-import { HeuristicMatcher } from './matcher/heuristicMatcher.js';
-import { CodeGenerator } from './generator/codeGenerator.js';
-import { DryRunEngine } from './validator/dryRunEngine.js';
-import { DSLConfig, GenerationResult, GenerationOptions, ResolvedStep } from './types/index.js';
+import { validateDSL } from './validator/dsl-validator.js';
+import { DOMExtractor } from './crawler/dom-extractor.js';
+import { HeuristicMatcher } from './matcher/heuristic-matcher.js';
+import { CodeGenerator } from './generator/code-generator.js';
+import { DryRunEngine } from './validator/dry-run-engine.js';
+import type { DSLConfig, GenerationResult, GenerationOptions, ResolvedStep } from './types/index.js';
 
 export * from './types/index.js';
-export { validateDSL } from './validator/dslValidator.js';
-export { DOMExtractor } from './crawler/domExtractor.js';
-export { HeuristicMatcher } from './matcher/heuristicMatcher.js';
-export { CodeGenerator } from './generator/codeGenerator.js';
-export { DryRunEngine } from './validator/dryRunEngine.js';
+export { validateDSL } from './validator/dsl-validator.js';
+export { DOMExtractor } from './crawler/dom-extractor.js';
+export { HeuristicMatcher } from './matcher/heuristic-matcher.js';
+export { CodeGenerator } from './generator/code-generator.js';
+export { DryRunEngine } from './validator/dry-run-engine.js';
 
 export class TestScriptGenerator {
   private extractor = new DOMExtractor();
