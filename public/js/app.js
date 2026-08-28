@@ -640,7 +640,7 @@
       if (btnAddStep) btnAddStep.disabled = true;
       document.querySelectorAll('.step-item').forEach(el => el.setAttribute('draggable', 'false'));
       
-      const generalInputs = document.querySelectorAll('#testSuite, #targetUrl, #framework, #language');
+      const generalInputs = document.querySelectorAll('#testSuite, #targetUrl, #framework, #language, #dryRun, #btnGenerate');
       generalInputs.forEach(el => el.disabled = true);
       const topButtons = document.querySelectorAll('#scenarioBuilderCard .card-header button');
       topButtons.forEach(el => el.disabled = true);
@@ -768,7 +768,7 @@
         if (btnAddStep) btnAddStep.disabled = false;
         document.querySelectorAll('.step-item').forEach(el => el.setAttribute('draggable', 'true'));
         
-        const generalInputs = document.querySelectorAll('#testSuite, #targetUrl, #framework, #language');
+        const generalInputs = document.querySelectorAll('#testSuite, #targetUrl, #framework, #language, #dryRun, #btnGenerate');
         generalInputs.forEach(el => el.disabled = false);
         const topButtons = document.querySelectorAll('#scenarioBuilderCard .card-header button');
         topButtons.forEach(el => el.disabled = false);
@@ -910,7 +910,7 @@
       // Disable Execution Steps so they cannot be changed during run
       const stepListInputs = document.querySelectorAll('#stepList input, #stepList select, #stepList button');
       stepListInputs.forEach(el => el.disabled = true);
-      const generalInputs = document.querySelectorAll('#testSuite, #targetUrl, #framework, #language');
+      const generalInputs = document.querySelectorAll('#testSuite, #targetUrl, #framework, #language, #dryRun, #btnGenerate');
       generalInputs.forEach(el => el.disabled = true);
       const topButtons = document.querySelectorAll('#scenarioBuilderCard .card-header button');
       topButtons.forEach(el => el.disabled = true);
@@ -972,7 +972,7 @@
         // Re-enable Execution Steps
         const stepListInputs = document.querySelectorAll('#stepList input, #stepList select, #stepList button');
         stepListInputs.forEach(el => el.disabled = false);
-        const generalInputs = document.querySelectorAll('#testSuite, #targetUrl, #framework, #language');
+        const generalInputs = document.querySelectorAll('#testSuite, #targetUrl, #framework, #language, #dryRun, #btnGenerate');
         generalInputs.forEach(el => el.disabled = false);
         const topButtons = document.querySelectorAll('#scenarioBuilderCard .card-header button');
         topButtons.forEach(el => el.disabled = false);
