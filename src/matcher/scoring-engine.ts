@@ -162,6 +162,9 @@ export function calculateScore(
     if (action === 'upload' && (cand.type === 'file' || cand.tagName === 'input')) {
       score += 15;
     }
+    if (['assert_text', 'assert_visible'].includes(action) && !isTextFillableInput && !isClickableType) {
+      score += 15; // Bonus for pure text nodes (h1, p, span, label) for assertions
+    }
   }
 
   return { score: Math.max(0, score), reason: reasons.length ? reasons.join(', ') : 'No Match' };

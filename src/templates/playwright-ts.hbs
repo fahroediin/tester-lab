@@ -173,6 +173,8 @@ test('{{testSuite}}', async ({ page }) => {
   await maestro.interact(page.getByLabel(new RegExp('{{{selectorValue}}}', 'i')), 'assert_text', undefined, '{{{expected}}}');
     {{else if (eq selectorType "getByRole")}}
   await maestro.interact(page.getByRole('{{{selectorValue}}}', { name: new RegExp('{{{roleName}}}', 'i') }), 'assert_text', undefined, '{{{expected}}}');
+    {{else if (eq selectorType "getByPlaceholder")}}
+  await maestro.interact(page.getByPlaceholder(new RegExp('{{{selectorValue}}}', 'i')), 'assert_text', undefined, '{{{expected}}}');
     {{else if (eq selectorType "getByText")}}
   await maestro.interact(page.getByText(new RegExp('{{{selectorValue}}}', 'i')), 'assert_text', undefined, '{{{expected}}}');
     {{else}}
@@ -187,6 +189,8 @@ test('{{testSuite}}', async ({ page }) => {
   await maestro.interact(page.getByLabel(new RegExp('{{{selectorValue}}}', 'i')), 'assert_visible');
     {{else if (eq selectorType "getByRole")}}
   await maestro.interact(page.getByRole('{{{selectorValue}}}', { name: new RegExp('{{{roleName}}}', 'i') }), 'assert_visible');
+    {{else if (eq selectorType "getByPlaceholder")}}
+  await maestro.interact(page.getByPlaceholder(new RegExp('{{{selectorValue}}}', 'i')), 'assert_visible');
     {{else if (eq selectorType "getByText")}}
   await maestro.interact(page.getByText(new RegExp('{{{selectorValue}}}', 'i')), 'assert_visible');
     {{else}}

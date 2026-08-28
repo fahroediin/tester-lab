@@ -131,6 +131,8 @@ test('{{testSuite}}', async ({ page }) => {
   await expect(page.getByLabel('{{{selectorValue}}}')).toContainText('{{{expected}}}');
     {{else if (eq selectorType "getByRole")}}
   await expect(page.getByRole('{{{selectorValue}}}', { name: '{{{roleName}}}' })).toContainText('{{{expected}}}');
+    {{else if (eq selectorType "getByPlaceholder")}}
+  await expect(page.getByPlaceholder('{{{selectorValue}}}')).toContainText('{{{expected}}}');
     {{else if (eq selectorType "getByText")}}
   await expect(page.getByText('{{{selectorValue}}}')).toContainText('{{{expected}}}');
     {{else}}
@@ -144,6 +146,8 @@ test('{{testSuite}}', async ({ page }) => {
   await expect(page.getByLabel('{{{selectorValue}}}')).toBeVisible();
     {{else if (eq selectorType "getByRole")}}
   await expect(page.getByRole('{{{selectorValue}}}', { name: '{{{roleName}}}' })).toBeVisible();
+    {{else if (eq selectorType "getByPlaceholder")}}
+  await expect(page.getByPlaceholder('{{{selectorValue}}}')).toBeVisible();
     {{else if (eq selectorType "getByText")}}
   await expect(page.getByText('{{{selectorValue}}}')).toBeVisible();
     {{else}}
