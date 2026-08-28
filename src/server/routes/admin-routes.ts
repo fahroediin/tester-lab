@@ -3,6 +3,7 @@ import { authenticateJWT, requireAdmin } from '../auth-middleware.js';
 import type { AuthenticatedRequest } from '../auth-middleware.js';
 import { loadUsersAsync, updateUserStatus, deleteUser } from '../auth-store.js';
 import { getLogs, addLog } from '../activity-log-store.js';
+import { getAdminApiKeyStats, getAdminApiKeyLogs } from '../api-key-usage-store.js';
 import { supabase } from '../supabase-client.js';
 
 export const adminRoutes = Router();
@@ -223,4 +224,48 @@ adminRoutes.delete('/users/:id', authenticateJWT, requireAdmin, async (req: Auth
     success: true,
     message: 'User deleted successfully.'
   });
+});
+
+/**
+ * GET /api/v1/admin/api-keys/stats
+ * Aggregate hit stats across all API keys
+ */
+adminRoutes.get('/api-keys/stats', authenticateJWT, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const stats = await getAdminApiKeyStats();
+    res.json({
+      success: true,
+      data: stats
+    });
+  } catch (err: any) {
+    res.status(500).json({
+      success: false,
+      error: err.message || 'Failed to fetch API key stats'
+    });
+  }
+});
+
+/**
+ * GET /api/v1/admin/api-keys/logs
+ * List all API Key hit / activity logs with pagination
+ */
+adminRoutes.get('/api-keys/logs', authenticateJWT, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 15;
+    const result = await getAdminApiKeyLogs(page, limit);
+
+    res.json({
+      success: true,
+      logs: result.logs,
+      total: result.total,
+      page,
+      limit
+    });
+  } catch (err: any) {
+    res.status(500).json({
+      success: false,
+      error: err.message || 'Failed to fetch API key logs'
+    });
+  }
 });

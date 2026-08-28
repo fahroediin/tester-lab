@@ -300,3 +300,142 @@ export async function getAllApiKeysUsageSummary(): Promise<Record<string, ApiKey
 
   return summaries;
 }
+
+export interface AdminApiKeyStats {
+  totalRequests: number;
+  totalGenerated: number;
+  totalSuccess: number;
+  totalFailed: number;
+  periodDays: number;
+  periodStart: string;
+}
+
+/**
+ * Get aggregate statistics across all API keys
+ */
+export async function getAdminApiKeyStats(): Promise<AdminApiKeyStats> {
+  const periodStart = getPeriodStartDate();
+  const periodDays = getUsageResetDays();
+
+  let totalRequests = 0;
+  let totalGenerated = 0;
+  let totalSuccess = 0;
+  let totalFailed = 0;
+
+  try {
+    const { data, error } = await supabase
+      .from('api_key_usage_logs')
+      .select('status, created_at')
+      .gte('created_at', periodStart.toISOString());
+
+    if (!error && data) {
+      totalRequests = data.length;
+      data.forEach((r) => {
+        if (r.status === 'generated') totalGenerated++;
+        else if (r.status === 'success') totalSuccess++;
+        else if (r.status === 'failed') totalFailed++;
+      });
+
+      return {
+        totalRequests,
+        totalGenerated,
+        totalSuccess,
+        totalFailed,
+        periodDays,
+        periodStart: periodStart.toISOString()
+      };
+    }
+  } catch (err) {
+    console.warn('[Admin API Key Stats] Supabase query error, fallback to memory:', err);
+  }
+
+  const matching = inMemoryUsageLogs.filter((l) => new Date(l.createdAt) >= periodStart);
+  totalRequests = matching.length;
+  matching.forEach((r) => {
+    if (r.status === 'generated') totalGenerated++;
+    else if (r.status === 'success') totalSuccess++;
+    else if (r.status === 'failed') totalFailed++;
+  });
+
+  return {
+    totalRequests,
+    totalGenerated,
+    totalSuccess,
+    totalFailed,
+    periodDays,
+    periodStart: periodStart.toISOString()
+  };
+}
+
+export interface EnrichedApiKeyUsageLog extends ApiKeyUsageLog {
+  keyName?: string;
+  username?: string;
+}
+
+/**
+ * Get paginated API key usage logs with associated key and user metadata
+ */
+export async function getAdminApiKeyLogs(page: number = 1, limit: number = 15): Promise<{ logs: EnrichedApiKeyUsageLog[]; total: number }> {
+  const startIndex = (page - 1) * limit;
+
+  try {
+    const { count: totalCount } = await supabase
+      .from('api_key_usage_logs')
+      .select('*', { count: 'exact', head: true });
+
+    const { data: logRows, error } = await supabase
+      .from('api_key_usage_logs')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .range(startIndex, startIndex + limit - 1);
+
+    if (!error && logRows) {
+      // Gather keys & users for enrichment
+      const keyIds = [...new Set(logRows.map(r => r.api_key_id).filter(Boolean))];
+      const userIds = [...new Set(logRows.map(r => r.user_id).filter(Boolean))];
+
+      let keyMap: Record<string, string> = {};
+      let userMap: Record<string, string> = {};
+
+      if (keyIds.length > 0) {
+        const { data: keys } = await supabase.from('api_keys').select('id, name').in('id', keyIds);
+        (keys || []).forEach(k => { keyMap[k.id] = k.name; });
+      }
+
+      if (userIds.length > 0) {
+        const { data: users } = await supabase.from('users').select('id, username').in('id', userIds);
+        (users || []).forEach(u => { userMap[u.id] = u.username; });
+      }
+
+      const logs: EnrichedApiKeyUsageLog[] = logRows.map(r => ({
+        id: r.id,
+        apiKeyId: r.api_key_id,
+        userId: r.user_id,
+        endpoint: r.endpoint,
+        status: r.status,
+        details: r.details,
+        createdAt: r.created_at,
+        keyName: r.api_key_id ? (keyMap[r.api_key_id] || 'Unknown Key') : 'Direct API',
+        username: userMap[r.user_id] || r.user_id
+      }));
+
+      return {
+        logs,
+        total: totalCount || logs.length
+      };
+    }
+  } catch (err) {
+    console.warn('[Admin API Key Logs] Supabase error, falling back to memory:', err);
+  }
+
+  const logs = inMemoryUsageLogs.slice(startIndex, startIndex + limit).map(l => ({
+    ...l,
+    keyName: 'API Key',
+    username: l.userId
+  }));
+
+  return {
+    logs,
+    total: inMemoryUsageLogs.length
+  };
+}

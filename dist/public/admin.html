@@ -674,6 +674,67 @@
       color: var(--body-muted);
     }
 
+    /* Sub-tabs & Stat Grid */
+    .subtabs-bar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      border-bottom: 1px solid var(--hairline);
+      padding-bottom: 12px;
+    }
+
+    .subtab-btn {
+      font-size: 12px !important;
+      padding: 6px 18px !important;
+      cursor: pointer !important;
+      transition: all 0.2s ease !important;
+    }
+
+    .subtab-btn.active {
+      background: var(--action-blue) !important;
+      color: #ffffff !important;
+      border-color: var(--action-blue) !important;
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--hairline);
+      border-radius: 12px;
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
+    }
+
+    .stat-card-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--body-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-family: var(--font-mono);
+    }
+
+    .stat-card-value {
+      font-size: 24px;
+      font-weight: 700;
+      font-family: var(--font-display);
+      color: var(--ink);
+    }
+
+    .stat-card-subtext {
+      font-size: 11px;
+      color: var(--body-muted);
+    }
+
     footer {
       border-top: 1px solid var(--hairline);
       background: var(--canvas);
@@ -931,73 +992,84 @@
 
     <!-- API KEYS TAB -->
     <div class="tab-content" id="tab-apikeys">
-      <div class="card">
-        <div class="card-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
-          <div>
-            <div class="card-title">Admin Developer API Keys</div>
-            <div class="card-subtitle">Manage programmatic API keys for automated integrations and test execution</div>
-          </div>
-          <button type="button" class="btn-pill-outline" onclick="promptCreateApiKeyAdmin()">+ Generate New Key</button>
-        </div>
-
-        <!-- Newly Generated Key Alert Box -->
-        <div id="newKeyBannerAdmin" style="display: none; background: rgba(16, 185, 129, 0.1); border: 1px solid var(--deep-green); padding: 16px; border-radius: 8px; margin: 16px 0;">
-          <div style="font-weight: 600; color: var(--deep-green); font-size: 13px; margin-bottom: 6px;">
-            New API Key Generated
-          </div>
-          <div style="font-size: 12px; color: var(--ink); margin-bottom: 8px;">
-            Please copy this key now. For your security, you will not be able to view it again.
-          </div>
-          <div style="display: flex; gap: 8px; align-items: center;">
-            <input type="text" id="newKeyInputAdmin" readonly style="font-family: var(--font-mono); font-size: 12px; background: var(--card-bg); font-weight: 600; width: 100%;">
-            <button type="button" class="btn-icon" onclick="copyNewApiKeyAdmin()" title="Copy API Key" style="width: 38px !important; height: 38px !important; min-width: 38px !important; min-height: 38px !important; border-radius: 8px !important;" aria-label="Copy API Key">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-              </svg>
-            </button>
-          </div>
-        </div>
-
-        <div style="overflow-x: auto; margin-top: 16px;">
-          <table class="summary-table">
-            <thead>
-              <tr>
-                <th>Key Name</th>
-                <th>API Key Token</th>
-                <th>Usage (Monthly)</th>
-                <th>Created</th>
-                <th>Last Used</th>
-                <th>Status</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody id="apiKeyTableBodyAdmin">
-              <tr><td colspan="7" style="text-align: center; color: var(--body-muted);">Loading API keys...</td></tr>
-            </tbody>
-          </table>
-        </div>
+      <div class="subtabs-bar">
+        <button type="button" class="btn-pill-outline subtab-btn active" id="subtab-btn-keys" onclick="switchApiKeySubTab('keys')">
+          API Keys Management
+        </button>
+        <button type="button" class="btn-pill-outline subtab-btn" id="subtab-btn-hits" onclick="switchApiKeySubTab('hits')">
+          Hit & Usage Activity Logs
+        </button>
       </div>
 
-      <!-- Quick Integration Guide Card -->
-      <div class="card" style="margin-top: 24px;">
-        <div class="card-header">
-          <div class="card-title">Quick Integration Guide</div>
-          <div class="card-subtitle">Pass your API key in the <code>X-API-Key</code> or <code>Authorization: Bearer &lt;key&gt;</code> header.</div>
-        </div>
+      <!-- SUBTAB 1: KEYS MANAGEMENT -->
+      <div id="subtab-content-keys">
+        <div class="card">
+          <div class="card-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+            <div>
+              <div class="card-title">Admin Developer API Keys</div>
+              <div class="card-subtitle">Manage programmatic API keys for automated integrations and test execution</div>
+            </div>
+            <button type="button" class="btn-pill-outline" onclick="promptCreateApiKeyAdmin()">+ Generate New Key</button>
+          </div>
 
-        <div style="display: flex; flex-direction: column; gap: 16px; margin-top: 12px;">
-          <div style="background: var(--surface-2); border-radius: 8px; padding: 14px; border: 1px solid var(--hairline);">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; gap: 8px;">
-              <div style="font-size: 12px; font-weight: 600; color: var(--body-muted);">Generate Playwright Test Script (POST /api/v1/generate-script)</div>
-              <button type="button" class="btn-icon" onclick="copySnippetCode('snippetGenerateScriptAdmin')" title="Copy Code Snippet" aria-label="Copy Code Snippet">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <!-- Newly Generated Key Alert Box -->
+          <div id="newKeyBannerAdmin" style="display: none; background: rgba(16, 185, 129, 0.1); border: 1px solid var(--deep-green); padding: 16px; border-radius: 8px; margin: 16px 0;">
+            <div style="font-weight: 600; color: var(--deep-green); font-size: 13px; margin-bottom: 6px;">
+              New API Key Generated
+            </div>
+            <div style="font-size: 12px; color: var(--ink); margin-bottom: 8px;">
+              Please copy this key now. For your security, you will not be able to view it again.
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <input type="text" id="newKeyInputAdmin" readonly style="font-family: var(--font-mono); font-size: 12px; background: var(--card-bg); font-weight: 600; width: 100%;">
+              <button type="button" class="btn-icon" onclick="copyNewApiKeyAdmin()" title="Copy API Key" style="width: 38px !important; height: 38px !important; min-width: 38px !important; min-height: 38px !important; border-radius: 8px !important;" aria-label="Copy API Key">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                   <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
                 </svg>
               </button>
             </div>
-            <pre id="snippetGenerateScriptAdmin" style="font-family: var(--font-mono); font-size: 12px; color: var(--action-blue); overflow-x: auto; margin: 0; background: transparent; padding: 0;">curl -X POST "https://tester-lab.mibot.my.id/api/v1/generate-script" \
+          </div>
+
+          <div style="overflow-x: auto; margin-top: 16px;">
+            <table class="summary-table">
+              <thead>
+                <tr>
+                  <th>Key Name</th>
+                  <th>API Key Token</th>
+                  <th>Usage (Monthly)</th>
+                  <th>Created</th>
+                  <th>Last Used</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="apiKeyTableBodyAdmin">
+                <tr><td colspan="7" style="text-align: center; color: var(--body-muted);">Loading API keys...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Quick Integration Guide Card -->
+        <div class="card" style="margin-top: 24px;">
+          <div class="card-header">
+            <div class="card-title">Quick Integration Guide</div>
+            <div class="card-subtitle">Pass your API key in the <code>X-API-Key</code> or <code>Authorization: Bearer &lt;key&gt;</code> header.</div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 16px; margin-top: 12px;">
+            <div style="background: var(--surface-2); border-radius: 8px; padding: 14px; border: 1px solid var(--hairline);">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; gap: 8px;">
+                <div style="font-size: 12px; font-weight: 600; color: var(--body-muted);">Generate Playwright Test Script (POST /api/v1/generate-script)</div>
+                <button type="button" class="btn-icon" onclick="copySnippetCode('snippetGenerateScriptAdmin')" title="Copy Code Snippet" aria-label="Copy Code Snippet">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                </button>
+              </div>
+              <pre id="snippetGenerateScriptAdmin" style="font-family: var(--font-mono); font-size: 12px; color: var(--action-blue); overflow-x: auto; margin: 0; background: transparent; padding: 0;">curl -X POST "https://tester-lab.mibot.my.id/api/v1/generate-script" \
   -H "X-API-Key: tl_live_YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -1011,19 +1083,19 @@
       ]
     }
   }'</pre>
-          </div>
-
-          <div style="background: var(--surface-2); border-radius: 8px; padding: 14px; border: 1px solid var(--hairline);">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; gap: 8px;">
-              <div style="font-size: 12px; font-weight: 600; color: var(--body-muted);">Execute Test Script on Server (POST /api/v1/run-test)</div>
-              <button type="button" class="btn-icon" onclick="copySnippetCode('snippetRunTestAdmin')" title="Copy Code Snippet" aria-label="Copy Code Snippet">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                </svg>
-              </button>
             </div>
-            <pre id="snippetRunTestAdmin" style="font-family: var(--font-mono); font-size: 12px; color: var(--action-blue); overflow-x: auto; margin: 0; background: transparent; padding: 0;">curl -X POST "https://tester-lab.mibot.my.id/api/v1/run-test" \
+
+            <div style="background: var(--surface-2); border-radius: 8px; padding: 14px; border: 1px solid var(--hairline);">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; gap: 8px;">
+                <div style="font-size: 12px; font-weight: 600; color: var(--body-muted);">Execute Test Script on Server (POST /api/v1/run-test)</div>
+                <button type="button" class="btn-icon" onclick="copySnippetCode('snippetRunTestAdmin')" title="Copy Code Snippet" aria-label="Copy Code Snippet">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                </button>
+              </div>
+              <pre id="snippetRunTestAdmin" style="font-family: var(--font-mono); font-size: 12px; color: var(--action-blue); overflow-x: auto; margin: 0; background: transparent; padding: 0;">curl -X POST "https://tester-lab.mibot.my.id/api/v1/run-test" \
   -H "X-API-Key: tl_live_YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -1031,7 +1103,64 @@
     "language": "typescript",
     "mode": "headless"
   }'</pre>
+            </div>
           </div>
+        </div>
+      </div>
+
+      <!-- SUBTAB 2: HIT & ACTIVITY LOGS -->
+      <div id="subtab-content-hits" style="display: none;">
+        <!-- Aggregate Stat Cards -->
+        <div class="stat-grid">
+          <div class="stat-card">
+            <div class="stat-card-title">Total Hits (Monthly)</div>
+            <div class="stat-card-value" id="statTotalHits">0</div>
+            <div class="stat-card-subtext" id="statPeriodNotice">30-day reset window</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-title" style="color: #3b82f6;">Code Generated</div>
+            <div class="stat-card-value" id="statGeneratedHits" style="color: #3b82f6;">0</div>
+            <div class="stat-card-subtext">/api/v1/generate-script</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-title" style="color: #10b981;">Successful Runs</div>
+            <div class="stat-card-value" id="statSuccessHits" style="color: #10b981;">0</div>
+            <div class="stat-card-subtext">Passed test executions</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-title" style="color: #ef4444;">Failed Hits</div>
+            <div class="stat-card-value" id="statFailedHits" style="color: #ef4444;">0</div>
+            <div class="stat-card-subtext">Errors & test failures</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+            <div>
+              <div class="card-title">API Key Hit & Usage Activity Logs</div>
+              <div class="card-subtitle">Real-time log of programmatic API key calls, endpoints, status, and execution details</div>
+            </div>
+            <button type="button" class="btn-pill-outline" onclick="fetchApiKeyLogsAdmin()">Refresh Logs</button>
+          </div>
+
+          <div style="overflow-x: auto;">
+            <table class="summary-table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>API Key Name</th>
+                  <th>User</th>
+                  <th>Endpoint</th>
+                  <th>Status</th>
+                  <th>Details</th>
+                </tr>
+              </thead>
+              <tbody id="apiKeyLogsTableBodyAdmin">
+                <tr><td colspan="6" style="text-align: center; color: var(--body-muted); padding: 24px;">Loading API key logs...</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div id="apiKeyLogsPagination" class="pagination"></div>
         </div>
       </div>
     </div>
@@ -1134,6 +1263,7 @@
     let currentUsersPage = 1;
     let currentLogsPage = 1;
     let currentFeedbacksPage = 1;
+    let currentApiKeyLogsPage = 1;
     const ITEMS_PER_PAGE = 10;
 
     function getAuthHeaders() {
@@ -1236,6 +1366,9 @@
       } else if (type === 'feedbacks') {
         currentFeedbacksPage += delta;
         renderFeedbacksTable();
+      } else if (type === 'apiKeyLogs') {
+        currentApiKeyLogsPage += delta;
+        fetchApiKeyLogsAdmin();
       }
     }
 
@@ -1830,6 +1963,121 @@
         }
       } catch (err) {
         showSnackbar({ type: 'error', title: 'Error', message: err.message });
+      }
+    }
+
+    // --- SUB-TAB & HIT LOGS FOR API KEYS ---
+    function switchApiKeySubTab(subTab) {
+      const btnKeys = document.getElementById('subtab-btn-keys');
+      const btnHits = document.getElementById('subtab-btn-hits');
+      const contentKeys = document.getElementById('subtab-content-keys');
+      const contentHits = document.getElementById('subtab-content-hits');
+
+      if (subTab === 'keys') {
+        if (btnKeys) btnKeys.classList.add('active');
+        if (btnHits) btnHits.classList.remove('active');
+        if (contentKeys) contentKeys.style.display = 'block';
+        if (contentHits) contentHits.style.display = 'none';
+      } else {
+        if (btnKeys) btnKeys.classList.remove('active');
+        if (btnHits) btnHits.classList.add('active');
+        if (contentKeys) contentKeys.style.display = 'none';
+        if (contentHits) contentHits.style.display = 'block';
+
+        fetchApiKeyStatsAdmin();
+        fetchApiKeyLogsAdmin();
+      }
+    }
+
+    async function fetchApiKeyStatsAdmin() {
+      try {
+        const res = await fetch('/api/v1/admin/api-keys/stats', { headers: getAuthHeaders() });
+        const data = await res.json();
+        if (data.success && data.data) {
+          const s = data.data;
+          const elTotal = document.getElementById('statTotalHits');
+          const elGen = document.getElementById('statGeneratedHits');
+          const elSuccess = document.getElementById('statSuccessHits');
+          const elFailed = document.getElementById('statFailedHits');
+          const elNotice = document.getElementById('statPeriodNotice');
+
+          if (elTotal) elTotal.textContent = s.totalRequests.toLocaleString();
+          if (elGen) elGen.textContent = s.totalGenerated.toLocaleString();
+          if (elSuccess) elSuccess.textContent = s.totalSuccess.toLocaleString();
+          if (elFailed) elFailed.textContent = s.totalFailed.toLocaleString();
+          if (elNotice) elNotice.textContent = `${s.periodDays}-day reset window`;
+        }
+      } catch (err) {
+        console.warn('Failed to fetch API key stats:', err);
+      }
+    }
+
+    async function fetchApiKeyLogsAdmin() {
+      const tbody = document.getElementById('apiKeyLogsTableBodyAdmin');
+      if (!tbody) return;
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--body-muted); padding: 24px;">Loading API key hit logs...</td></tr>';
+
+      try {
+        const res = await fetch(`/api/v1/admin/api-keys/logs?page=${currentApiKeyLogsPage}&limit=15`, { headers: getAuthHeaders() });
+        const data = await res.json();
+        if (!data.success) {
+          tbody.innerHTML = `<tr><td colspan="6" style="color: var(--coral); text-align: center; padding: 24px;">${data.error}</td></tr>`;
+          return;
+        }
+
+        const logs = data.logs || [];
+        const total = data.total || 0;
+
+        if (logs.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--body-muted); padding: 24px;">No API key hit activity logs found in the current period.</td></tr>';
+          document.getElementById('apiKeyLogsPagination').innerHTML = '';
+          return;
+        }
+
+        tbody.innerHTML = '';
+        logs.forEach((l) => {
+          const tr = document.createElement('tr');
+
+          let statusBadge = '';
+          if (l.status === 'generated') {
+            statusBadge = '<span class="status-badge" style="background: rgba(59, 130, 246, 0.1); color: #3b82f6;">GENERATED</span>';
+          } else if (l.status === 'success') {
+            statusBadge = '<span class="status-badge status-approved">SUCCESS</span>';
+          } else {
+            statusBadge = '<span class="status-badge status-rejected">FAILED</span>';
+          }
+
+          const endpointBadge = `<code style="font-family: var(--font-mono); font-size: 11px; background: var(--surface-2); padding: 3px 6px; border-radius: 4px; border: 1px solid var(--hairline);">${escapeHtml(l.endpoint)}</code>`;
+
+          tr.innerHTML = `
+            <td><span style="font-size: 12px;">${new Date(l.createdAt).toLocaleString()}</span></td>
+            <td><strong>${escapeHtml(l.keyName || 'Unknown')}</strong></td>
+            <td><span style="font-family: var(--font-mono); font-size: 12px;">${escapeHtml(l.username || 'System')}</span></td>
+            <td>${endpointBadge}</td>
+            <td>${statusBadge}</td>
+            <td style="max-width: 320px; white-space: normal; word-wrap: break-word; font-size: 12px; color: var(--body-muted);">
+              ${escapeHtml(l.details || '-')}
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+        // Render pagination
+        const paginationContainer = document.getElementById('apiKeyLogsPagination');
+        const totalPages = Math.ceil(total / 15);
+        if (totalPages <= 1) {
+          paginationContainer.innerHTML = '';
+        } else {
+          const prevDisabled = currentApiKeyLogsPage === 1 ? 'disabled' : '';
+          const nextDisabled = currentApiKeyLogsPage === totalPages ? 'disabled' : '';
+          paginationContainer.innerHTML = `
+            <button class="btn-pill-outline" ${prevDisabled} onclick="changePage('apiKeyLogs', -1)">Previous</button>
+            <span>Page ${currentApiKeyLogsPage} of ${totalPages}</span>
+            <button class="btn-pill-outline" ${nextDisabled} onclick="changePage('apiKeyLogs', 1)">Next</button>
+          `;
+        }
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="6" style="color: var(--coral); text-align: center; padding: 24px;">Failed to load logs: ${err.message}</td></tr>`;
       }
     }
 

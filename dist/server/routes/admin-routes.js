@@ -5,6 +5,7 @@ const express_1 = require("express");
 const auth_middleware_js_1 = require("../auth-middleware.js");
 const auth_store_js_1 = require("../auth-store.js");
 const activity_log_store_js_1 = require("../activity-log-store.js");
+const api_key_usage_store_js_1 = require("../api-key-usage-store.js");
 const supabase_client_js_1 = require("../supabase-client.js");
 exports.adminRoutes = (0, express_1.Router)();
 /**
@@ -196,4 +197,47 @@ exports.adminRoutes.delete('/users/:id', auth_middleware_js_1.authenticateJWT, a
         success: true,
         message: 'User deleted successfully.'
     });
+});
+/**
+ * GET /api/v1/admin/api-keys/stats
+ * Aggregate hit stats across all API keys
+ */
+exports.adminRoutes.get('/api-keys/stats', auth_middleware_js_1.authenticateJWT, auth_middleware_js_1.requireAdmin, async (req, res) => {
+    try {
+        const stats = await (0, api_key_usage_store_js_1.getAdminApiKeyStats)();
+        res.json({
+            success: true,
+            data: stats
+        });
+    }
+    catch (err) {
+        res.status(500).json({
+            success: false,
+            error: err.message || 'Failed to fetch API key stats'
+        });
+    }
+});
+/**
+ * GET /api/v1/admin/api-keys/logs
+ * List all API Key hit / activity logs with pagination
+ */
+exports.adminRoutes.get('/api-keys/logs', auth_middleware_js_1.authenticateJWT, auth_middleware_js_1.requireAdmin, async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 15;
+        const result = await (0, api_key_usage_store_js_1.getAdminApiKeyLogs)(page, limit);
+        res.json({
+            success: true,
+            logs: result.logs,
+            total: result.total,
+            page,
+            limit
+        });
+    }
+    catch (err) {
+        res.status(500).json({
+            success: false,
+            error: err.message || 'Failed to fetch API key logs'
+        });
+    }
 });
