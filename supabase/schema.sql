@@ -121,21 +121,19 @@ CREATE POLICY "Service role full access on feedbacks"
 
 
 -- ============================================================
--- SUPABASE STORAGE BUCKET FOR FEEDBACK ATTACHMENTS
+-- SUPABASE STORAGE BUCKETS (FEEDBACK ATTACHMENTS & TEST VIDEOS)
 -- ============================================================
 -- Run this separately or via Supabase Dashboard > Storage:
--- Create a bucket named 'feedback-attachments' with public access
 
+-- 1. Feedback Attachments Bucket
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('feedback-attachments', 'feedback-attachments', true)
 ON CONFLICT (id) DO NOTHING;
 
--- Allow public read access to feedback attachments
 CREATE POLICY "Public read access on feedback-attachments"
   ON storage.objects FOR SELECT
   USING (bucket_id = 'feedback-attachments');
 
--- Allow service role to upload/delete
 CREATE POLICY "Service role upload on feedback-attachments"
   ON storage.objects FOR INSERT
   WITH CHECK (bucket_id = 'feedback-attachments');
@@ -143,3 +141,20 @@ CREATE POLICY "Service role upload on feedback-attachments"
 CREATE POLICY "Service role delete on feedback-attachments"
   ON storage.objects FOR DELETE
   USING (bucket_id = 'feedback-attachments');
+
+-- 2. Test Execution Videos Bucket
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('test-videos', 'test-videos', true)
+ON CONFLICT (id) DO NOTHING;
+
+CREATE POLICY "Public read access on test-videos"
+  ON storage.objects FOR SELECT
+  USING (bucket_id = 'test-videos');
+
+CREATE POLICY "Service role upload on test-videos"
+  ON storage.objects FOR INSERT
+  WITH CHECK (bucket_id = 'test-videos');
+
+CREATE POLICY "Service role delete on test-videos"
+  ON storage.objects FOR DELETE
+  USING (bucket_id = 'test-videos');

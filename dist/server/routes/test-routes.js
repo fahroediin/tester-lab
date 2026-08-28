@@ -18,6 +18,7 @@ const sanitized_env_js_1 = require("../lib/sanitized-env.js");
 const flow_history_store_js_1 = require("../flow-history-store.js");
 const index_js_1 = require("../../index.js");
 const dom_extractor_js_1 = require("../../crawler/dom-extractor.js");
+const supabase_client_js_1 = require("../supabase-client.js");
 const execAsync = (0, util_1.promisify)(child_process_1.exec);
 exports.testRoutes = (0, express_1.Router)();
 const generator = new index_js_1.TestScriptGenerator();
@@ -205,19 +206,29 @@ export default defineConfig({
                 logs = (error.stdout || '') + '\n' + (error.stderr || '') + '\n' + (error.message || '');
                 success = false;
             }
-            // Check for video recording artifact if headed or recorded
+            // Check for video recording artifact and upload to Supabase Storage
             try {
                 const foundVideo = (0, sanitized_env_js_1.findVideoFile)(tempDir);
                 if (foundVideo) {
                     const sanitizedUserId = userId.replace(/[^a-zA-Z0-9_-]/g, '');
-                    const videosDir = path_1.default.join(process.cwd(), 'public', 'videos', sanitizedUserId);
-                    if (!fs_1.default.existsSync(videosDir)) {
-                        fs_1.default.mkdirSync(videosDir, { recursive: true });
-                    }
                     const videoName = `run_${Date.now()}.webm`;
-                    const destPath = path_1.default.join(videosDir, videoName);
-                    fs_1.default.copyFileSync(foundVideo, destPath);
-                    videoUrl = `/videos/${sanitizedUserId}/${videoName}`;
+                    const storagePath = `${sanitizedUserId}/${videoName}`;
+                    const fileBuffer = fs_1.default.readFileSync(foundVideo);
+                    const { error: uploadError } = await supabase_client_js_1.supabase.storage
+                        .from('test-videos')
+                        .upload(storagePath, fileBuffer, {
+                        contentType: 'video/webm',
+                        upsert: true
+                    });
+                    if (uploadError) {
+                        console.error('Failed to upload video recording to Supabase Storage:', uploadError);
+                    }
+                    else {
+                        const { data: urlData } = supabase_client_js_1.supabase.storage
+                            .from('test-videos')
+                            .getPublicUrl(storagePath);
+                        videoUrl = urlData?.publicUrl;
+                    }
                 }
             }
             catch (videoErr) {

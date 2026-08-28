@@ -13,6 +13,7 @@ import { getSanitizedEnv, findVideoFile } from '../lib/sanitized-env.js';
 import { addHistory, updateHistory } from '../flow-history-store.js';
 import { TestScriptGenerator } from '../../index.js';
 import { DOMExtractor } from '../../crawler/dom-extractor.js';
+import { supabase } from '../supabase-client.js';
 
 const execAsync = promisify(exec);
 export const testRoutes = Router();
@@ -222,19 +223,30 @@ export default defineConfig({
         success = false;
       }
 
-      // Check for video recording artifact if headed or recorded
+      // Check for video recording artifact and upload to Supabase Storage
       try {
         const foundVideo = findVideoFile(tempDir);
         if (foundVideo) {
           const sanitizedUserId = userId.replace(/[^a-zA-Z0-9_-]/g, '');
-          const videosDir = path.join(process.cwd(), 'public', 'videos', sanitizedUserId);
-          if (!fs.existsSync(videosDir)) {
-            fs.mkdirSync(videosDir, { recursive: true });
-          }
           const videoName = `run_${Date.now()}.webm`;
-          const destPath = path.join(videosDir, videoName);
-          fs.copyFileSync(foundVideo, destPath);
-          videoUrl = `/videos/${sanitizedUserId}/${videoName}`;
+          const storagePath = `${sanitizedUserId}/${videoName}`;
+          const fileBuffer = fs.readFileSync(foundVideo);
+
+          const { error: uploadError } = await supabase.storage
+            .from('test-videos')
+            .upload(storagePath, fileBuffer, {
+              contentType: 'video/webm',
+              upsert: true
+            });
+
+          if (uploadError) {
+            console.error('Failed to upload video recording to Supabase Storage:', uploadError);
+          } else {
+            const { data: urlData } = supabase.storage
+              .from('test-videos')
+              .getPublicUrl(storagePath);
+            videoUrl = urlData?.publicUrl;
+          }
         }
       } catch (videoErr) {
         console.warn('Video artifact extraction warning:', videoErr);

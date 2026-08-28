@@ -101,12 +101,21 @@ async function deleteHistory(id) {
     const record = await getHistoryById(id);
     if (!record)
         return false;
-    // Clean up associated video if exists (still stored locally)
+    // Clean up associated video if exists (Supabase Storage or legacy local file)
     if (record.videoUrl) {
         try {
-            const videoPath = path_1.default.join(process.cwd(), 'public', record.videoUrl);
-            if (fs_1.default.existsSync(videoPath)) {
-                fs_1.default.unlinkSync(videoPath);
+            if (record.videoUrl.includes('/test-videos/')) {
+                const parts = record.videoUrl.split('/test-videos/');
+                const storageFilePath = parts[1]?.split('?')[0];
+                if (storageFilePath) {
+                    await supabase_client_js_1.supabase.storage.from('test-videos').remove([decodeURIComponent(storageFilePath)]);
+                }
+            }
+            else {
+                const videoPath = path_1.default.join(process.cwd(), 'public', record.videoUrl);
+                if (fs_1.default.existsSync(videoPath)) {
+                    fs_1.default.unlinkSync(videoPath);
+                }
             }
         }
         catch (err) {
