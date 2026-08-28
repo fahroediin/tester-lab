@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { findUserByIdAsync } from './auth-store.js';
+import { validateApiKey } from './api-key-store.js';
 import type { User } from './auth-store.js';
 
 export const JWT_SECRET = process.env.JWT_SECRET || (() => {
@@ -11,33 +12,94 @@ export const JWT_SECRET = process.env.JWT_SECRET || (() => {
 
 export interface AuthenticatedRequest extends Request {
   user?: User;
+  authMethod?: 'jwt' | 'api_key';
 }
 
-export function authenticateJWT(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
+/**
+ * Unified Authentication Middleware:
+ * Supports both JWT Bearer tokens and API Keys (via `X-API-Key` or `Authorization: Bearer tl_live_...`)
+ */
+export async function authenticateJWT(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+  const apiKeyHeader = req.headers['x-api-key'] as string | undefined;
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    res.status(401).json({ success: false, error: 'Access denied. No authentication token provided.' });
-    return;
+
+  // 1. Check for API Key in X-API-Key header
+  if (apiKeyHeader && apiKeyHeader.startsWith('tl_live_')) {
+    try {
+      const user = await validateApiKey(apiKeyHeader);
+      if (!user) {
+        res.status(401).json({ success: false, error: 'Invalid or revoked API Key.' });
+        return;
+      }
+      req.user = user;
+      req.authMethod = 'api_key';
+      next();
+      return;
+    } catch (err) {
+      res.status(401).json({ success: false, error: 'API Key validation failed.' });
+      return;
+    }
   }
 
-  const token = authHeader.substring(7);
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
+  // 2. Check for Authorization header
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const tokenOrKey = authHeader.substring(7).trim();
 
-    findUserByIdAsync(decoded.userId).then(user => {
+    // 2a. API Key passed in Bearer header
+    if (tokenOrKey.startsWith('tl_live_')) {
+      try {
+        const user = await validateApiKey(tokenOrKey);
+        if (!user) {
+          res.status(401).json({ success: false, error: 'Invalid or revoked API Key.' });
+          return;
+        }
+        req.user = user;
+        req.authMethod = 'api_key';
+        next();
+        return;
+      } catch (err) {
+        res.status(401).json({ success: false, error: 'API Key validation failed.' });
+        return;
+      }
+    }
+
+    // 2b. Standard JWT Token
+    try {
+      const decoded = jwt.verify(tokenOrKey, JWT_SECRET) as { userId: string };
+      const user = await findUserByIdAsync(decoded.userId);
       if (!user) {
         res.status(401).json({ success: false, error: 'Invalid authentication token.' });
         return;
       }
 
       req.user = user;
+      req.authMethod = 'jwt';
       next();
-    }).catch(() => {
-      res.status(401).json({ success: false, error: 'Authentication error.' });
-    });
-  } catch (err: unknown) {
-    res.status(401).json({ success: false, error: 'Session expired or invalid token. Please log in again.' });
+      return;
+    } catch (err) {
+      res.status(401).json({ success: false, error: 'Session expired or invalid token. Please log in again.' });
+      return;
+    }
   }
+
+  res.status(401).json({ 
+    success: false, 
+    error: 'Access denied. Please provide a valid Bearer JWT token or X-API-Key header.' 
+  });
+}
+
+/**
+ * Enforce that the request is authenticated via a JWT session (used for API Key management and Web UI operations)
+ */
+export function requireJwtOnly(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
+  if (req.authMethod !== 'jwt') {
+    res.status(403).json({
+      success: false,
+      error: 'This operation requires a standard Web UI session token.'
+    });
+    return;
+  }
+  next();
 }
 
 export function requireApprovedUser(req: AuthenticatedRequest, res: Response, next: NextFunction): void {

@@ -1127,6 +1127,9 @@
         <span style="font-family: var(--font-mono); font-size: 12px; font-weight: 500; color: var(--ink); background: var(--soft-stone); padding: 6px 14px; border-radius: 9999px; border: 1px solid var(--hairline);">
           ${currentUser.username}
         </span>
+        <button type="button" class="btn-pill-outline" onclick="openApiKeyModal()" style="display: inline-flex; align-items: center; gap: 4px;">
+          🔑 API Keys
+        </button>
         ${adminBtn}
         <button type="button" class="btn-pill-outline" onclick="handleLogout()">Sign Out</button>
       `;
@@ -1741,6 +1744,179 @@
         }
       } catch (err) {
         console.error('Failed to load app config', err);
+      }
+    }
+
+    // --- API KEYS MANAGEMENT ---
+    function openApiKeyModal() {
+      const modal = document.getElementById('apiKeyModal');
+      const newKeyBanner = document.getElementById('newKeyBanner');
+      if (newKeyBanner) newKeyBanner.style.display = 'none';
+      if (modal) modal.style.display = 'flex';
+      loadUserApiKeys();
+    }
+
+    function closeApiKeyModal() {
+      const modal = document.getElementById('apiKeyModal');
+      if (modal) modal.style.display = 'none';
+    }
+
+    async function loadUserApiKeys() {
+      const tbody = document.getElementById('apiKeyTableBody');
+      if (!tbody) return;
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--slate);">Loading API keys...</td></tr>';
+
+      try {
+        const res = await fetch('/api/v1/api-keys', { headers: getAuthHeaders() });
+        const data = await res.json();
+        if (!data.success) {
+          tbody.innerHTML = `<tr><td colspan="6" style="color: var(--coral); text-align: center;">${data.error}</td></tr>`;
+          return;
+        }
+
+        const keys = data.data || [];
+        if (keys.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--slate); padding: 24px;">No API keys generated yet. Click "+ Generate New Key" above.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = '';
+        keys.forEach((k) => {
+          const tr = document.createElement('tr');
+          const isRevoked = k.status === 'revoked';
+          const statusBadge = isRevoked 
+            ? `<span class="status-badge-pill status-badge-failed">REVOKED</span>` 
+            : `<span class="status-badge-pill status-badge-success">ACTIVE</span>`;
+
+          const actionBtn = isRevoked
+            ? `<button class="btn-pill-outline" onclick="handleDeleteApiKey('${k.id}')" style="padding: 4px 10px; font-size: 11px; color: var(--coral); border-color: var(--coral);">Delete</button>`
+            : `<button class="btn-pill-outline" onclick="handleRevokeApiKey('${k.id}')" style="padding: 4px 10px; font-size: 11px; color: var(--coral); border-color: var(--coral);">Revoke</button>`;
+
+          tr.innerHTML = `
+            <td><strong>${escapeHtml(k.name)}</strong></td>
+            <td><code style="font-family: var(--font-mono); font-size: 12px; background: var(--surface-2); padding: 2px 6px; border-radius: 4px;">${escapeHtml(k.keyPrefix)}</code></td>
+            <td><span style="font-size: 12px;">${new Date(k.createdAt).toLocaleDateString()}</span></td>
+            <td><span style="font-size: 12px; color: var(--body-muted);">${k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleString() : 'Never'}</span></td>
+            <td>${statusBadge}</td>
+            <td>${actionBtn}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="6" style="color: var(--coral); text-align: center;">Failed to load API keys: ${err.message}</td></tr>`;
+      }
+    }
+
+    async function promptCreateApiKey() {
+      const { value: keyName } = await Swal.fire({
+        title: 'Generate New API Key',
+        input: 'text',
+        inputLabel: 'API Key Name / Description',
+        inputValue: 'CI/CD Pipeline',
+        showCancelButton: true,
+        confirmButtonText: 'Generate Key',
+        confirmButtonColor: '#005bbf',
+        inputValidator: (value) => {
+          if (!value || !value.trim()) {
+            return 'Please enter a name for this API key';
+          }
+        }
+      });
+
+      if (!keyName) return;
+
+      try {
+        const res = await fetch('/api/v1/api-keys', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ name: keyName.trim() })
+        });
+        const data = await res.json();
+        if (data.success && data.data) {
+          const banner = document.getElementById('newKeyBanner');
+          const input = document.getElementById('newKeyInput');
+          if (banner && input) {
+            input.value = data.data.rawKey;
+            banner.style.display = 'block';
+          }
+          await loadUserApiKeys();
+        } else {
+          Swal.fire({ icon: 'error', title: 'Generation Failed', text: data.error, confirmButtonColor: '#005bbf' });
+        }
+      } catch (err) {
+        Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#005bbf' });
+      }
+    }
+
+    function copyNewApiKey() {
+      const input = document.getElementById('newKeyInput');
+      if (!input || !input.value) return;
+      navigator.clipboard.writeText(input.value);
+      Swal.fire({
+        icon: 'success',
+        title: 'Copied to Clipboard!',
+        text: 'API key copied successfully.',
+        timer: 1500,
+        showConfirmButton: false,
+        toast: true,
+        position: 'top-end'
+      });
+    }
+
+    async function handleRevokeApiKey(id) {
+      const result = await Swal.fire({
+        title: 'Revoke API Key?',
+        text: 'Any automation script or integration using this key will immediately stop working.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        confirmButtonText: 'Yes, Revoke Key'
+      });
+
+      if (!result.isConfirmed) return;
+
+      try {
+        const res = await fetch(`/api/v1/api-keys/${id}`, {
+          method: 'DELETE',
+          headers: getAuthHeaders()
+        });
+        const data = await res.json();
+        if (data.success) {
+          Swal.fire({ icon: 'success', title: 'Revoked', text: 'API Key has been revoked.', timer: 1500, showConfirmButton: false, toast: true, position: 'top-end' });
+          await loadUserApiKeys();
+        } else {
+          Swal.fire({ icon: 'error', title: 'Failed', text: data.error, confirmButtonColor: '#005bbf' });
+        }
+      } catch (err) {
+        Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#005bbf' });
+      }
+    }
+
+    async function handleDeleteApiKey(id) {
+      const result = await Swal.fire({
+        title: 'Delete Record?',
+        text: 'Permanently remove this revoked key record?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        confirmButtonText: 'Delete'
+      });
+
+      if (!result.isConfirmed) return;
+
+      try {
+        const res = await fetch(`/api/v1/api-keys/${id}/delete`, {
+          method: 'DELETE',
+          headers: getAuthHeaders()
+        });
+        const data = await res.json();
+        if (data.success) {
+          await loadUserApiKeys();
+        } else {
+          Swal.fire({ icon: 'error', title: 'Failed', text: data.error, confirmButtonColor: '#005bbf' });
+        }
+      } catch (err) {
+        Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#005bbf' });
       }
     }
 

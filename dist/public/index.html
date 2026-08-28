@@ -440,6 +440,110 @@
     </div>
   </div>
 
+  <!-- API Keys & Developer Access Modal -->
+  <div class="modal-overlay" id="apiKeyModal" style="display: none; z-index: 2000;">
+    <div class="modal-card" style="max-width: 850px; width: 95%; max-height: 90vh; overflow-y: auto;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 2l-2 2m-1.5 1.5L16 7l-1.5-1.5M19 5l-2.5 2.5M9 11l3 3L22 4l-4-4L9 9a5 5 0 1 0-7 7l7-7z"></path>
+          </svg>
+          <h3>Developer API Keys & Access</h3>
+        </div>
+        <button class="modal-close" onclick="closeApiKeyModal()">&times;</button>
+      </div>
+
+      <div style="margin-top: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+          <p style="font-size: 13px; color: var(--body-muted); margin: 0;">
+            Use API keys to access Tester Lab programmatic endpoints from CI/CD pipelines, CLI, or automation scripts.
+          </p>
+          <button type="button" class="btn-primary" onclick="promptCreateApiKey()" style="padding: 6px 14px; font-size: 13px; min-height: unset; height: auto;">
+            + Generate New Key
+          </button>
+        </div>
+
+        <!-- Newly Generated Key Alert Box (Hidden initially) -->
+        <div id="newKeyBanner" style="display: none; background: rgba(16, 185, 129, 0.1); border: 1px solid var(--deep-green); padding: 14px; border-radius: 8px; margin-bottom: 16px;">
+          <div style="font-weight: 600; color: var(--deep-green); font-size: 13px; margin-bottom: 6px;">
+            🎉 New API Key Generated!
+          </div>
+          <div style="font-size: 12px; color: var(--ink); margin-bottom: 8px;">
+            Please copy this key now. For your security, you will not be able to view it again.
+          </div>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <input type="text" id="newKeyInput" readonly style="font-family: var(--font-mono); font-size: 12px; background: var(--card-bg); font-weight: 600; width: 100%;">
+            <button type="button" class="btn-pill-outline" onclick="copyNewApiKey()" style="white-space: nowrap; padding: 6px 14px; height: 38px;">Copy</button>
+          </div>
+        </div>
+
+        <!-- API Keys Table -->
+        <div style="overflow-x: auto; margin-bottom: 24px;">
+          <table class="summary-table" style="width: 100%;">
+            <thead>
+              <tr>
+                <th>Key Name</th>
+                <th>API Key Token</th>
+                <th>Created</th>
+                <th>Last Used</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="apiKeyTableBody">
+              <tr><td colspan="6" style="text-align: center; color: var(--slate);">Loading API keys...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- API Documentation Reference -->
+        <div style="background: var(--surface-2); border: 1px solid var(--hairline); border-radius: 8px; padding: 16px;">
+          <div style="font-weight: 600; font-size: 13px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+            <span>📖</span> Quick Integration Guide
+          </div>
+          <p style="font-size: 12px; color: var(--body-muted); margin-bottom: 12px;">
+            Pass your API key in the <code>X-API-Key</code> or <code>Authorization: Bearer &lt;key&gt;</code> header.
+          </p>
+
+          <div class="agent-console" style="margin-bottom: 12px;">
+            <div class="console-header">
+              <div class="console-title">Example 1: Generate Playwright Test Script (POST /api/v1/generate-script)</div>
+            </div>
+            <pre class="code-preview" style="max-height: 180px; overflow-y: auto; font-size: 11px;">curl -X POST "https://tester-lab.mibot.my.id/api/v1/generate-script" \
+  -H "X-API-Key: tl_live_YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "dsl": {
+      "testSuite": "Automated Auth Test",
+      "targetUrl": "https://practicetestautomation.com/practice-test-login/",
+      "steps": [
+        { "step": 1, "description": "Type student into Username", "action": "type", "target": "#username", "value": "student" },
+        { "step": 2, "description": "Type Password123 into Password", "action": "type", "target": "#password", "value": "Password123" },
+        { "step": 3, "description": "Click Submit button", "action": "click", "target": "#submit" }
+      ]
+    }
+  }'</pre>
+          </div>
+
+          <div class="agent-console">
+            <div class="console-header">
+              <div class="console-title">Example 2: Execute Test Script on Server (POST /api/v1/run-test)</div>
+            </div>
+            <pre class="code-preview" style="max-height: 160px; overflow-y: auto; font-size: 11px;">curl -X POST "https://tester-lab.mibot.my.id/api/v1/run-test" \
+  -H "X-API-Key: tl_live_YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "code": "import { test, expect } from \"@playwright/test\";\ntest(\"sample\", async ({ page }) => {\n  await page.goto(\"https://example.com\");\n});",
+    "language": "typescript",
+    "mode": "headless"
+  }'</pre>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
   <!-- History Detail Modal -->
   <div class="modal-overlay" id="historyDetailModal" style="display: none; z-index: 2000;">
     <div class="modal-card" style="max-width: 900px; width: 95%; max-height: 90vh; overflow-y: auto;">

@@ -12,6 +12,7 @@ const feedback_routes_js_1 = require("./routes/feedback-routes.js");
 const test_routes_js_1 = require("./routes/test-routes.js");
 const history_routes_js_1 = require("./routes/history-routes.js");
 const config_routes_js_1 = require("./routes/config-routes.js");
+const api_key_routes_js_1 = require("./routes/api-key-routes.js");
 const auth_store_js_1 = require("./auth-store.js");
 const app = (0, express_1.default)();
 const port = process.env.PORT || 3000;
@@ -36,6 +37,7 @@ app.get('/admin', (req, res) => {
 // Register routes
 app.use('/api/v1/auth', auth_routes_js_1.authRoutes);
 app.use('/api/v1/admin', admin_routes_js_1.adminRoutes);
+app.use('/api/v1/api-keys', api_key_routes_js_1.apiKeyRoutes);
 app.use('/api/v1/feedback', feedback_routes_js_1.feedbackRoutes);
 app.use('/api/v1/history', history_routes_js_1.historyRoutes);
 app.use('/api/v1/config', config_routes_js_1.configRoutes);

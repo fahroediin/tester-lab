@@ -77,6 +77,23 @@ CREATE TABLE IF NOT EXISTS feedbacks (
 -- Index for time-based retrieval
 CREATE INDEX IF NOT EXISTS idx_feedbacks_timestamp ON feedbacks (timestamp DESC);
 
+-- 6. API KEYS TABLE
+CREATE TABLE IF NOT EXISTS api_keys (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL DEFAULT 'Default API Key',
+  key_hash TEXT NOT NULL UNIQUE,
+  key_prefix TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'revoked')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_used_at TIMESTAMPTZ,
+  revoked_at TIMESTAMPTZ
+);
+
+-- Index for fast key lookup and user listing
+CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys (key_hash);
+CREATE INDEX IF NOT EXISTS idx_api_keys_user ON api_keys (user_id);
+
 
 -- ============================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
@@ -88,6 +105,7 @@ ALTER TABLE flow_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE activity_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE app_config ENABLE ROW LEVEL SECURITY;
 ALTER TABLE feedbacks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE api_keys ENABLE ROW LEVEL SECURITY;
 
 -- USERS: Service role can do everything (server-side operations)
 CREATE POLICY "Service role full access on users"
@@ -116,6 +134,12 @@ CREATE POLICY "Service role full access on app_config"
 -- FEEDBACKS: Service role can do everything
 CREATE POLICY "Service role full access on feedbacks"
   ON feedbacks FOR ALL
+  USING (true)
+  WITH CHECK (true);
+
+-- API KEYS: Service role can do everything
+CREATE POLICY "Service role full access on api_keys"
+  ON api_keys FOR ALL
   USING (true)
   WITH CHECK (true);
 

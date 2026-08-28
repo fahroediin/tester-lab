@@ -8,6 +8,7 @@ import { feedbackRoutes } from './routes/feedback-routes.js';
 import { testRoutes } from './routes/test-routes.js';
 import { historyRoutes } from './routes/history-routes.js';
 import { configRoutes } from './routes/config-routes.js';
+import { apiKeyRoutes } from './routes/api-key-routes.js';
 import { ensureAdminUser } from './auth-store.js';
 
 const app = express();
@@ -38,6 +39,7 @@ app.get('/admin', (req: Request, res: Response) => {
 // Register routes
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/admin', adminRoutes);
+app.use('/api/v1/api-keys', apiKeyRoutes);
 app.use('/api/v1/feedback', feedbackRoutes);
 app.use('/api/v1/history', historyRoutes);
 app.use('/api/v1/config', configRoutes);
