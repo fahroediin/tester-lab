@@ -1,3 +1,90 @@
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str).replace(/[&<>"']/g, function(m) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m];
+      });
+    }
+
+    function showSnackbar(opts, secondArg, thirdArg) {
+      let message = '';
+      let title = '';
+      let type = 'info';
+      let duration = 3500;
+
+      if (typeof opts === 'string') {
+        message = opts;
+        if (secondArg) type = secondArg;
+        if (thirdArg) title = thirdArg;
+      } else if (typeof opts === 'object' && opts !== null) {
+        message = opts.message || opts.text || '';
+        title = opts.title || '';
+        type = opts.type || opts.icon || 'info';
+        duration = opts.duration || opts.timer || 3500;
+      }
+
+      let container = document.getElementById('snackbarContainer');
+      if (!container) {
+        container = document.createElement('div');
+        container.id = 'snackbarContainer';
+        document.body.appendChild(container);
+      }
+
+      const snackbar = document.createElement('div');
+      snackbar.className = `snackbar snackbar-${type}`;
+
+      let iconSvg = '';
+      if (type === 'success') {
+        iconSvg = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+      } else if (type === 'error') {
+        iconSvg = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>';
+      } else if (type === 'warning') {
+        iconSvg = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>';
+      } else {
+        iconSvg = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>';
+      }
+
+      const titleHtml = title ? `<div class="snackbar-title">${escapeHtml(title)}</div>` : '';
+      const messageHtml = message ? `<div class="snackbar-message">${escapeHtml(message)}</div>` : '';
+
+      snackbar.innerHTML = `
+        <div class="snackbar-icon-wrapper">${iconSvg}</div>
+        <div class="snackbar-content">
+          ${titleHtml}
+          ${messageHtml}
+        </div>
+        <button type="button" class="snackbar-close" aria-label="Close">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      `;
+
+      container.appendChild(snackbar);
+
+      requestAnimationFrame(() => {
+        snackbar.classList.add('show');
+      });
+
+      const timer = setTimeout(() => {
+        dismissSnackbar(snackbar);
+      }, duration);
+
+      const closeBtn = snackbar.querySelector('.snackbar-close');
+      if (closeBtn) {
+        closeBtn.onclick = () => {
+          clearTimeout(timer);
+          dismissSnackbar(snackbar);
+        };
+      }
+
+      function dismissSnackbar(el) {
+        el.classList.remove('show');
+        el.classList.add('hide');
+        setTimeout(() => {
+          if (el.parentElement) el.parentElement.removeChild(el);
+        }, 280);
+      }
+    }
+    window.showSnackbar = showSnackbar;
+
     let steps = [];
     let isGeneratingScript = false;
     let latestGeneratedCode = '';
@@ -45,7 +132,7 @@
       const attachmentInput = document.getElementById('feedbackAttachment');
       
       if (!details) {
-        Swal.fire({ icon: 'warning', title: 'Missing Details', text: 'Please provide feedback details.', toast: true, position: 'top-end' });
+        showSnackbar({ type: 'warning', title: 'Missing Details', message: 'Please provide feedback details.' });
         return;
       }
       
@@ -56,14 +143,14 @@
       if (file) {
         // Validate size (client-side)
         if (file.size > 5242880) { // 5MB
-          Swal.fire({ icon: 'error', title: 'File Too Large', text: 'Attachment exceeds 5MB limit.', toast: true, position: 'top-end' });
+          showSnackbar({ type: 'error', title: 'File Too Large', message: 'Attachment exceeds 5MB limit.' });
           return;
         }
         
         // Validate extension (client-side)
         const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
         if (!['.png', '.jpg', '.jpeg', '.bmp'].includes(ext)) {
-          Swal.fire({ icon: 'error', title: 'Invalid Format', text: 'Only PNG, JPG, JPEG, and BMP are allowed.', toast: true, position: 'top-end' });
+          showSnackbar({ type: 'error', title: 'Invalid Format', message: 'Only PNG, JPG, JPEG, and BMP are allowed.' });
           return;
         }
         
@@ -93,12 +180,12 @@
         
         if (data.success) {
           closeFeedbackModal();
-          Swal.fire({ icon: 'success', title: 'Feedback Submitted', text: 'Thank you for your feedback!', timer: 3000, showConfirmButton: false, toast: true, position: 'top-end' });
+          showSnackbar({ type: 'success', title: 'Feedback Submitted', message: 'Thank you for your feedback!' });
         } else {
-          Swal.fire({ icon: 'error', title: 'Submission Failed', text: data.error || 'Unknown error occurred.', toast: true, position: 'top-end' });
+          showSnackbar({ type: 'error', title: 'Submission Failed', message: data.error || 'Unknown error occurred.' });
         }
       } catch (err) {
-        Swal.fire({ icon: 'error', title: 'Network Error', text: 'Could not connect to server.', toast: true, position: 'top-end' });
+        showSnackbar({ type: 'error', title: 'Network Error', message: 'Could not connect to server.' });
       } finally {
         btnSubmit.disabled = false;
         loader.style.display = 'none';
@@ -179,11 +266,10 @@
         steps = JSON.parse(JSON.stringify(appConfig.sampleSteps));
         renderSteps();
       } else {
-        Swal.fire({
-          icon: 'warning',
+        showSnackbar({
+          type: 'warning',
           title: 'No Sample Configuration',
-          text: 'Admin has not configured the sample scenario yet. Please contact the administrator.',
-          confirmButtonColor: '#005bbf'
+          message: 'Admin has not configured the sample scenario yet. Please contact administrator.'
         });
       }
     }
@@ -231,20 +317,16 @@
               renderSteps();
             }
             
-            Swal.fire({
-              icon: 'success',
+            showSnackbar({
+              type: 'success',
               title: 'Flow File Loaded',
-              text: `Successfully imported "${file.name}".`,
-              timer: 2500,
-              showConfirmButton: false,
-              toast: true,
-              position: 'top-end'
+              message: `Successfully imported "${file.name}".`
             });
 
           } else {
             // Spec import logic (.spec.ts, .spec.js, .ts, .js)
             if (!content || !content.trim()) {
-              Swal.fire({ icon: 'warning', title: 'Empty File', text: 'The uploaded spec file is empty.', confirmButtonColor: '#005bbf' });
+              showSnackbar({ type: 'warning', title: 'Empty File', message: 'The uploaded spec file is empty.' });
               return;
             }
 
@@ -259,6 +341,12 @@
               steps = parsedSteps;
               renderSteps();
             }
+
+            showSnackbar({
+              type: 'success',
+              title: 'Spec File Loaded',
+              message: `Successfully imported "${file.name}". Click "Run Script Now" to execute.`
+            });
 
             // Attempt to extract Test Suite Name
             const testSuiteMatch = content.match(/test\(['"](.*?)['"]/) || content.match(/describe\(['"](.*?)['"]/);
@@ -635,7 +723,7 @@
 
       if (!authToken) {
         checkAuthSession();
-        Swal.fire({ icon: 'warning', title: 'Authentication Required', text: 'Please sign in to generate test scripts.', confirmButtonColor: '#005bbf' });
+        showSnackbar({ type: 'warning', title: 'Authentication Required', message: 'Please sign in to generate test scripts.' });
         return;
       }
 
@@ -728,7 +816,7 @@
 
         if (!data.success) {
           statusBadgeContainer.innerHTML = '<span class="status-chip chip-fail">Generation Failed</span>';
-          Swal.fire({ icon: 'error', title: 'Generation Failed', text: (data.errors ? data.errors.join(', ') : data.error), confirmButtonColor: '#005bbf' });
+          showSnackbar({ type: 'error', title: 'Generation Failed', message: (data.errors ? data.errors.join(', ') : data.error) });
           codeOutput.textContent = '// Generation failed.\n' + (data.errors ? data.errors.join('\n') : data.error);
           return;
         }
@@ -779,7 +867,7 @@
         clearInterval(progressTimer);
         if (consoleTitle) consoleTitle.textContent = 'PLAYWRIGHT TEST OUTPUT CONSOLE';
         statusBadgeContainer.innerHTML = '<span class="status-chip chip-fail">Connection Error</span>';
-        Swal.fire({ icon: 'error', title: 'Connection Error', text: 'Failed to connect to API server: ' + err.message, confirmButtonColor: '#005bbf' });
+        showSnackbar({ type: 'error', title: 'Connection Error', message: 'Failed to connect to API server: ' + err.message });
       } finally {
         isGeneratingScript = false;
         btn.disabled = false;
@@ -839,7 +927,7 @@
       }
 
       navigator.clipboard.writeText(contentToCopy).then(() => {
-        Swal.fire({ icon: 'success', title: 'Copied!', text: 'Content copied to clipboard!', timer: 2000, showConfirmButton: false, toast: true, position: 'top-end' });
+        showSnackbar({ type: 'success', title: 'Copied!', message: 'Content copied to clipboard!' });
       });
     }
 
@@ -900,16 +988,15 @@
 
       if (!authToken) {
         checkAuthSession();
-        Swal.fire({ icon: 'warning', title: 'Authentication Required', text: 'Please sign in to execute tests.', confirmButtonColor: '#005bbf' });
+        showSnackbar({ type: 'warning', title: 'Authentication Required', message: 'Please sign in to execute tests.' });
         return;
       }
 
       if (isGeneratingScript) {
-        Swal.fire({
-          icon: 'warning',
+        showSnackbar({
+          type: 'warning',
           title: 'Generation in Progress',
-          text: 'Please wait until script generation finishes before running the test.',
-          confirmButtonColor: '#005bbf'
+          message: 'Please wait until script generation finishes before running the test.'
         });
         return;
       }
@@ -917,11 +1004,10 @@
       const code = latestGeneratedCode;
 
       if (!code || !code.trim() || code.startsWith('//') || code.includes('[1/4] INITIALIZING')) {
-        Swal.fire({
-          icon: 'warning',
+        showSnackbar({
+          type: 'warning',
           title: 'No Valid Script Found',
-          text: 'Please generate a valid test script first before running.',
-          confirmButtonColor: '#005bbf'
+          message: 'Please generate a valid test script first before running.'
         });
         return;
       }
@@ -1173,7 +1259,7 @@
         const data = await response.json();
 
         if (!data.success) {
-          Swal.fire({ icon: 'error', title: 'Login Failed', text: data.error, confirmButtonColor: '#005bbf' });
+          showSnackbar({ type: 'error', title: 'Login Failed', message: data.error });
           return;
         }
 
@@ -1183,17 +1269,13 @@
         renderLoggedInBar();
         checkAuthSession();
 
-        Swal.fire({
-          icon: 'success',
+        showSnackbar({
+          type: 'success',
           title: `Welcome, ${currentUser.username}!`,
-          text: 'Authentication successful.',
-          timer: 2000,
-          showConfirmButton: false,
-          toast: true,
-          position: 'top-end'
+          message: 'Authentication successful.'
         });
       } catch (err) {
-        Swal.fire({ icon: 'error', title: 'Connection Error', text: err.message, confirmButtonColor: '#005bbf' });
+        showSnackbar({ type: 'error', title: 'Connection Error', message: err.message });
       }
     }
 
@@ -1212,7 +1294,7 @@
         const data = await response.json();
 
         if (!data.success) {
-          Swal.fire({ icon: 'error', title: 'Registration Failed', text: data.error, confirmButtonColor: '#005bbf' });
+          showSnackbar({ type: 'error', title: 'Registration Failed', message: data.error });
           return;
         }
 
@@ -1227,14 +1309,13 @@
           loginUserInput.value = username;
         }
 
-        Swal.fire({
-          icon: 'info',
+        showSnackbar({
+          type: 'info',
           title: 'Request Submitted',
-          text: 'Your registration request has been submitted. Please wait for an Administrator to approve your account before logging in.',
-          confirmButtonColor: '#005bbf'
+          message: 'Registration request submitted. Please wait for an Admin to approve your account.'
         });
       } catch (err) {
-        Swal.fire({ icon: 'error', title: 'Connection Error', text: err.message, confirmButtonColor: '#005bbf' });
+        showSnackbar({ type: 'error', title: 'Connection Error', message: err.message });
       }
     }
 
@@ -1245,14 +1326,10 @@
       currentUser = null;
       localStorage.removeItem('tester_jwt_token');
       checkAuthSession();
-      Swal.fire({
-        icon: 'info',
+      showSnackbar({
+        type: 'info',
         title: 'Signed Out',
-        text: 'You have been signed out successfully.',
-        timer: 1500,
-        showConfirmButton: false,
-        toast: true,
-        position: 'top-end'
+        message: 'You have been signed out successfully.'
       });
     }
 
@@ -1334,13 +1411,13 @@
         });
         const data = await response.json();
         if (data.success) {
-          Swal.fire({ icon: 'success', title: 'User Approved', text: data.message, timer: 1800, showConfirmButton: false, toast: true, position: 'top-end' });
+          showSnackbar({ type: 'success', title: 'User Approved', message: data.message });
           await loadAdminUsers();
         } else {
-          Swal.fire({ icon: 'error', title: 'Action Failed', text: data.error, confirmButtonColor: '#005bbf' });
+          showSnackbar({ type: 'error', title: 'Action Failed', message: data.error });
         }
       } catch (err) {
-        Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#005bbf' });
+        showSnackbar({ type: 'error', title: 'Error', message: err.message });
       }
     }
 
@@ -1352,13 +1429,13 @@
         });
         const data = await response.json();
         if (data.success) {
-          Swal.fire({ icon: 'info', title: 'User Rejected', text: data.message, timer: 1800, showConfirmButton: false, toast: true, position: 'top-end' });
+          showSnackbar({ type: 'info', title: 'User Rejected', message: data.message });
           await loadAdminUsers();
         } else {
-          Swal.fire({ icon: 'error', title: 'Action Failed', text: data.error, confirmButtonColor: '#005bbf' });
+          showSnackbar({ type: 'error', title: 'Action Failed', message: data.error });
         }
       } catch (err) {
-        Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#005bbf' });
+        showSnackbar({ type: 'error', title: 'Error', message: err.message });
       }
     }
 
@@ -1381,13 +1458,13 @@
         });
         const data = await response.json();
         if (data.success) {
-          Swal.fire({ icon: 'success', title: 'User Deleted', text: data.message, timer: 1800, showConfirmButton: false, toast: true, position: 'top-end' });
+          showSnackbar({ type: 'success', title: 'User Deleted', message: data.message });
           await loadAdminUsers();
         } else {
-          Swal.fire({ icon: 'error', title: 'Action Failed', text: data.error, confirmButtonColor: '#005bbf' });
+          showSnackbar({ type: 'error', title: 'Action Failed', message: data.error });
         }
       } catch (err) {
-        Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#005bbf' });
+        showSnackbar({ type: 'error', title: 'Error', message: err.message });
       }
     }
 
@@ -1595,7 +1672,7 @@
         const response = await fetch(`/api/v1/history/${id}`, { headers: getAuthHeaders() });
         const data = await response.json();
         if (!data.success) {
-          Swal.fire({ icon: 'error', title: 'Error', text: data.error, toast: true, position: 'top-end' });
+          showSnackbar({ type: 'error', title: 'Error', message: data.error });
           return;
         }
         
@@ -1648,7 +1725,7 @@
         
         document.getElementById('historyDetailModal').style.display = 'flex';
       } catch (err) {
-        Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to load details', toast: true, position: 'top-end' });
+        showSnackbar({ type: 'error', title: 'Error', message: 'Failed to load details' });
       }
     }
 
@@ -1717,14 +1794,10 @@
       closeHistoryModal();
       switchTab('builder');
 
-      Swal.fire({
-        icon: 'success',
+      showSnackbar({
+        type: 'success',
         title: 'Loaded',
-        text: 'Scenario successfully loaded into the builder.',
-        timer: 2000,
-        showConfirmButton: false,
-        toast: true,
-        position: 'top-end'
+        message: 'Scenario successfully loaded into the builder.'
       });
     }
 
@@ -1747,13 +1820,13 @@
         });
         const data = await response.json();
         if (data.success) {
-          Swal.fire({ icon: 'success', title: 'Deleted', text: 'History record deleted', timer: 1500, showConfirmButton: false, toast: true, position: 'top-end' });
+          showSnackbar({ type: 'success', title: 'Deleted', message: 'History record deleted.' });
           loadHistory();
         } else {
-          Swal.fire({ icon: 'error', title: 'Error', text: data.error, toast: true, position: 'top-end' });
+          showSnackbar({ type: 'error', title: 'Error', message: data.error });
         }
       } catch (err) {
-        Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to delete record', toast: true, position: 'top-end' });
+        showSnackbar({ type: 'error', title: 'Error', message: 'Failed to delete record' });
       }
     }
 
@@ -1830,14 +1903,10 @@
     function copyTableKeyPrefix(token) {
       if (!token) return;
       navigator.clipboard.writeText(token);
-      Swal.fire({
-        icon: 'success',
+      showSnackbar({
+        type: 'success',
         title: 'Copied!',
-        text: `Token "${token}" copied to clipboard.`,
-        timer: 1500,
-        showConfirmButton: false,
-        toast: true,
-        position: 'top-end'
+        message: `Token "${token}" copied to clipboard.`
       });
     }
 
@@ -1846,14 +1915,10 @@
       if (!el) return;
       const text = el.textContent || el.innerText;
       navigator.clipboard.writeText(text);
-      Swal.fire({
-        icon: 'success',
+      showSnackbar({
+        type: 'success',
         title: 'Copied to Clipboard!',
-        text: 'Code snippet copied successfully.',
-        timer: 1500,
-        showConfirmButton: false,
-        toast: true,
-        position: 'top-end'
+        message: 'Code snippet copied successfully.'
       });
     }
 
@@ -1890,11 +1955,12 @@
             banner.style.display = 'block';
           }
           await loadUserApiKeys();
+          showSnackbar({ type: 'success', title: 'API Key Created', message: 'New API key generated successfully.' });
         } else {
-          Swal.fire({ icon: 'error', title: 'Generation Failed', text: data.error, confirmButtonColor: '#005bbf' });
+          showSnackbar({ type: 'error', title: 'Generation Failed', message: data.error });
         }
       } catch (err) {
-        Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#005bbf' });
+        showSnackbar({ type: 'error', title: 'Error', message: err.message });
       }
     }
 
@@ -1902,14 +1968,10 @@
       const input = document.getElementById('newKeyInput');
       if (!input || !input.value) return;
       navigator.clipboard.writeText(input.value);
-      Swal.fire({
-        icon: 'success',
+      showSnackbar({
+        type: 'success',
         title: 'Copied to Clipboard!',
-        text: 'API key copied successfully.',
-        timer: 1500,
-        showConfirmButton: false,
-        toast: true,
-        position: 'top-end'
+        message: 'API key copied successfully.'
       });
     }
 
@@ -1932,13 +1994,13 @@
         });
         const data = await res.json();
         if (data.success) {
-          Swal.fire({ icon: 'success', title: 'Revoked', text: 'API Key has been revoked.', timer: 1500, showConfirmButton: false, toast: true, position: 'top-end' });
+          showSnackbar({ type: 'success', title: 'Revoked', message: 'API Key has been revoked.' });
           await loadUserApiKeys();
         } else {
-          Swal.fire({ icon: 'error', title: 'Failed', text: data.error, confirmButtonColor: '#005bbf' });
+          showSnackbar({ type: 'error', title: 'Failed', message: data.error });
         }
       } catch (err) {
-        Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#005bbf' });
+        showSnackbar({ type: 'error', title: 'Error', message: err.message });
       }
     }
 
@@ -1961,12 +2023,13 @@
         });
         const data = await res.json();
         if (data.success) {
+          showSnackbar({ type: 'success', title: 'Deleted', message: 'API Key record deleted.' });
           await loadUserApiKeys();
         } else {
-          Swal.fire({ icon: 'error', title: 'Failed', text: data.error, confirmButtonColor: '#005bbf' });
+          showSnackbar({ type: 'error', title: 'Failed', message: data.error });
         }
       } catch (err) {
-        Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#005bbf' });
+        showSnackbar({ type: 'error', title: 'Error', message: err.message });
       }
     }
 

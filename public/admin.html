@@ -248,6 +248,152 @@
       border-color: var(--action-blue) !important;
     }
 
+    /* =========================================
+       SNACKBAR NOTIFICATION SYSTEM
+       ========================================= */
+    #snackbarContainer {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 999999;
+      display: flex;
+      flex-direction: column-reverse;
+      gap: 10px;
+      pointer-events: none;
+      max-width: calc(100vw - 48px);
+    }
+
+    .snackbar {
+      pointer-events: auto;
+      min-width: 280px;
+      max-width: 420px;
+      background: var(--card-bg);
+      color: var(--ink);
+      border: 1px solid var(--hairline);
+      border-radius: 10px;
+      padding: 12px 16px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15), 0 2px 6px rgba(0, 0, 0, 0.08);
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      opacity: 0;
+      transform: translateY(20px) scale(0.96);
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .snackbar.show {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+
+    .snackbar.hide {
+      opacity: 0;
+      transform: translateY(12px) scale(0.95);
+      pointer-events: none;
+    }
+
+    .snackbar-icon-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
+      min-width: 26px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .snackbar-success .snackbar-icon-wrapper {
+      background: rgba(16, 185, 129, 0.15);
+      color: #10b981;
+    }
+
+    .snackbar-error .snackbar-icon-wrapper {
+      background: rgba(239, 68, 68, 0.15);
+      color: #ef4444;
+    }
+
+    .snackbar-warning .snackbar-icon-wrapper {
+      background: rgba(245, 158, 11, 0.15);
+      color: #f59e0b;
+    }
+
+    .snackbar-info .snackbar-icon-wrapper {
+      background: rgba(59, 130, 246, 0.15);
+      color: #3b82f6;
+    }
+
+    .snackbar-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .snackbar-title {
+      font-family: var(--font-body);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink);
+      line-height: 1.3;
+    }
+
+    .snackbar-message {
+      font-family: var(--font-body);
+      font-size: 12px;
+      color: var(--body-muted);
+      line-height: 1.4;
+      word-break: break-word;
+    }
+
+    .snackbar-close {
+      background: transparent;
+      border: none;
+      color: var(--body-muted);
+      cursor: pointer;
+      padding: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      transition: color 0.15s ease, background 0.15s ease;
+      margin-left: 4px;
+      flex-shrink: 0;
+    }
+
+    .snackbar-close:hover {
+      color: var(--ink);
+      background: var(--surface-2);
+    }
+
+    [data-theme="dark"] .snackbar {
+      background: #111827;
+      border-color: #1e293b;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6), 0 2px 8px rgba(0, 0, 0, 0.4);
+    }
+
+    [data-theme="dark"] .snackbar-title {
+      color: #f9fafb;
+    }
+
+    [data-theme="dark"] .snackbar-message {
+      color: #94a3b8;
+    }
+
+    @media (max-width: 600px) {
+      #snackbarContainer {
+        left: 16px;
+        right: 16px;
+        bottom: 16px;
+        max-width: none;
+      }
+      .snackbar {
+        min-width: 0;
+        width: 100%;
+      }
+    }
+
     .btn-theme-toggle {
       background: var(--card-bg);
       border: 1px solid var(--hairline);
@@ -901,6 +1047,86 @@
   <script>
     const authToken = localStorage.getItem('tester_jwt_token') || '';
 
+    function showSnackbar(opts, secondArg, thirdArg) {
+      let message = '';
+      let title = '';
+      let type = 'info';
+      let duration = 3500;
+
+      if (typeof opts === 'string') {
+        message = opts;
+        if (secondArg) type = secondArg;
+        if (thirdArg) title = thirdArg;
+      } else if (typeof opts === 'object' && opts !== null) {
+        message = opts.message || opts.text || '';
+        title = opts.title || '';
+        type = opts.type || opts.icon || 'info';
+        duration = opts.duration || opts.timer || 3500;
+      }
+
+      let container = document.getElementById('snackbarContainer');
+      if (!container) {
+        container = document.createElement('div');
+        container.id = 'snackbarContainer';
+        document.body.appendChild(container);
+      }
+
+      const snackbar = document.createElement('div');
+      snackbar.className = `snackbar snackbar-${type}`;
+
+      let iconSvg = '';
+      if (type === 'success') {
+        iconSvg = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+      } else if (type === 'error') {
+        iconSvg = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>';
+      } else if (type === 'warning') {
+        iconSvg = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>';
+      } else {
+        iconSvg = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>';
+      }
+
+      const titleHtml = title ? `<div class="snackbar-title">${escapeHtml(title)}</div>` : '';
+      const messageHtml = message ? `<div class="snackbar-message">${escapeHtml(message)}</div>` : '';
+
+      snackbar.innerHTML = `
+        <div class="snackbar-icon-wrapper">${iconSvg}</div>
+        <div class="snackbar-content">
+          ${titleHtml}
+          ${messageHtml}
+        </div>
+        <button type="button" class="snackbar-close" aria-label="Close">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      `;
+
+      container.appendChild(snackbar);
+
+      requestAnimationFrame(() => {
+        snackbar.classList.add('show');
+      });
+
+      const timer = setTimeout(() => {
+        dismissSnackbar(snackbar);
+      }, duration);
+
+      const closeBtn = snackbar.querySelector('.snackbar-close');
+      if (closeBtn) {
+        closeBtn.onclick = () => {
+          clearTimeout(timer);
+          dismissSnackbar(snackbar);
+        };
+      }
+
+      function dismissSnackbar(el) {
+        el.classList.remove('show');
+        el.classList.add('hide');
+        setTimeout(() => {
+          if (el.parentElement) el.parentElement.removeChild(el);
+        }, 280);
+      }
+    }
+    window.showSnackbar = showSnackbar;
+
     let allUsers = [];
     let allLogs = [];
     let allFeedbacks = [];
@@ -929,14 +1155,14 @@
         const data = await response.json();
 
         if (!data.success || data.user.role !== 'admin') {
-          Swal.fire({
-            icon: 'error',
+          showSnackbar({
+            type: 'error',
             title: 'Access Denied',
-            text: 'Administrator privileges required to view this page.',
-            confirmButtonColor: '#005bbf'
-          }).then(() => {
-            window.location.href = '/';
+            message: 'Administrator privileges required to view this page.'
           });
+          setTimeout(() => {
+            window.location.href = '/';
+          }, 1200);
           return;
         }
 
@@ -1098,14 +1324,14 @@
         });
         const data = await response.json();
         if (data.success) {
-          Swal.fire({ icon: 'success', title: 'Account Approved', text: data.message, timer: 1800, showConfirmButton: false, toast: true, position: 'top-end' });
+          showSnackbar({ type: 'success', title: 'Account Approved', message: data.message });
           await fetchUsers();
           await fetchLogs();
         } else {
-          Swal.fire({ icon: 'error', title: 'Action Failed', text: data.error, confirmButtonColor: '#005bbf' });
+          showSnackbar({ type: 'error', title: 'Action Failed', message: data.error });
         }
       } catch (err) {
-        Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#005bbf' });
+        showSnackbar({ type: 'error', title: 'Error', message: err.message });
       }
     }
 
@@ -1117,14 +1343,14 @@
         });
         const data = await response.json();
         if (data.success) {
-          Swal.fire({ icon: 'info', title: 'Account Rejected', text: data.message, timer: 1800, showConfirmButton: false, toast: true, position: 'top-end' });
+          showSnackbar({ type: 'info', title: 'Account Rejected', message: data.message });
           await fetchUsers();
           await fetchLogs();
         } else {
-          Swal.fire({ icon: 'error', title: 'Action Failed', text: data.error, confirmButtonColor: '#005bbf' });
+          showSnackbar({ type: 'error', title: 'Action Failed', message: data.error });
         }
       } catch (err) {
-        Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#005bbf' });
+        showSnackbar({ type: 'error', title: 'Error', message: err.message });
       }
     }
 
@@ -1148,14 +1374,14 @@
         });
         const data = await response.json();
         if (data.success) {
-          Swal.fire({ icon: 'success', title: 'Account Deleted', text: data.message, timer: 1800, showConfirmButton: false, toast: true, position: 'top-end' });
+          showSnackbar({ type: 'success', title: 'Account Deleted', message: data.message });
           await fetchUsers();
           await fetchLogs();
         } else {
-          Swal.fire({ icon: 'error', title: 'Action Failed', text: data.error, confirmButtonColor: '#005bbf' });
+          showSnackbar({ type: 'error', title: 'Action Failed', message: data.error });
         }
       } catch (err) {
-        Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#005bbf' });
+        showSnackbar({ type: 'error', title: 'Error', message: err.message });
       }
     }
 
@@ -1314,13 +1540,13 @@
         });
         const data = await response.json();
         if (data.success) {
-          Swal.fire({ icon: 'success', title: 'Deleted!', text: data.message, timer: 1800, showConfirmButton: false, toast: true, position: 'top-end' });
+          showSnackbar({ type: 'success', title: 'Deleted!', message: data.message });
           await fetchFeedbacks();
         } else {
-          Swal.fire({ icon: 'error', title: 'Action Failed', text: data.error, confirmButtonColor: '#005bbf' });
+          showSnackbar({ type: 'error', title: 'Action Failed', message: data.error });
         }
       } catch (err) {
-        Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#005bbf' });
+        showSnackbar({ type: 'error', title: 'Error', message: err.message });
       }
     }
 
@@ -1339,11 +1565,11 @@
           document.getElementById('configTargetUrl').value = appConfig.sampleTargetUrl || '';
           document.getElementById('configStepsJson').value = JSON.stringify(appConfig.sampleSteps || [], null, 2);
         } else {
-          Swal.fire({ icon: 'error', title: 'Error', text: data.error, toast: true, position: 'top-end' });
+          showSnackbar({ type: 'error', title: 'Error', message: data.error });
         }
       } catch (err) {
         console.error('Failed to load configuration:', err);
-        Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to load configuration', toast: true, position: 'top-end' });
+        showSnackbar({ type: 'error', title: 'Error', message: 'Failed to load configuration' });
       }
     }
 
@@ -1357,7 +1583,7 @@
         parsedSteps = JSON.parse(stepsStr);
         if (!Array.isArray(parsedSteps)) throw new Error('Steps must be a JSON array');
       } catch (e) {
-        Swal.fire({ icon: 'error', title: 'Invalid JSON', text: 'Execution Steps must be a valid JSON array.', confirmButtonColor: '#005bbf' });
+        showSnackbar({ type: 'error', title: 'Invalid JSON', message: 'Execution Steps must be a valid JSON array.' });
         return;
       }
 
@@ -1374,12 +1600,12 @@
         const data = await response.json();
         if (data.success) {
           appConfig = data.data;
-          Swal.fire({ icon: 'success', title: 'Saved', text: 'Configuration saved successfully.', toast: true, position: 'top-end' });
+          showSnackbar({ type: 'success', title: 'Saved', message: 'Configuration saved successfully.' });
         } else {
-          Swal.fire({ icon: 'error', title: 'Save Failed', text: data.error, confirmButtonColor: '#005bbf' });
+          showSnackbar({ type: 'error', title: 'Save Failed', message: data.error });
         }
       } catch (err) {
-        Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to save configuration', confirmButtonColor: '#005bbf' });
+        showSnackbar({ type: 'error', title: 'Error', message: 'Failed to save configuration' });
       }
     }
 
@@ -1443,14 +1669,10 @@
     function copyTableKeyPrefixAdmin(token) {
       if (!token) return;
       navigator.clipboard.writeText(token);
-      Swal.fire({
-        icon: 'success',
+      showSnackbar({
+        type: 'success',
         title: 'Copied!',
-        text: `Token "${token}" copied to clipboard.`,
-        timer: 1500,
-        showConfirmButton: false,
-        toast: true,
-        position: 'top-end'
+        message: `Token "${token}" copied to clipboard.`
       });
     }
 
@@ -1459,14 +1681,10 @@
       if (!el) return;
       const text = el.textContent || el.innerText;
       navigator.clipboard.writeText(text);
-      Swal.fire({
-        icon: 'success',
+      showSnackbar({
+        type: 'success',
         title: 'Copied to Clipboard!',
-        text: 'Code snippet copied successfully.',
-        timer: 1500,
-        showConfirmButton: false,
-        toast: true,
-        position: 'top-end'
+        message: 'Code snippet copied successfully.'
       });
     }
 
@@ -1503,11 +1721,12 @@
             banner.style.display = 'block';
           }
           await fetchApiKeysAdmin();
+          showSnackbar({ type: 'success', title: 'API Key Created', message: 'New API key generated successfully.' });
         } else {
-          Swal.fire({ icon: 'error', title: 'Generation Failed', text: data.error, confirmButtonColor: '#005bbf' });
+          showSnackbar({ type: 'error', title: 'Generation Failed', message: data.error });
         }
       } catch (err) {
-        Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#005bbf' });
+        showSnackbar({ type: 'error', title: 'Error', message: err.message });
       }
     }
 
@@ -1515,14 +1734,10 @@
       const input = document.getElementById('newKeyInputAdmin');
       if (!input || !input.value) return;
       navigator.clipboard.writeText(input.value);
-      Swal.fire({
-        icon: 'success',
+      showSnackbar({
+        type: 'success',
         title: 'Copied to Clipboard!',
-        text: 'API key copied successfully.',
-        timer: 1500,
-        showConfirmButton: false,
-        toast: true,
-        position: 'top-end'
+        message: 'API key copied successfully.'
       });
     }
 
@@ -1545,13 +1760,13 @@
         });
         const data = await res.json();
         if (data.success) {
-          Swal.fire({ icon: 'success', title: 'Revoked', text: 'API Key has been revoked.', timer: 1500, showConfirmButton: false, toast: true, position: 'top-end' });
+          showSnackbar({ type: 'success', title: 'Revoked', message: 'API Key has been revoked.' });
           await fetchApiKeysAdmin();
         } else {
-          Swal.fire({ icon: 'error', title: 'Failed', text: data.error, confirmButtonColor: '#005bbf' });
+          showSnackbar({ type: 'error', title: 'Failed', message: data.error });
         }
       } catch (err) {
-        Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#005bbf' });
+        showSnackbar({ type: 'error', title: 'Error', message: err.message });
       }
     }
 
@@ -1574,12 +1789,13 @@
         });
         const data = await res.json();
         if (data.success) {
+          showSnackbar({ type: 'success', title: 'Deleted', message: 'API Key record deleted.' });
           await fetchApiKeysAdmin();
         } else {
-          Swal.fire({ icon: 'error', title: 'Failed', text: data.error, confirmButtonColor: '#005bbf' });
+          showSnackbar({ type: 'error', title: 'Failed', message: data.error });
         }
       } catch (err) {
-        Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#005bbf' });
+        showSnackbar({ type: 'error', title: 'Error', message: err.message });
       }
     }
 
