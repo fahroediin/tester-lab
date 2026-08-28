@@ -336,6 +336,22 @@
       if (btnCopyCode) btnCopyCode.disabled = true;
       if (btnDownloadCode) btnDownloadCode.disabled = true;
       if (btnRunTest) btnRunTest.disabled = true;
+
+      // Reset Terminal
+      const terminalOutput = document.getElementById('terminalOutput');
+      const terminalTitle = document.getElementById('terminalTitle');
+      const cliTerminalCard = document.getElementById('cliTerminalCard');
+      
+      if (terminalOutput) terminalOutput.textContent = "// Terminal ready. Click 'Run Script Now' to execute the generated Playwright test script directly in the terminal...";
+      if (terminalOutput) terminalOutput.style.color = '#34d399';
+      if (terminalTitle) terminalTitle.textContent = 'CLI Terminal Output';
+      if (cliTerminalCard) cliTerminalCard.classList.remove('highlight-red');
+
+      // Reset Video Recording
+      const videoContainer = document.getElementById('videoContainer');
+      const videoPlayer = document.getElementById('videoPlayer');
+      if (videoContainer) videoContainer.style.display = 'none';
+      if (videoPlayer) videoPlayer.src = '';
     }
 
     function addStep() {
