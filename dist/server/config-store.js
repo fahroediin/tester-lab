@@ -10,14 +10,9 @@ const path_1 = __importDefault(require("path"));
 const DATA_DIR = path_1.default.join(process.cwd(), 'data');
 const CONFIG_FILE = path_1.default.join(DATA_DIR, 'config.json');
 const DEFAULT_CONFIG = {
-    sampleTestSuite: 'Standard Web Login Verification',
-    sampleTargetUrl: 'https://the-internet.herokuapp.com/login',
-    sampleSteps: [
-        { action: 'fill', targetLabel: 'Username', value: 'tomsmith', description: 'Isi kolom username' },
-        { action: 'fill', targetLabel: 'Password', value: 'SuperSecretPassword!', description: 'Isi kolom password' },
-        { action: 'click', targetLabel: 'Login', value: '', description: 'Klik tombol login' },
-        { action: 'assert_url', targetLabel: '', value: '/secure', description: 'Verifikasi URL beralih ke secure area' }
-    ]
+    sampleTestSuite: '',
+    sampleTargetUrl: '',
+    sampleSteps: []
 };
 function ensureDataDir() {
     if (!fs_1.default.existsSync(DATA_DIR)) {

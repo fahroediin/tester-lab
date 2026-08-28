@@ -173,21 +173,19 @@
     }
 
     function loadSampleScenario() {
-      if (appConfig) {
+      if (appConfig && appConfig.sampleSteps && appConfig.sampleSteps.length > 0) {
         document.getElementById('testSuite').value = appConfig.sampleTestSuite || '';
         document.getElementById('targetUrl').value = appConfig.sampleTargetUrl || '';
-        steps = JSON.parse(JSON.stringify(appConfig.sampleSteps || []));
+        steps = JSON.parse(JSON.stringify(appConfig.sampleSteps));
+        renderSteps();
       } else {
-        document.getElementById('testSuite').value = 'Standard Web Login Verification';
-        document.getElementById('targetUrl').value = 'https://the-internet.herokuapp.com/login';
-        steps = [
-          { action: 'fill', targetLabel: 'Username', value: 'tomsmith', description: 'Isi kolom username' },
-          { action: 'fill', targetLabel: 'Password', value: 'SuperSecretPassword!', description: 'Isi kolom password' },
-          { action: 'click', targetLabel: 'Login', value: '', description: 'Klik tombol login' },
-          { action: 'assert_url', targetLabel: '', value: '/secure', description: 'Verifikasi URL beralih ke secure area' }
-        ];
+        Swal.fire({
+          icon: 'warning',
+          title: 'No Sample Configuration',
+          text: 'Admin has not configured the sample scenario yet. Please contact the administrator.',
+          confirmButtonColor: '#005bbf'
+        });
       }
-      renderSteps();
     }
 
     function handleImportFile(event) {
@@ -1516,5 +1514,5 @@
     }
 
     // Initialize on page load
-    loadSampleScenario();
+    renderSteps();
     checkAuthSession();

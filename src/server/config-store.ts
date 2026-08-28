@@ -16,14 +16,9 @@ const DATA_DIR = path.join(process.cwd(), 'data');
 const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
 
 const DEFAULT_CONFIG: AppConfig = {
-  sampleTestSuite: 'Standard Web Login Verification',
-  sampleTargetUrl: 'https://the-internet.herokuapp.com/login',
-  sampleSteps: [
-    { action: 'fill', targetLabel: 'Username', value: 'tomsmith', description: 'Isi kolom username' },
-    { action: 'fill', targetLabel: 'Password', value: 'SuperSecretPassword!', description: 'Isi kolom password' },
-    { action: 'click', targetLabel: 'Login', value: '', description: 'Klik tombol login' },
-    { action: 'assert_url', targetLabel: '', value: '/secure', description: 'Verifikasi URL beralih ke secure area' }
-  ]
+  sampleTestSuite: '',
+  sampleTargetUrl: '',
+  sampleSteps: []
 };
 
 function ensureDataDir(): void {
