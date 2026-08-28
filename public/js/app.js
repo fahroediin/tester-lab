@@ -934,6 +934,7 @@
     async function checkAuthSession() {
       const topBar = document.getElementById('topAnnouncementBar');
       const header = document.getElementById('appHeader');
+      const appNav = document.getElementById('appNav');
       const authUserBar = document.getElementById('authUserBar');
       const unauthView = document.getElementById('unauthLoginView');
       const mainApp = document.getElementById('mainAppContainer');
@@ -942,6 +943,7 @@
         renderLoggedOutBar();
         if (topBar) topBar.style.display = 'none';
         if (header) header.style.display = 'none';
+        if (appNav) appNav.style.display = 'none';
         if (unauthView) unauthView.style.display = 'flex';
         if (mainApp) mainApp.style.display = 'none';
         return;
@@ -957,14 +959,16 @@
           renderLoggedInBar();
           if (topBar) topBar.style.display = 'flex';
           if (header) header.style.display = 'flex';
+          if (appNav) appNav.style.display = 'block';
           if (unauthView) unauthView.style.display = 'none';
-          if (mainApp) mainApp.style.display = 'grid';
+          if (mainApp) mainApp.style.display = 'block';
         } else {
           authToken = '';
           localStorage.removeItem('tester_jwt_token');
           renderLoggedOutBar();
           if (topBar) topBar.style.display = 'none';
           if (header) header.style.display = 'none';
+          if (appNav) appNav.style.display = 'none';
           if (unauthView) unauthView.style.display = 'flex';
           if (mainApp) mainApp.style.display = 'none';
         }
@@ -972,6 +976,7 @@
         renderLoggedOutBar();
         if (topBar) topBar.style.display = 'none';
         if (header) header.style.display = 'none';
+        if (appNav) appNav.style.display = 'none';
         if (unauthView) unauthView.style.display = 'flex';
         if (mainApp) mainApp.style.display = 'none';
       }
