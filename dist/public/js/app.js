@@ -1035,6 +1035,7 @@
       const mainApp = document.getElementById('mainAppContainer');
 
       if (!authToken) {
+        document.documentElement.classList.remove('has-auth-token');
         renderLoggedOutBar();
         if (topBar) topBar.style.display = 'none';
         if (header) header.style.display = 'none';
@@ -1049,6 +1050,7 @@
           headers: getAuthHeaders()
         });
         const data = await response.json();
+        document.documentElement.classList.remove('has-auth-token');
         if (data.success) {
           currentUser = data.user;
           renderLoggedInBar();
@@ -1056,7 +1058,7 @@
           if (header) header.style.display = 'flex';
           if (appNav) appNav.style.display = 'block';
           if (unauthView) unauthView.style.display = 'none';
-          if (mainApp) mainApp.style.display = 'block';
+          if (mainApp) mainApp.style.display = 'flex';
           
           await loadAppConfig();
         } else {
@@ -1070,6 +1072,7 @@
           if (mainApp) mainApp.style.display = 'none';
         }
       } catch (err) {
+        document.documentElement.classList.remove('has-auth-token');
         renderLoggedOutBar();
         if (topBar) topBar.style.display = 'none';
         if (header) header.style.display = 'none';

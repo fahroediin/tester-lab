@@ -18,6 +18,11 @@
     (function() {
       const savedTheme = localStorage.getItem('tester_lab_theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
       document.documentElement.setAttribute('data-theme', savedTheme);
+
+      // Prevent login screen flash for logged in users
+      if (localStorage.getItem('tester_jwt_token')) {
+        document.documentElement.classList.add('has-auth-token');
+      }
     })();
   </script>
 </head>

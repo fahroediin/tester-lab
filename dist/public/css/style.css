@@ -794,6 +794,24 @@ footer {
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
+/* Instant Auth State (Prevents Login View Flash on Page Load) */
+.has-auth-token #unauthLoginView {
+  display: none !important;
+}
+
+.has-auth-token #appHeader,
+.has-auth-token #topAnnouncementBar {
+  display: flex !important;
+}
+
+.has-auth-token #appNav {
+  display: block !important;
+}
+
+.has-auth-token #mainAppContainer {
+  display: flex !important;
+}
+
 /* Responsive Media Queries */
 @media (max-width: 1024px) {
   .container {
