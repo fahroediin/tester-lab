@@ -930,3 +930,61 @@ footer {
     padding: 24px;
   }
 }
+
+/* SweetAlert2 Modal Theme Sync */
+.swal2-popup {
+  font-family: var(--font-body) !important;
+  border-radius: 16px !important;
+}
+
+[data-theme="dark"] .swal2-popup {
+  background: var(--surface) !important;
+  color: var(--ink) !important;
+  border: 1px solid var(--hairline) !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8) !important;
+}
+
+[data-theme="dark"] .swal2-title {
+  color: var(--ink) !important;
+}
+
+[data-theme="dark"] .swal2-html-container,
+[data-theme="dark"] .swal2-input-label {
+  color: var(--body-muted) !important;
+}
+
+[data-theme="dark"] .swal2-input,
+[data-theme="dark"] .swal2-textarea,
+[data-theme="dark"] .swal2-select {
+  background: var(--surface-2) !important;
+  color: var(--ink) !important;
+  border: 1px solid var(--hairline) !important;
+  border-radius: 8px !important;
+}
+
+[data-theme="dark"] .swal2-input:focus,
+[data-theme="dark"] .swal2-textarea:focus,
+[data-theme="dark"] .swal2-select:focus {
+  border-color: var(--action-blue) !important;
+  box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.25) !important;
+}
+
+[data-theme="dark"] .swal2-validation-message {
+  background: var(--surface-2) !important;
+  color: var(--coral) !important;
+  border: 1px solid var(--hairline) !important;
+}
+
+[data-theme="dark"] .swal2-actions button.swal2-styled.swal2-cancel {
+  background-color: var(--surface-2) !important;
+  color: var(--ink) !important;
+  border: 1px solid var(--hairline) !important;
+}
+
+[data-theme="dark"] .swal2-actions button.swal2-styled.swal2-cancel:hover {
+  background-color: var(--soft-stone) !important;
+}
+
+[data-theme="dark"] .summary-table tbody tr:hover {
+  background-color: rgba(255, 255, 255, 0.03);
+}

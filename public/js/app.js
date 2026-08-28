@@ -1804,7 +1804,12 @@
 
           tr.innerHTML = `
             <td><strong>${escapeHtml(k.name)}</strong></td>
-            <td><code style="font-family: var(--font-mono); font-size: 12px; background: var(--surface-2); padding: 2px 6px; border-radius: 4px;">${escapeHtml(k.keyPrefix)}</code></td>
+            <td>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <code style="font-family: var(--font-mono); font-size: 12px; background: var(--surface-2); padding: 3px 8px; border-radius: 6px; border: 1px solid var(--hairline);">${escapeHtml(k.keyPrefix)}</code>
+                <button type="button" class="btn-pill-outline" onclick="copyTableKeyPrefix('${escapeHtml(k.keyPrefix)}')" title="Copy Token Prefix" style="padding: 2px 8px; font-size: 11px; height: 24px; min-height: unset; line-height: 1;">Copy</button>
+              </div>
+            </td>
             <td><span style="font-size: 12px;">${new Date(k.createdAt).toLocaleDateString()}</span></td>
             <td><span style="font-size: 12px; color: var(--body-muted);">${k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleString() : 'Never'}</span></td>
             <td>${statusBadge}</td>
@@ -1815,6 +1820,20 @@
       } catch (err) {
         tbody.innerHTML = `<tr><td colspan="6" style="color: var(--coral); text-align: center;">Failed to load API keys: ${err.message}</td></tr>`;
       }
+    }
+
+    function copyTableKeyPrefix(token) {
+      if (!token) return;
+      navigator.clipboard.writeText(token);
+      Swal.fire({
+        icon: 'success',
+        title: 'Copied!',
+        text: `Token "${token}" copied to clipboard.`,
+        timer: 1500,
+        showConfirmButton: false,
+        toast: true,
+        position: 'top-end'
+      });
     }
 
     async function promptCreateApiKey() {
