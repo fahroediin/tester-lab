@@ -1,0 +1,36 @@
+testSuite: DEV TERRAL
+targetUrl: https://devterral.osacademy.net/
+framework: playwright
+language: typescript
+steps:
+  - action: fill
+    targetLabel: Username
+    description: Isi kolom username
+    value: Fieldman1
+  - action: fill
+    targetLabel: Password
+    description: Isi kolom password
+    value: Fieldman123!
+  - action: click
+    targetLabel: Login
+    description: Klik tombol login
+  - action: assert_url
+    targetLabel: ''
+    description: Verifikasi URL beralih ke work order on-going
+    value: /work-orders/ongoing
+  - action: click
+    targetLabel: Buat SPK
+    description: ''
+  - action: wait
+    targetLabel: ''
+    description: ''
+    value: '100'
+  - action: assert_visible
+    targetLabel: Tanggal Order
+    description: ''
+  - action: assert_visible
+    targetLabel: Jenis Order
+    description: ''
+  - action: assert_visible
+    targetLabel: Nama Pelanggan
+    description: ''

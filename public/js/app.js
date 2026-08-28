@@ -1,6 +1,7 @@
     let steps = [];
     let isGeneratingScript = false;
     let latestGeneratedCode = '';
+    let currentHistoryId = null;
 
     function toggleSummaryTable() {
       const container = document.getElementById('summaryTableContainer');
@@ -681,6 +682,7 @@
         }
 
         latestGeneratedCode = data.code;
+        currentHistoryId = data.historyId;
         codeOutput.textContent = data.code;
 
         // Render Summary Table with Fresh Results
@@ -871,7 +873,8 @@
           body: JSON.stringify({
             code,
             mode,
-            language
+            language,
+            historyId: currentHistoryId
           })
         });
 
@@ -1253,6 +1256,164 @@
         }
       } catch (err) {
         Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#005bbf' });
+      }
+    }
+
+    // --- Flow History Logic ---
+    function switchTab(tabId) {
+      const tabBuilder = document.getElementById('tabBuilder');
+      const tabHistory = document.getElementById('tabHistory');
+      const navBuilder = document.getElementById('navBuilder');
+      const navHistory = document.getElementById('navHistory');
+
+      if (tabId === 'history') {
+        tabBuilder.style.display = 'none';
+        tabHistory.style.display = 'block';
+        navBuilder.classList.remove('active');
+        navHistory.classList.add('active');
+        navBuilder.style.color = 'var(--slate)';
+        navBuilder.style.borderBottom = 'none';
+        navHistory.style.color = 'var(--primary)';
+        navHistory.style.borderBottom = '2px solid var(--primary)';
+        loadHistory();
+      } else {
+        tabHistory.style.display = 'none';
+        tabBuilder.style.display = 'flex';
+        navHistory.classList.remove('active');
+        navBuilder.classList.add('active');
+        navHistory.style.color = 'var(--slate)';
+        navHistory.style.borderBottom = 'none';
+        navBuilder.style.color = 'var(--primary)';
+        navBuilder.style.borderBottom = '2px solid var(--primary)';
+      }
+    }
+
+    async function loadHistory() {
+      const tbody = document.getElementById('historyTableBody');
+      if (!tbody) return;
+      
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px; color: var(--slate);">Loading history...</td></tr>';
+      
+      try {
+        const response = await fetch('/api/v1/history', { headers: getAuthHeaders() });
+        const data = await response.json();
+        
+        if (!data.success) {
+          tbody.innerHTML = \`<tr><td colspan="5" style="text-align: center; color: var(--coral);">\${data.error}</td></tr>\`;
+          return;
+        }
+        
+        if (data.history.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px; color: var(--slate);">No flow history found. Generate a script to get started!</td></tr>';
+          return;
+        }
+        
+        tbody.innerHTML = '';
+        data.history.forEach(h => {
+          let statusColor = 'var(--slate)';
+          if (h.status === 'SUCCESS') statusColor = 'var(--deep-green)';
+          else if (h.status === 'FAILED') statusColor = 'var(--coral)';
+          else if (h.status === 'RUNNING') statusColor = '#eab308';
+          else if (h.status === 'GENERATED') statusColor = 'var(--action-blue)';
+          
+          const tr = document.createElement('tr');
+          tr.innerHTML = \`
+            <td><span style="font-size: 11px; font-family: var(--font-mono); color: var(--slate);">\${new Date(h.timestamp).toLocaleString()}</span></td>
+            <td><span style="font-weight: 500;">\${h.testSuite}</span></td>
+            <td><span style="font-family: var(--font-mono); font-size: 11px; word-break: break-all;">\${h.targetUrl}</span></td>
+            <td style="text-align: center;"><span style="font-weight: 600; font-size: 11px; color: \${statusColor};">\${h.status}</span></td>
+            <td style="text-align: center; display: flex; gap: 8px; justify-content: center;">
+              <button class="btn-pill-outline" onclick="viewHistory('\${h.id}')" style="padding: 4px 10px; font-size: 11px; min-height: unset; height: auto;">View</button>
+              <button class="btn-pill-outline" onclick="deleteHistory('\${h.id}')" style="padding: 4px 10px; font-size: 11px; min-height: unset; height: auto; color: var(--coral); border-color: var(--coral);">Delete</button>
+            </td>
+          \`;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--coral);">Failed to load history</td></tr>';
+      }
+    }
+
+    async function viewHistory(id) {
+      try {
+        const response = await fetch(\`/api/v1/history/\${id}\`, { headers: getAuthHeaders() });
+        const data = await response.json();
+        if (!data.success) {
+          Swal.fire({ icon: 'error', title: 'Error', text: data.error, toast: true, position: 'top-end' });
+          return;
+        }
+        
+        const h = data.data;
+        document.getElementById('histSuite').textContent = h.testSuite;
+        document.getElementById('histUrl').textContent = h.targetUrl;
+        document.getElementById('histDate').textContent = new Date(h.timestamp).toLocaleString();
+        
+        let statusColor = 'var(--slate)';
+        if (h.status === 'SUCCESS') statusColor = 'var(--deep-green)';
+        else if (h.status === 'FAILED') statusColor = 'var(--coral)';
+        else if (h.status === 'RUNNING') statusColor = '#eab308';
+        else if (h.status === 'GENERATED') statusColor = 'var(--action-blue)';
+        
+        document.getElementById('histStatus').innerHTML = \`<span style="color: \${statusColor}; font-weight: bold;">\${h.status}</span>\`;
+        document.getElementById('histCode').textContent = h.generatedCode || 'No code generated';
+        
+        // Render Steps
+        const stepsBody = document.getElementById('histStepsBody');
+        stepsBody.innerHTML = '';
+        if (h.resolvedSteps && h.resolvedSteps.length > 0) {
+          h.resolvedSteps.forEach(s => {
+            const tr = document.createElement('tr');
+            const isPassScore = s.matchScore >= 80;
+            tr.innerHTML = \`
+              <td><span style="font-family: var(--font-mono); font-weight: 500;">Step \${s.step}</span></td>
+              <td><span style="font-family: var(--font-mono); color: var(--action-blue);">\${s.action}</span></td>
+              <td><span style="font-family: var(--font-mono);">\${s.selectorType}('\${s.selectorValue}')</span></td>
+              <td><span style="font-weight: 600; color: \${isPassScore ? 'var(--deep-green)' : 'var(--coral)'};">\${s.matchScore}</span></td>
+            \`;
+            stepsBody.appendChild(tr);
+          });
+        } else {
+          stepsBody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--slate);">No steps recorded</td></tr>';
+        }
+        
+        // Render Video
+        const vidSec = document.getElementById('historyVideoSection');
+        const vidPlayer = document.getElementById('historyVideoPlayer');
+        if (h.videoUrl) {
+          vidPlayer.src = h.videoUrl;
+          vidSec.style.display = 'block';
+        } else {
+          vidPlayer.src = '';
+          vidSec.style.display = 'none';
+        }
+        
+        document.getElementById('historyDetailModal').style.display = 'flex';
+      } catch (err) {
+        Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to load details', toast: true, position: 'top-end' });
+      }
+    }
+
+    function closeHistoryModal() {
+      document.getElementById('historyDetailModal').style.display = 'none';
+      document.getElementById('historyVideoPlayer').pause();
+    }
+
+    async function deleteHistory(id) {
+      if (!confirm('Are you sure you want to delete this flow history? This will also delete any associated videos.')) return;
+      try {
+        const response = await fetch(\`/api/v1/history/\${id}\`, { 
+          method: 'DELETE',
+          headers: getAuthHeaders() 
+        });
+        const data = await response.json();
+        if (data.success) {
+          Swal.fire({ icon: 'success', title: 'Deleted', text: 'History record deleted', timer: 1500, showConfirmButton: false, toast: true, position: 'top-end' });
+          loadHistory();
+        } else {
+          Swal.fire({ icon: 'error', title: 'Error', text: data.error, toast: true, position: 'top-end' });
+        }
+      } catch (err) {
+        Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to delete record', toast: true, position: 'top-end' });
       }
     }
 

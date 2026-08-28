@@ -38,6 +38,13 @@
     </div>
   </header>
 
+  <div id="appNav" style="display: none; background: var(--surface); border-bottom: 1px solid var(--hairline); padding: 0 32px; margin-bottom: 24px;">
+    <div style="display: flex; gap: 24px; max-width: 1400px; margin: 0 auto; padding-top: 12px;">
+      <a href="#" id="navBuilder" class="nav-tab active" onclick="switchTab('builder')" style="padding-bottom: 12px; font-weight: 500; color: var(--primary); border-bottom: 2px solid var(--primary); text-decoration: none;">Scenario Builder</a>
+      <a href="#" id="navHistory" class="nav-tab" onclick="switchTab('history')" style="padding-bottom: 12px; font-weight: 500; color: var(--slate); text-decoration: none;">Flow History</a>
+    </div>
+  </div>
+
   <!-- Unauthenticated Login View (Minimalist) -->
   <div id="unauthLoginView" style="display: flex; align-items: center; justify-content: center; min-height: 85vh; padding: 20px;">
     <div class="card" style="width: 100%; max-width: 400px; padding: 40px;">
@@ -119,7 +126,10 @@
   </div>
 
   <div class="container" id="mainAppContainer" style="display: none;">
-    <!-- Left Column: Business Flow Builder -->
+    
+    <!-- TAB: SCENARIO BUILDER -->
+    <div id="tabBuilder" style="display: flex; gap: 24px; width: 100%;">
+      <!-- Left Column: Business Flow Builder -->
     <div class="card" id="scenarioBuilderCard">
       <div class="card-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
         <div class="card-title">Scenario Builder</div>
@@ -298,6 +308,36 @@
         </div>
       </div>
     </div>
+    </div> <!-- END TAB BUILDER -->
+
+    <!-- TAB: FLOW HISTORY -->
+    <div id="tabHistory" style="display: none; width: 100%;">
+      <div class="card" style="width: 100%;">
+        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+          <div class="card-title">My Flow History</div>
+          <button class="btn-pill-outline" onclick="loadHistory()">Refresh</button>
+        </div>
+        <div style="overflow-x: auto;">
+          <table class="summary-table" style="width: 100%;">
+            <thead>
+              <tr>
+                <th style="width: 160px;">Date & Time</th>
+                <th>Test Suite</th>
+                <th>Target URL</th>
+                <th style="width: 100px; text-align: center;">Status</th>
+                <th style="width: 140px; text-align: center;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="historyTableBody">
+              <tr>
+                <td colspan="5" style="text-align: center; color: var(--slate); padding: 32px 0;">Loading history...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div> <!-- END TAB HISTORY -->
+
   </div>
 
   <!-- Floating Feedback Button -->
@@ -340,6 +380,62 @@
             <span>Submit</span>
           </button>
         </div>
+      </div>
+    </div>
+  <!-- History Detail Modal -->
+  <div class="modal-overlay" id="historyDetailModal" style="display: none; z-index: 2000;">
+    <div class="modal-card" style="max-width: 900px; width: 95%; max-height: 90vh; overflow-y: auto;">
+      <div class="modal-header">
+        <h3>Flow History Details</h3>
+        <button class="modal-close" onclick="closeHistoryModal()">&times;</button>
+      </div>
+      
+      <div style="margin-top: 16px; display: flex; flex-direction: column; gap: 16px;">
+        <!-- Video Section -->
+        <div id="historyVideoSection" style="display: none;">
+          <label style="font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; color: var(--slate);">Execution Recording</label>
+          <video id="historyVideoPlayer" controls style="width: 100%; border-radius: 8px; border: 1px solid var(--hairline); background: #000; max-height: 400px; margin-top: 4px;"></video>
+        </div>
+
+        <!-- Details Grid -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; background: var(--bg); padding: 12px; border-radius: 8px; border: 1px solid var(--hairline);">
+          <div><span style="color: var(--slate); font-size: 12px;">Test Suite:</span> <b id="histSuite"></b></div>
+          <div><span style="color: var(--slate); font-size: 12px;">Target URL:</span> <b id="histUrl"></b></div>
+          <div><span style="color: var(--slate); font-size: 12px;">Date:</span> <b id="histDate"></b></div>
+          <div><span style="color: var(--slate); font-size: 12px;">Status:</span> <b id="histStatus"></b></div>
+        </div>
+
+        <!-- Code Section -->
+        <div class="agent-console">
+          <div class="console-header">
+            <div class="console-dots">
+              <div class="console-dot dot-red"></div>
+              <div class="console-dot dot-yellow"></div>
+              <div class="console-dot dot-green"></div>
+            </div>
+            <div class="console-title">Generated Playwright Code</div>
+          </div>
+          <div class="code-preview" id="histCode" style="max-height: 300px; overflow-y: auto;"></div>
+        </div>
+
+        <!-- Steps Section -->
+        <div>
+          <label style="font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; color: var(--slate); margin-bottom: 8px; display: block;">Resolved Steps & Matching Scores</label>
+          <div style="overflow-x: auto;">
+            <table class="summary-table" style="width: 100%;">
+              <thead>
+                <tr>
+                  <th>Step</th>
+                  <th>Action</th>
+                  <th>Matched Selector</th>
+                  <th>Score</th>
+                </tr>
+              </thead>
+              <tbody id="histStepsBody"></tbody>
+            </table>
+          </div>
+        </div>
+        
       </div>
     </div>
   </div>

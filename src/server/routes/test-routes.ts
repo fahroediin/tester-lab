@@ -10,6 +10,7 @@ import { addLog } from '../activity-log-store.js';
 import { sanitizeCode } from '../code-sanitizer.js';
 import { globalTestRunnerQueue } from '../queue-manager.js';
 import { getSanitizedEnv, findVideoFile } from '../lib/sanitized-env.js';
+import { addHistory, updateHistory } from '../flow-history-store.js';
 import { TestScriptGenerator } from '../../index.js';
 import { DOMExtractor } from '../../crawler/dom-extractor.js';
 
@@ -61,8 +62,19 @@ testRoutes.post('/generate-script', authenticateJWT, requireApprovedUser, async 
       details: `Generated script for target URL: ${dsl.targetUrl}`
     });
 
+    const historyRecord = addHistory({
+      userId: req.user!.id,
+      username: req.user!.username,
+      testSuite: dsl.testSuite || 'Unknown Test Suite',
+      targetUrl: dsl.targetUrl || '',
+      status: 'GENERATED',
+      generatedCode: result.code,
+      resolvedSteps: result.resolvedSteps
+    });
+
     res.json({
       success: true,
+      historyId: historyRecord.id,
       code: result.code,
       resolvedSteps: result.resolvedSteps,
       warnings: result.warnings,
@@ -118,7 +130,7 @@ testRoutes.post('/inspect-dom', authenticateJWT, requireApprovedUser, async (req
  */
 testRoutes.post('/run-test', authenticateJWT, requireApprovedUser, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { code, mode = 'headless', language = 'typescript' } = req.body;
+    const { code, mode = 'headless', language = 'typescript', historyId } = req.body;
     const userId = req.user!.id;
 
     if (!code || typeof code !== 'string') {
@@ -144,6 +156,10 @@ testRoutes.post('/run-test', authenticateJWT, requireApprovedUser, async (req: A
         violations: sanitizeResult.violations
       });
       return;
+    }
+
+    if (historyId) {
+      updateHistory(historyId, { status: 'RUNNING' });
     }
 
     // Enqueue task into Concurrency Manager
@@ -235,6 +251,15 @@ export default defineConfig({
         action: 'Run Test',
         details: `Ran script in ${mode} mode (Status: ${success ? 'Success' : 'Failed'}, Duration: ${durationMs}ms)`
       });
+
+      if (historyId) {
+        updateHistory(historyId, {
+          status: success ? 'SUCCESS' : 'FAILED',
+          durationMs,
+          runLogs: logs.trim(),
+          ...(videoUrl ? { videoUrl } : {})
+        });
+      }
 
       return {
         success,
