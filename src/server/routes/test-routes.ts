@@ -155,12 +155,14 @@ testRoutes.post('/run-test', authenticateJWT, requireApprovedUser, async (req: A
       const configFilePath = path.join(tempDir, 'playwright.config.ts');
 
       const isHeaded = mode === 'headed';
+      const manualTimeout = process.env.PLAYWRIGHT_TIMEOUT ? parseInt(process.env.PLAYWRIGHT_TIMEOUT, 10) : 120000;
 
       const playwrightConfig = `
 import { defineConfig } from '@playwright/test';
 export default defineConfig({
   testDir: '${tempDir.replace(/\\/g, '/')}',
   outputDir: '${tempDir.replace(/\\/g, '/')}/results',
+  timeout: ${manualTimeout},
   use: {
     headless: ${!isHeaded},
     video: 'on',
