@@ -1207,6 +1207,17 @@
           return;
         }
 
+        // Reset form and switch to login view immediately
+        const regForm = document.getElementById('heroRegisterForm');
+        if (regForm) regForm.reset();
+        showLoginSection();
+
+        // Optionally prefill login username
+        const loginUserInput = document.getElementById('heroLoginUsername');
+        if (loginUserInput) {
+          loginUserInput.value = username;
+        }
+
         Swal.fire({
           icon: 'info',
           title: 'Request Submitted',
