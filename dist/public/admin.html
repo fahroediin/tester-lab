@@ -353,7 +353,8 @@
     }
 
     /* Unified Pill Outline Buttons */
-    .btn-pill-outline {
+    .btn-pill-outline,
+    .btn-primary {
       background-color: var(--canvas) !important;
       border: 1px solid var(--hairline) !important;
       color: var(--ink) !important;
@@ -373,14 +374,16 @@
       height: 34px !important;
     }
 
-    .btn-pill-outline:hover:not(:disabled) {
+    .btn-pill-outline:hover:not(:disabled),
+    .btn-primary:hover:not(:disabled) {
       background-color: #f8fafc !important;
       border-color: #94a3b8 !important;
       color: var(--action-blue) !important;
       transform: translateY(-1px) !important;
     }
 
-    .btn-pill-outline:disabled {
+    .btn-pill-outline:disabled,
+    .btn-primary:disabled {
       opacity: 0.5;
       cursor: not-allowed !important;
     }
@@ -788,7 +791,7 @@
             <div class="card-title">Admin Developer API Keys</div>
             <div class="card-subtitle">Manage programmatic API keys for automated integrations and test execution</div>
           </div>
-          <button type="button" class="btn-primary" onclick="promptCreateApiKeyAdmin()">+ Generate New Key</button>
+          <button type="button" class="btn-pill-outline" onclick="promptCreateApiKeyAdmin()">+ Generate New Key</button>
         </div>
 
         <!-- Newly Generated Key Alert Box -->
