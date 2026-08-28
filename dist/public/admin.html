@@ -1004,9 +1004,9 @@
       "testSuite": "Automated Auth Test",
       "targetUrl": "https://practicetestautomation.com/practice-test-login/",
       "steps": [
-        { "step": 1, "description": "Type student into Username", "action": "type", "target": "#username", "value": "student" },
-        { "step": 2, "description": "Type Password123 into Password", "action": "type", "target": "#password", "value": "Password123" },
-        { "step": 3, "description": "Click Submit button", "action": "click", "target": "#submit" }
+        { "step": 1, "description": "Type student into Username", "action": "fill", "targetLabel": "Username", "value": "student" },
+        { "step": 2, "description": "Type Password123 into Password", "action": "fill", "targetLabel": "Password", "value": "Password123" },
+        { "step": 3, "description": "Click Submit button", "action": "click", "targetLabel": "Submit" }
       ]
     }
   }'</pre>

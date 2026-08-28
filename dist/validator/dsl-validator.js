@@ -54,8 +54,35 @@ exports.DSLConfigSchema = zod_1.z.object({
     }).optional(),
     steps: zod_1.z.array(exports.DSLStepSchema).min(1, "At least one step is required in steps array")
 });
+function normalizeDSLInput(input) {
+    if (!input || typeof input !== 'object')
+        return input;
+    try {
+        const cloned = JSON.parse(JSON.stringify(input));
+        if (Array.isArray(cloned.steps)) {
+            cloned.steps = cloned.steps.map((s) => {
+                if (s && typeof s === 'object') {
+                    // Normalize action: 'type' or 'input' -> 'fill'
+                    if (s.action === 'type' || s.action === 'input') {
+                        s.action = 'fill';
+                    }
+                    // Normalize target alias: 'target' -> 'targetLabel'
+                    if (s.target && !s.targetLabel) {
+                        s.targetLabel = s.target;
+                    }
+                }
+                return s;
+            });
+        }
+        return cloned;
+    }
+    catch {
+        return input;
+    }
+}
 function validateDSL(input) {
-    const parseResult = exports.DSLConfigSchema.safeParse(input);
+    const normalized = normalizeDSLInput(input);
+    const parseResult = exports.DSLConfigSchema.safeParse(normalized);
     if (!parseResult.success) {
         const formattedErrors = parseResult.error.errors.map((err) => `${err.path.join('.')}: ${err.message}`);
         return {

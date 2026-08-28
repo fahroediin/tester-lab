@@ -62,8 +62,34 @@ export interface ValidationResult {
   errors?: string[];
 }
 
+function normalizeDSLInput(input: unknown): unknown {
+  if (!input || typeof input !== 'object') return input;
+  try {
+    const cloned = JSON.parse(JSON.stringify(input));
+    if (Array.isArray(cloned.steps)) {
+      cloned.steps = cloned.steps.map((s: any) => {
+        if (s && typeof s === 'object') {
+          // Normalize action: 'type' or 'input' -> 'fill'
+          if (s.action === 'type' || s.action === 'input') {
+            s.action = 'fill';
+          }
+          // Normalize target alias: 'target' -> 'targetLabel'
+          if (s.target && !s.targetLabel) {
+            s.targetLabel = s.target;
+          }
+        }
+        return s;
+      });
+    }
+    return cloned;
+  } catch {
+    return input;
+  }
+}
+
 export function validateDSL(input: unknown): ValidationResult {
-  const parseResult = DSLConfigSchema.safeParse(input);
+  const normalized = normalizeDSLInput(input);
+  const parseResult = DSLConfigSchema.safeParse(normalized);
   if (!parseResult.success) {
     const formattedErrors = parseResult.error.errors.map(
       (err) => `${err.path.join('.')}: ${err.message}`
