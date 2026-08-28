@@ -721,6 +721,17 @@
         currentHistoryId = data.historyId;
         codeOutput.textContent = data.code;
 
+        // UX Improvements: auto-scroll to Generated Code after success
+        if (generatedCodeCard) {
+          generatedCodeCard.classList.add('highlight-purple');
+          setTimeout(() => {
+            generatedCodeCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            setTimeout(() => {
+              generatedCodeCard.classList.remove('highlight-purple');
+            }, 3000);
+          }, 100);
+        }
+
         // Render Summary Table with Fresh Results
         summarySection.style.display = 'block';
         summaryTableBody.innerHTML = '';

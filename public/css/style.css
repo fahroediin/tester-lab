@@ -155,6 +155,11 @@ header {
   box-shadow: 0 0 15px rgba(248, 113, 113, 0.2) !important;
 }
 
+.card.highlight-purple {
+  border-color: #a855f7 !important;
+  box-shadow: 0 0 15px rgba(168, 85, 247, 0.25) !important;
+}
+
 .card-header {
   display: flex;
   align-items: center;
