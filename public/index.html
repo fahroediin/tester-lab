@@ -312,18 +312,21 @@
     <!-- TAB: FLOW HISTORY -->
     <div id="tabHistory" style="display: none; width: 100%;">
       <div class="card" style="width: 100%;">
-        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-          <div class="card-title">My Flow History</div>
-          <button class="btn-pill-outline" onclick="loadHistory()">Refresh</button>
+        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; gap: 16px;">
+          <div class="card-title" style="white-space: nowrap;">My Flow History</div>
+          <div style="display: flex; gap: 12px; flex: 1; justify-content: flex-end;">
+            <input type="text" id="historySearchInput" placeholder="Search history..." style="max-width: 250px; font-size: 13px; padding: 6px 12px; border: 1px solid var(--hairline); border-radius: var(--radius); background: var(--surface-2); color: var(--text-main);" oninput="handleHistorySearch(event)" />
+            <button class="btn-pill-outline" onclick="loadHistory()">Refresh</button>
+          </div>
         </div>
         <div style="overflow-x: auto;">
           <table class="summary-table" style="width: 100%;">
             <thead>
               <tr>
-                <th style="width: 160px;">Date & Time</th>
-                <th>Test Suite</th>
-                <th>Target URL</th>
-                <th style="width: 100px; text-align: center;">Status</th>
+                <th style="width: 160px; cursor: pointer; user-select: none;" onclick="handleHistorySort('timestamp')">Date & Time <span id="sort-icon-timestamp">↓</span></th>
+                <th style="cursor: pointer; user-select: none;" onclick="handleHistorySort('testSuite')">Test Suite <span id="sort-icon-testSuite"></span></th>
+                <th style="cursor: pointer; user-select: none;" onclick="handleHistorySort('targetUrl')">Target URL <span id="sort-icon-targetUrl"></span></th>
+                <th style="width: 100px; text-align: center; cursor: pointer; user-select: none;" onclick="handleHistorySort('status')">Status <span id="sort-icon-status"></span></th>
                 <th style="width: 140px; text-align: center;">Action</th>
               </tr>
             </thead>
@@ -333,6 +336,15 @@
               </tr>
             </tbody>
           </table>
+        </div>
+        
+        <!-- Pagination Controls -->
+        <div id="historyPagination" style="display: flex; justify-content: space-between; align-items: center; padding-top: 16px; border-top: 1px solid var(--hairline); margin-top: 16px;">
+          <div style="font-size: 13px; color: var(--slate);" id="historyPageInfo">Showing 0 to 0 of 0 entries</div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn-pill-outline" id="btnHistoryPrev" onclick="changeHistoryPage(-1)" disabled style="padding: 4px 12px;">Previous</button>
+            <button class="btn-pill-outline" id="btnHistoryNext" onclick="changeHistoryPage(1)" disabled style="padding: 4px 12px;">Next</button>
+          </div>
         </div>
       </div>
     </div> <!-- END TAB HISTORY -->

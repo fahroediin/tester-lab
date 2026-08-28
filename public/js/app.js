@@ -1400,6 +1400,14 @@
       }
     }
 
+    // --- Flow History State ---
+    let allHistoryData = [];
+    let historySearchQuery = '';
+    let historySortKey = 'timestamp';
+    let historySortDesc = true;
+    let historyCurrentPage = 1;
+    const HISTORY_PAGE_SIZE = 10;
+
     async function loadHistory() {
       const tbody = document.getElementById('historyTableBody');
       if (!tbody) return;
@@ -1415,35 +1423,128 @@
           return;
         }
         
-        if (data.history.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px; color: var(--slate);">No flow history found. Generate a script to get started!</td></tr>';
-          return;
-        }
-        
-        tbody.innerHTML = '';
-        data.history.forEach(h => {
-          let statusColor = 'var(--slate)';
-          if (h.status === 'SUCCESS') statusColor = 'var(--deep-green)';
-          else if (h.status === 'FAILED') statusColor = 'var(--coral)';
-          else if (h.status === 'RUNNING') statusColor = '#eab308';
-          else if (h.status === 'GENERATED') statusColor = 'var(--action-blue)';
-          
-          const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td><span style="font-size: 11px; font-family: var(--font-mono); color: var(--slate);">${new Date(h.timestamp).toLocaleString()}</span></td>
-            <td><span style="font-weight: 500;">${h.testSuite}</span></td>
-            <td><span style="font-family: var(--font-mono); font-size: 11px; word-break: break-all;">${h.targetUrl}</span></td>
-            <td style="text-align: center;"><span style="font-weight: 600; font-size: 11px; color: ${statusColor};">${h.status}</span></td>
-            <td style="text-align: center; display: flex; gap: 8px; justify-content: center;">
-              <button class="btn-pill-outline" onclick="viewHistory('${h.id}')" style="padding: 4px 10px; font-size: 11px; min-height: unset; height: auto;">View</button>
-              <button class="btn-pill-outline" onclick="deleteHistory('${h.id}')" style="padding: 4px 10px; font-size: 11px; min-height: unset; height: auto; color: var(--coral); border-color: var(--coral);">Delete</button>
-            </td>
-          `;
-          tbody.appendChild(tr);
-        });
+        allHistoryData = data.history || [];
+        historyCurrentPage = 1;
+        renderHistoryTable();
       } catch (err) {
         tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--coral);">Failed to load history</td></tr>';
       }
+    }
+
+    window.handleHistorySearch = function(e) {
+      historySearchQuery = e.target.value.toLowerCase();
+      historyCurrentPage = 1;
+      renderHistoryTable();
+    };
+
+    window.handleHistorySort = function(key) {
+      if (historySortKey === key) {
+        historySortDesc = !historySortDesc;
+      } else {
+        historySortKey = key;
+        historySortDesc = key === 'timestamp'; // default desc for timestamp, asc for others
+      }
+      renderHistoryTable();
+    };
+
+    window.changeHistoryPage = function(delta) {
+      historyCurrentPage += delta;
+      renderHistoryTable();
+    };
+
+    function renderHistoryTable() {
+      const tbody = document.getElementById('historyTableBody');
+      if (!tbody) return;
+
+      // Filter
+      let filtered = allHistoryData;
+      if (historySearchQuery) {
+        filtered = filtered.filter(h => 
+          (h.testSuite || '').toLowerCase().includes(historySearchQuery) ||
+          (h.targetUrl || '').toLowerCase().includes(historySearchQuery) ||
+          (h.status || '').toLowerCase().includes(historySearchQuery)
+        );
+      }
+
+      // Sort
+      filtered.sort((a, b) => {
+        let valA = a[historySortKey] || '';
+        let valB = b[historySortKey] || '';
+        
+        if (historySortKey === 'timestamp') {
+          valA = new Date(valA).getTime();
+          valB = new Date(valB).getTime();
+        } else {
+          valA = String(valA).toLowerCase();
+          valB = String(valB).toLowerCase();
+        }
+
+        if (valA < valB) return historySortDesc ? 1 : -1;
+        if (valA > valB) return historySortDesc ? -1 : 1;
+        return 0;
+      });
+
+      // Update Sort Icons
+      ['timestamp', 'testSuite', 'targetUrl', 'status'].forEach(k => {
+        const icon = document.getElementById(`sort-icon-${k}`);
+        if (icon) {
+          if (historySortKey === k) {
+            icon.textContent = historySortDesc ? '↓' : '↑';
+          } else {
+            icon.textContent = '';
+          }
+        }
+      });
+
+      // Pagination
+      const totalItems = filtered.length;
+      const totalPages = Math.ceil(totalItems / HISTORY_PAGE_SIZE) || 1;
+      if (historyCurrentPage > totalPages) historyCurrentPage = totalPages;
+      if (historyCurrentPage < 1) historyCurrentPage = 1;
+
+      const startIndex = (historyCurrentPage - 1) * HISTORY_PAGE_SIZE;
+      const endIndex = Math.min(startIndex + HISTORY_PAGE_SIZE, totalItems);
+      const paginated = filtered.slice(startIndex, endIndex);
+
+      // Update Pagination UI
+      const pageInfo = document.getElementById('historyPageInfo');
+      if (pageInfo) {
+        pageInfo.textContent = totalItems === 0 
+          ? 'Showing 0 to 0 of 0 entries'
+          : `Showing ${startIndex + 1} to ${endIndex} of ${totalItems} entries`;
+      }
+      const btnPrev = document.getElementById('btnHistoryPrev');
+      if (btnPrev) btnPrev.disabled = historyCurrentPage === 1;
+      const btnNext = document.getElementById('btnHistoryNext');
+      if (btnNext) btnNext.disabled = historyCurrentPage === totalPages;
+
+      // Render rows
+      if (paginated.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px; color: var(--slate);">No flow history found.</td></tr>';
+        return;
+      }
+      
+      tbody.innerHTML = '';
+      paginated.forEach(h => {
+        let statusColor = 'var(--slate)';
+        if (h.status === 'SUCCESS') statusColor = 'var(--deep-green)';
+        else if (h.status === 'FAILED') statusColor = 'var(--coral)';
+        else if (h.status === 'RUNNING') statusColor = '#eab308';
+        else if (h.status === 'GENERATED') statusColor = 'var(--action-blue)';
+        
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><span style="font-size: 11px; font-family: var(--font-mono); color: var(--slate);">${new Date(h.timestamp).toLocaleString()}</span></td>
+          <td><span style="font-weight: 500;">${h.testSuite}</span></td>
+          <td><span style="font-family: var(--font-mono); font-size: 11px; word-break: break-all;">${h.targetUrl}</span></td>
+          <td style="text-align: center;"><span style="font-weight: 600; font-size: 11px; color: ${statusColor};">${h.status}</span></td>
+          <td style="text-align: center; display: flex; gap: 8px; justify-content: center;">
+            <button class="btn-pill-outline" onclick="viewHistory('${h.id}')" style="padding: 4px 10px; font-size: 11px; min-height: unset; height: auto;">View</button>
+            <button class="btn-pill-outline" onclick="deleteHistory('${h.id}')" style="padding: 4px 10px; font-size: 11px; min-height: unset; height: auto; color: var(--coral); border-color: var(--coral);">Delete</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
     }
 
     async function viewHistory(id) {
