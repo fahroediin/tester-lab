@@ -69,7 +69,7 @@ export async function generateApiKey(userId: string, name: string = 'Default API
   const randomBytes = crypto.randomBytes(32).toString('hex');
   const rawKey = `tl_live_${randomBytes}`;
   const keyHash = hashApiKey(rawKey);
-  const keyPrefix = `${rawKey.substring(0, 15)}...${rawKey.substring(rawKey.length - 4)}`;
+  const keyPrefix = rawKey;
 
   const { data, error } = await supabase
     .from('api_keys')
