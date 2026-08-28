@@ -143,9 +143,30 @@ export async function revokeApiKey(userId: string, keyId: string): Promise<boole
 }
 
 /**
- * Hard delete an API key.
+ * Hard delete an API key while preserving all historical usage logs.
  */
 export async function deleteApiKey(userId: string, keyId: string): Promise<boolean> {
+  // Preserve logs: attach the key's name to logs and decouple the foreign key
+  try {
+    const { data: keyRecord } = await supabase
+      .from('api_keys')
+      .select('name')
+      .eq('id', keyId)
+      .single();
+
+    if (keyRecord && keyRecord.name) {
+      await supabase
+        .from('api_key_usage_logs')
+        .update({
+          key_name: keyRecord.name,
+          api_key_id: null
+        })
+        .eq('api_key_id', keyId);
+    }
+  } catch (logErr) {
+    console.warn('Failed to decouple usage logs before key deletion:', logErr);
+  }
+
   const { error } = await supabase
     .from('api_keys')
     .delete()

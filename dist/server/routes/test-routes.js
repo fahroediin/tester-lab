@@ -54,6 +54,7 @@ exports.testRoutes.post('/generate-script', auth_middleware_js_1.authenticateJWT
             if (req.apiKey || req.authMethod === 'api_key') {
                 await (0, api_key_usage_store_js_1.recordApiKeyUsage)({
                     apiKeyId: req.apiKey?.id,
+                    keyName: req.apiKey?.name,
                     userId: req.user.id,
                     endpoint: 'generate-script',
                     status: 'failed',
@@ -75,6 +76,7 @@ exports.testRoutes.post('/generate-script', auth_middleware_js_1.authenticateJWT
         if (req.apiKey || req.authMethod === 'api_key') {
             await (0, api_key_usage_store_js_1.recordApiKeyUsage)({
                 apiKeyId: req.apiKey?.id,
+                keyName: req.apiKey?.name,
                 userId: req.user.id,
                 endpoint: 'generate-script',
                 status: 'generated',
@@ -167,6 +169,7 @@ exports.testRoutes.post('/run-test', auth_middleware_js_1.authenticateJWT, auth_
             if (req.apiKey || req.authMethod === 'api_key') {
                 await (0, api_key_usage_store_js_1.recordApiKeyUsage)({
                     apiKeyId: req.apiKey?.id,
+                    keyName: req.apiKey?.name,
                     userId: req.user.id,
                     endpoint: 'run-test',
                     status: 'failed',
@@ -280,6 +283,7 @@ export default defineConfig({
             if (req.apiKey || req.authMethod === 'api_key') {
                 await (0, api_key_usage_store_js_1.recordApiKeyUsage)({
                     apiKeyId: req.apiKey?.id,
+                    keyName: req.apiKey?.name,
                     userId: req.user.id,
                     endpoint: 'run-test',
                     status: success ? 'success' : 'failed',

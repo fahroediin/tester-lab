@@ -97,7 +97,8 @@ CREATE INDEX IF NOT EXISTS idx_api_keys_user ON api_keys (user_id);
 -- 7. API KEY USAGE LOGS TABLE
 CREATE TABLE IF NOT EXISTS api_key_usage_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  api_key_id UUID REFERENCES api_keys(id) ON DELETE CASCADE,
+  api_key_id UUID REFERENCES api_keys(id) ON DELETE SET NULL,
+  key_name TEXT,
   user_id TEXT NOT NULL,
   endpoint TEXT NOT NULL, -- 'generate-script' | 'run-test'
   status TEXT NOT NULL, -- 'generated' | 'success' | 'failed'

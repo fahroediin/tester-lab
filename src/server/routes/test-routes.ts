@@ -55,6 +55,7 @@ testRoutes.post('/generate-script', authenticateJWT, requireApprovedUser, async 
       if (req.apiKey || req.authMethod === 'api_key') {
         await recordApiKeyUsage({
           apiKeyId: req.apiKey?.id,
+          keyName: req.apiKey?.name,
           userId: req.user!.id,
           endpoint: 'generate-script',
           status: 'failed',
@@ -78,6 +79,7 @@ testRoutes.post('/generate-script', authenticateJWT, requireApprovedUser, async 
     if (req.apiKey || req.authMethod === 'api_key') {
       await recordApiKeyUsage({
         apiKeyId: req.apiKey?.id,
+        keyName: req.apiKey?.name,
         userId: req.user!.id,
         endpoint: 'generate-script',
         status: 'generated',
@@ -177,6 +179,7 @@ testRoutes.post('/run-test', authenticateJWT, requireApprovedUser, async (req: A
       if (req.apiKey || req.authMethod === 'api_key') {
         await recordApiKeyUsage({
           apiKeyId: req.apiKey?.id,
+          keyName: req.apiKey?.name,
           userId: req.user!.id,
           endpoint: 'run-test',
           status: 'failed',
@@ -299,6 +302,7 @@ export default defineConfig({
       if (req.apiKey || req.authMethod === 'api_key') {
         await recordApiKeyUsage({
           apiKeyId: req.apiKey?.id,
+          keyName: req.apiKey?.name,
           userId: req.user!.id,
           endpoint: 'run-test',
           status: success ? 'success' : 'failed',

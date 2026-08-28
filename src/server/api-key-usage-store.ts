@@ -6,6 +6,7 @@ dotenv.config();
 export interface ApiKeyUsageLog {
   id: string;
   apiKeyId?: string;
+  keyName?: string;
   userId: string;
   endpoint: 'generate-script' | 'run-test';
   status: 'generated' | 'success' | 'failed';
@@ -49,6 +50,7 @@ export function getPeriodStartDate(): Date {
  */
 export async function recordApiKeyUsage(params: {
   apiKeyId?: string;
+  keyName?: string;
   userId: string;
   endpoint: 'generate-script' | 'run-test';
   status: 'generated' | 'success' | 'failed';
@@ -58,6 +60,7 @@ export async function recordApiKeyUsage(params: {
   const logEntry: ApiKeyUsageLog = {
     id: `log_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
     apiKeyId: params.apiKeyId,
+    keyName: params.keyName,
     userId: params.userId,
     endpoint: params.endpoint,
     status: params.status,
@@ -77,6 +80,7 @@ export async function recordApiKeyUsage(params: {
       .from('api_key_usage_logs')
       .insert({
         api_key_id: params.apiKeyId || null,
+        key_name: params.keyName || null,
         user_id: params.userId,
         endpoint: params.endpoint,
         status: params.status,
@@ -407,17 +411,28 @@ export async function getAdminApiKeyLogs(page: number = 1, limit: number = 15): 
         (users || []).forEach(u => { userMap[u.id] = u.username; });
       }
 
-      const logs: EnrichedApiKeyUsageLog[] = logRows.map(r => ({
-        id: r.id,
-        apiKeyId: r.api_key_id,
-        userId: r.user_id,
-        endpoint: r.endpoint,
-        status: r.status,
-        details: r.details,
-        createdAt: r.created_at,
-        keyName: r.api_key_id ? (keyMap[r.api_key_id] || 'Unknown Key') : 'Direct API',
-        username: userMap[r.user_id] || r.user_id
-      }));
+      const logs: EnrichedApiKeyUsageLog[] = logRows.map(r => {
+        let keyDisplayName = 'Direct API';
+        if (r.api_key_id && keyMap[r.api_key_id]) {
+          keyDisplayName = keyMap[r.api_key_id] || 'Unknown Key';
+        } else if (r.key_name) {
+          keyDisplayName = r.api_key_id ? r.key_name : `${r.key_name} (Deleted)`;
+        } else if (r.api_key_id) {
+          keyDisplayName = 'Deleted API Key';
+        }
+
+        return {
+          id: r.id || `log_${Date.now()}`,
+          apiKeyId: r.api_key_id,
+          keyName: keyDisplayName,
+          userId: r.user_id,
+          endpoint: r.endpoint,
+          status: r.status,
+          details: r.details,
+          createdAt: r.created_at || new Date().toISOString(),
+          username: userMap[r.user_id] || r.user_id
+        };
+      });
 
       return {
         logs,
@@ -430,7 +445,7 @@ export async function getAdminApiKeyLogs(page: number = 1, limit: number = 15): 
 
   const logs = inMemoryUsageLogs.slice(startIndex, startIndex + limit).map(l => ({
     ...l,
-    keyName: 'API Key',
+    keyName: l.keyName || (l.apiKeyId ? 'API Key (Deleted)' : 'Direct API'),
     username: l.userId
   }));
 
