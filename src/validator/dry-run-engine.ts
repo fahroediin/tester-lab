@@ -58,7 +58,7 @@ export class DryRunEngine {
 import { defineConfig } from '@playwright/test';
 export default defineConfig({
   testDir: '${tempDir.replace(/\\/g, '/')}',
-  timeout: 20000,
+  timeout: 10000,
   use: {
     headless: true,
     viewport: { width: 1280, height: 720 },
