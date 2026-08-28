@@ -9,7 +9,7 @@ exports.configRoutes = (0, express_1.Router)();
  * GET /api/v1/config
  * Get application configuration
  */
-exports.configRoutes.get('/config', auth_middleware_js_1.authenticateJWT, (req, res) => {
+exports.configRoutes.get('/', auth_middleware_js_1.authenticateJWT, (req, res) => {
     try {
         const config = (0, config_store_js_1.loadConfig)();
         res.json({
@@ -29,7 +29,7 @@ exports.configRoutes.get('/config', auth_middleware_js_1.authenticateJWT, (req, 
  * POST /api/v1/config
  * Update application configuration (Admin only)
  */
-exports.configRoutes.post('/config', auth_middleware_js_1.authenticateJWT, auth_middleware_js_1.requireAdmin, (req, res) => {
+exports.configRoutes.post('/', auth_middleware_js_1.authenticateJWT, auth_middleware_js_1.requireAdmin, (req, res) => {
     try {
         const { sampleTestSuite, sampleTargetUrl, sampleSteps } = req.body;
         if (!sampleTestSuite || !sampleTargetUrl || !Array.isArray(sampleSteps)) {
