@@ -1254,7 +1254,17 @@
     }
 
     async function deleteUserAccount(id) {
-      if (!confirm('Are you sure you want to delete this user account?')) return;
+      const confirm = await Swal.fire({
+        title: 'Delete User Account?',
+        text: "Are you sure you want to delete this user account? This action cannot be undone.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#66666e',
+        confirmButtonText: 'Yes, delete it!'
+      });
+
+      if (!confirm.isConfirmed) return;
       try {
         const response = await fetch(`/api/v1/admin/users/${id}`, {
           method: 'DELETE',
@@ -1482,7 +1492,17 @@
     }
 
     async function deleteHistory(id) {
-      if (!confirm('Are you sure you want to delete this flow history? This will also delete any associated videos.')) return;
+      const confirmResult = await Swal.fire({
+        title: 'Delete Flow History?',
+        text: "Are you sure you want to delete this flow history? This will also delete any associated videos.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#66666e',
+        confirmButtonText: 'Yes, delete it!'
+      });
+
+      if (!confirmResult.isConfirmed) return;
       try {
         const response = await fetch(`/api/v1/history/${id}`, { 
           method: 'DELETE',
