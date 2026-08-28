@@ -418,6 +418,53 @@ textarea:focus {
   pointer-events: none !important;
 }
 
+/* Dedicated Icon Button (for Copy, Actions, etc.) */
+.btn-icon {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  min-height: 28px !important;
+  padding: 0 !important;
+  border-radius: 6px !important;
+  border: 1px solid var(--hairline) !important;
+  background: var(--surface) !important;
+  color: var(--ink) !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  flex-shrink: 0 !important;
+  line-height: 1 !important;
+}
+
+.btn-icon svg {
+  display: block !important;
+  width: 14px !important;
+  height: 14px !important;
+  stroke: currentColor !important;
+  fill: none !important;
+  stroke-width: 2 !important;
+}
+
+.btn-icon:hover {
+  background: var(--soft-stone) !important;
+  color: var(--action-blue) !important;
+  border-color: var(--action-blue) !important;
+}
+
+[data-theme="dark"] .btn-icon {
+  background: var(--surface-2) !important;
+  border-color: var(--hairline) !important;
+  color: var(--ink) !important;
+}
+
+[data-theme="dark"] .btn-icon:hover {
+  background: var(--hairline) !important;
+  color: var(--action-blue) !important;
+  border-color: var(--action-blue) !important;
+}
+
 .checkbox-group {
   display: flex;
   align-items: center;
