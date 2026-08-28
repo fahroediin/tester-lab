@@ -7,6 +7,7 @@ import { adminRoutes } from './routes/admin-routes.js';
 import { feedbackRoutes } from './routes/feedback-routes.js';
 import { testRoutes } from './routes/test-routes.js';
 import { historyRoutes } from './routes/history-routes.js';
+import { configRoutes } from './routes/config-routes.js';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -39,6 +40,7 @@ app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/feedback', feedbackRoutes);
 app.use('/api/v1/history', historyRoutes);
+app.use('/api/v1/config', configRoutes);
 app.use('/api/v1', testRoutes); // testRoutes has endpoints like /generate-script, /inspect-dom, /run-test directly under /api/v1
 
 // Global Error Handler to ensure JSON responses for API errors (e.g. malformed JSON in body-parser)

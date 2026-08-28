@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Console | Tester Lab</title>
+
+  <!-- Typography: Inter & Fira Code -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- SweetAlert2 -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+  <style>
+    :root {
+      --canvas: #ffffff;
+      --surface: #f9f9f9;
+      --card-bg: #ffffff;
+      --ink: #17171c;
+      --body-muted: #66666e;
+      --hairline: #e2e2e8;
+      --soft-stone: #f0f0f4;
+      --primary: #17171c;
+      --action-blue: #005bbf;
+      --deep-green: #097335;
+      --coral: #b30000;
+      --font-display: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'Fira Code', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--surface);
+      color: var(--ink);
+      font-family: var(--font-body);
+      font-size: 14px;
+      line-height: 1.5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .announcement-bar {
+      background-color: #000000;
+      color: #ffffff;
+      padding: 6px 24px;
+      font-size: 11px;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-family: var(--font-mono);
+      text-transform: uppercase;
+    }
+
+    .announcement-bar .tag {
+      background: #ff5252;
+      color: #ffffff;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
+    header {
+      background: var(--canvas);
+      border-bottom: 1px solid var(--hairline);
+      padding: 14px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .brand-logo {
+      width: 36px;
+      height: 36px;
+      background: #022b22;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .brand-title {
+      font-family: var(--font-display);
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .brand-subtitle {
+      font-size: 11px;
+      color: var(--body-muted);
+      font-family: var(--font-mono);
+      text-transform: uppercase;
+    }
+
+    /* Unified Pill Outline Buttons */
+    .btn-pill-outline {
+      background-color: var(--canvas) !important;
+      border: 1px solid var(--hairline) !important;
+      color: var(--ink) !important;
+      border-radius: 9999px !important;
+      padding: 6px 18px !important;
+      font-family: var(--font-body) !important;
+      font-size: 13px !important;
+      font-weight: 500 !important;
+      cursor: pointer !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 6px !important;
+      transition: all 0.2s ease !important;
+      text-decoration: none !important;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+      height: 34px !important;
+    }
+
+    .btn-pill-outline:hover:not(:disabled) {
+      background-color: #f8fafc !important;
+      border-color: #94a3b8 !important;
+      color: var(--action-blue) !important;
+      transform: translateY(-1px) !important;
+    }
+
+    .btn-pill-outline:disabled {
+      opacity: 0.5;
+      cursor: not-allowed !important;
+    }
+
+    .container {
+      max-width: 1100px;
+      width: 100%;
+      margin: 32px auto;
+      padding: 0 24px;
+      flex: 1;
+    }
+
+    /* Tabs Styling */
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--hairline);
+      margin-bottom: 24px;
+      gap: 16px;
+    }
+
+    .tab-button {
+      background: none;
+      border: none;
+      padding: 12px 16px;
+      font-family: var(--font-body);
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--body-muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s ease;
+    }
+
+    .tab-button:hover {
+      color: var(--ink);
+    }
+
+    .tab-button.active {
+      color: var(--ink);
+      border-bottom: 2px solid var(--action-blue);
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--hairline);
+      border-radius: 16px;
+      padding: 28px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 24px;
+      border-bottom: 1px solid var(--hairline);
+      padding-bottom: 16px;
+    }
+
+    .card-title {
+      font-family: var(--font-display);
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .card-subtitle {
+      font-size: 13px;
+      color: var(--body-muted);
+      margin-top: 2px;
+    }
+
+    .summary-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .summary-table th {
+      text-align: left;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--hairline);
+      color: var(--body-muted);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      background: var(--surface);
+    }
+
+    .summary-table td {
+      padding: 14px;
+      border-bottom: 1px solid var(--hairline);
+      vertical-align: middle;
+    }
+
+    .summary-table tr:hover td {
+      background-color: var(--soft-stone);
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 9999px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .status-approved {
+      background: rgba(9, 115, 53, 0.1);
+      color: var(--deep-green);
+    }
+
+    .status-pending {
+      background: rgba(217, 119, 6, 0.1);
+      color: #d97706;
+    }
+
+    .status-rejected {
+      background: rgba(179, 0, 0, 0.1);
+      color: var(--coral);
+    }
+
+    .pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+      margin-top: 24px;
+      font-size: 13px;
+      color: var(--body-muted);
+    }
+
+    footer {
+      border-top: 1px solid var(--hairline);
+      background: var(--canvas);
+      padding: 16px 32px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--body-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: auto;
+    }
+
+    /* Modal System */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(4px);
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .modal-card {
+      background: var(--card-bg);
+      border: 1px solid var(--hairline);
+      border-radius: 16px;
+      width: 100%;
+      max-width: 640px;
+      padding: 24px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--hairline);
+      padding-bottom: 12px;
+    }
+
+    .modal-header h3 {
+      font-family: var(--font-display);
+      font-size: 18px;
+      margin: 0;
+    }
+
+    .modal-close {
+      background: transparent;
+      border: none;
+      font-size: 24px;
+      color: var(--body-muted);
+      cursor: pointer;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Top Announcement Bar -->
+  <div class="announcement-bar">
+    <span class="tag">ADMIN CONSOLE</span>
+    <span>TESTER LAB USER ACCESS MANAGEMENT</span>
+  </div>
+
+  <header>
+    <a href="/" class="brand">
+      <div class="brand-logo">TL</div>
+      <div>
+        <div class="brand-title">Tester Lab Admin</div>
+        <div class="brand-subtitle">Management Console</div>
+      </div>
+    </a>
+
+    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+      <a href="/" class="btn-pill-outline">Back to Workspace</a>
+      <span id="adminUserBadge" style="font-family: var(--font-mono); font-size: 12px; font-weight: 500; color: var(--ink); background: var(--soft-stone); padding: 6px 14px; border-radius: 9999px; border: 1px solid var(--hairline);">
+        admin (admin)
+      </span>
+      <button type="button" class="btn-pill-outline" onclick="handleLogout()">Sign Out</button>
+    </div>
+  </header>
+
+  <div class="container">
+    
+    <div class="tabs">
+      <button class="tab-button active" onclick="switchTab('users')" id="tab-btn-users">User Management</button>
+      <button class="tab-button" onclick="switchTab('logs')" id="tab-btn-logs">Activity Logs</button>
+      <button class="tab-button" onclick="switchTab('feedbacks')" id="tab-btn-feedbacks">Feedbacks</button>
+    </div>
+
+    <!-- USERS TAB -->
+    <div class="tab-content active" id="tab-users">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">User Registration Requests</div>
+            <div class="card-subtitle">Review, approve, or reject pending account requests for Tester Lab</div>
+          </div>
+          <button type="button" class="btn-pill-outline" onclick="fetchUsers()">Refresh Data</button>
+        </div>
+
+        <div style="overflow-x: auto;">
+          <table class="summary-table">
+            <thead>
+              <tr>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Registered At</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="userTableBody">
+              <tr>
+                <td colspan="6" style="text-align: center; padding: 24px;">Loading user accounts...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div id="usersPagination" class="pagination"></div>
+      </div>
+    </div>
+
+    <!-- LOGS TAB -->
+    <div class="tab-content" id="tab-logs">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Activity Logs</div>
+            <div class="card-subtitle">Recent user activities and system events</div>
+          </div>
+          <button type="button" class="btn-pill-outline" onclick="fetchLogs()">Refresh Logs</button>
+        </div>
+
+        <div style="overflow-x: auto;">
+          <table class="summary-table">
+            <thead>
+              <tr>
+                <th>Timestamp</th>
+                <th>Username</th>
+                <th>Action</th>
+                <th>Details</th>
+              </tr>
+            </thead>
+            <tbody id="logsTableBody">
+              <tr>
+                <td colspan="4" style="text-align: center; padding: 24px;">Loading activity logs...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div id="logsPagination" class="pagination"></div>
+      </div>
+    </div>
+
+    <!-- FEEDBACKS TAB -->
+    <div class="tab-content" id="tab-feedbacks">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">User Feedbacks</div>
+            <div class="card-subtitle">Review feedback and bug reports from users</div>
+          </div>
+          <button type="button" class="btn-pill-outline" onclick="fetchFeedbacks(1)">Refresh Feedbacks</button>
+        </div>
+
+        <div style="overflow-x: auto;">
+          <table class="summary-table">
+            <thead>
+              <tr>
+                <th>Timestamp</th>
+                <th>Type</th>
+                <th>Details</th>
+                <th>Attached File</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="feedbacksTableBody">
+              <tr>
+                <td colspan="5" style="text-align: center; padding: 24px;">Loading feedbacks...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div id="feedbacksPagination" class="pagination"></div>
+      </div>
+    </div>
+
+  </div>
+
+
+
+  <footer>
+    <div>TESTER LAB • ADMIN PORTAL</div>
+    <div>Crafted by: Fahrudin</div>
+  </footer>
+
+  <script>
+    const authToken = localStorage.getItem('tester_jwt_token') || '';
+
+    let allUsers = [];
+    let allLogs = [];
+    let allFeedbacks = [];
+    let currentUsersPage = 1;
+    let currentLogsPage = 1;
+    let currentFeedbacksPage = 1;
+    const ITEMS_PER_PAGE = 10;
+
+    function getAuthHeaders() {
+      return {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      };
+    }
+
+    async function verifyAdminAuth() {
+      if (!authToken) {
+        window.location.href = '/';
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/v1/auth/me', {
+          headers: getAuthHeaders()
+        });
+        const data = await response.json();
+
+        if (!data.success || data.user.role !== 'admin') {
+          Swal.fire({
+            icon: 'error',
+            title: 'Access Denied',
+            text: 'Administrator privileges required to view this page.',
+            confirmButtonColor: '#005bbf'
+          }).then(() => {
+            window.location.href = '/';
+          });
+          return;
+        }
+
+        const badge = document.getElementById('adminUserBadge');
+        if (badge) {
+          badge.textContent = `${data.user.username} (${data.user.role})`;
+        }
+
+        await fetchUsers();
+        await fetchLogs();
+        await fetchFeedbacks();
+      } catch (err) {
+        window.location.href = '/';
+      }
+    }
+
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab-button').forEach(el => el.classList.remove('active'));
+      
+      document.getElementById(`tab-${tabName}`).classList.add('active');
+      document.getElementById(`tab-btn-${tabName}`).classList.add('active');
+    }
+
+    function renderPagination(containerId, currentPage, totalItems, type) {
+      const container = document.getElementById(containerId);
+      const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+      
+      if (totalPages <= 1) {
+        container.innerHTML = '';
+        return;
+      }
+      
+      const prevDisabled = currentPage === 1 ? 'disabled' : '';
+      const nextDisabled = currentPage === totalPages ? 'disabled' : '';
+      
+      container.innerHTML = `
+        <button class="btn-pill-outline" ${prevDisabled} onclick="changePage('${type}', -1)">Previous</button>
+        <span>Page ${currentPage} of ${totalPages}</span>
+        <button class="btn-pill-outline" ${nextDisabled} onclick="changePage('${type}', 1)">Next</button>
+      `;
+    }
+
+    function changePage(type, delta) {
+      if (type === 'users') {
+        currentUsersPage += delta;
+        renderUsersTable();
+      } else if (type === 'logs') {
+        currentLogsPage += delta;
+        renderLogsTable();
+      } else if (type === 'feedbacks') {
+        currentFeedbacksPage += delta;
+        renderFeedbacksTable();
+      }
+    }
+
+    async function fetchUsers() {
+      const tbody = document.getElementById('userTableBody');
+      if (!tbody) return;
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 24px;">Loading user accounts...</td></tr>';
+
+      try {
+        const response = await fetch('/api/v1/admin/users', {
+          headers: getAuthHeaders()
+        });
+        const data = await response.json();
+
+        if (!data.success) {
+          tbody.innerHTML = `<tr><td colspan="6" style="color:var(--coral); text-align:center; padding: 24px;">${data.error}</td></tr>`;
+          return;
+        }
+
+        allUsers = data.users || [];
+        currentUsersPage = 1;
+        renderUsersTable();
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="6" style="color:var(--coral); text-align:center; padding: 24px;">Failed to load accounts: ${err.message}</td></tr>`;
+      }
+    }
+
+    function renderUsersTable() {
+      const tbody = document.getElementById('userTableBody');
+      if (!tbody) return;
+
+      if (allUsers.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 24px;">No user accounts found.</td></tr>';
+        document.getElementById('usersPagination').innerHTML = '';
+        return;
+      }
+
+      const startIdx = (currentUsersPage - 1) * ITEMS_PER_PAGE;
+      const pageUsers = allUsers.slice(startIdx, startIdx + ITEMS_PER_PAGE);
+
+      tbody.innerHTML = '';
+      pageUsers.forEach((u) => {
+        const tr = document.createElement('tr');
+        const statusClass = u.status === 'approved' ? 'status-approved' : (u.status === 'rejected' ? 'status-rejected' : 'status-pending');
+
+        let statusBtns = '';
+        if (u.status === 'pending') {
+          statusBtns = `
+            <button class="btn-pill-outline" onclick="approveUser('${u.id}')" style="border-color:#16a34a; color:#16a34a; padding:4px 10px; font-size:12px;">Approve</button>
+            <button class="btn-pill-outline" onclick="rejectUser('${u.id}')" style="border-color:#dc2626; color:#dc2626; padding:4px 10px; font-size:12px;">Reject</button>
+          `;
+        } else if (u.status === 'rejected') {
+          statusBtns = `
+            <button class="btn-pill-outline" onclick="approveUser('${u.id}')" style="border-color:#16a34a; color:#16a34a; padding:4px 10px; font-size:12px;">Approve</button>
+          `;
+        }
+
+        let actionBtns = '';
+        if (u.username !== 'admin') {
+          actionBtns = `<button class="btn-pill-outline" onclick="deleteUserAccount('${u.id}')" style="padding:4px 10px; font-size:12px; color:#dc2626; border-color:#dc2626;">Delete</button>`;
+        }
+
+        tr.innerHTML = `
+          <td><strong>${u.username}</strong></td>
+          <td>${u.email}</td>
+          <td><span style="font-family:var(--font-mono); font-size:11px;">${u.role}</span></td>
+          <td>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="status-badge ${statusClass}">${u.status}</span>
+              ${statusBtns}
+            </div>
+          </td>
+          <td><span style="font-size:12px;">${new Date(u.createdAt).toLocaleString()}</span></td>
+          <td><div style="display:flex; align-items:center; justify-content:flex-start; gap:6px;">${actionBtns}</div></td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      renderPagination('usersPagination', currentUsersPage, allUsers.length, 'users');
+    }
+
+    async function approveUser(id) {
+      try {
+        const response = await fetch(`/api/v1/admin/users/${id}/approve`, {
+          method: 'POST',
+          headers: getAuthHeaders()
+        });
+        const data = await response.json();
+        if (data.success) {
+          Swal.fire({ icon: 'success', title: 'Account Approved', text: data.message, timer: 1800, showConfirmButton: false, toast: true, position: 'top-end' });
+          await fetchUsers();
+          await fetchLogs();
+        } else {
+          Swal.fire({ icon: 'error', title: 'Action Failed', text: data.error, confirmButtonColor: '#005bbf' });
+        }
+      } catch (err) {
+        Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#005bbf' });
+      }
+    }
+
+    async function rejectUser(id) {
+      try {
+        const response = await fetch(`/api/v1/admin/users/${id}/reject`, {
+          method: 'POST',
+          headers: getAuthHeaders()
+        });
+        const data = await response.json();
+        if (data.success) {
+          Swal.fire({ icon: 'info', title: 'Account Rejected', text: data.message, timer: 1800, showConfirmButton: false, toast: true, position: 'top-end' });
+          await fetchUsers();
+          await fetchLogs();
+        } else {
+          Swal.fire({ icon: 'error', title: 'Action Failed', text: data.error, confirmButtonColor: '#005bbf' });
+        }
+      } catch (err) {
+        Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#005bbf' });
+      }
+    }
+
+    async function deleteUserAccount(id) {
+      const confirmResult = await Swal.fire({
+        title: 'Delete User Account?',
+        text: 'Are you sure you want to permanently delete this user account?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: 'Yes, Delete'
+      });
+
+      if (!confirmResult.isConfirmed) return;
+
+      try {
+        const response = await fetch(`/api/v1/admin/users/${id}`, {
+          method: 'DELETE',
+          headers: getAuthHeaders()
+        });
+        const data = await response.json();
+        if (data.success) {
+          Swal.fire({ icon: 'success', title: 'Account Deleted', text: data.message, timer: 1800, showConfirmButton: false, toast: true, position: 'top-end' });
+          await fetchUsers();
+          await fetchLogs();
+        } else {
+          Swal.fire({ icon: 'error', title: 'Action Failed', text: data.error, confirmButtonColor: '#005bbf' });
+        }
+      } catch (err) {
+        Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#005bbf' });
+      }
+    }
+
+    async function fetchLogs() {
+      const tbody = document.getElementById('logsTableBody');
+      if (!tbody) return;
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 24px;">Loading activity logs...</td></tr>';
+
+      try {
+        const response = await fetch('/api/v1/admin/logs', {
+          headers: getAuthHeaders()
+        });
+        const data = await response.json();
+
+        if (!data.success) {
+          tbody.innerHTML = `<tr><td colspan="4" style="color:var(--coral); text-align:center; padding: 24px;">${data.error}</td></tr>`;
+          return;
+        }
+
+        allLogs = data.logs || [];
+        currentLogsPage = 1;
+        renderLogsTable();
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="4" style="color:var(--coral); text-align:center; padding: 24px;">Failed to load logs: ${err.message}</td></tr>`;
+      }
+    }
+
+    function renderLogsTable() {
+      const tbody = document.getElementById('logsTableBody');
+      if (!tbody) return;
+
+      if (allLogs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 24px;">No activity logs found.</td></tr>';
+        document.getElementById('logsPagination').innerHTML = '';
+        return;
+      }
+
+      const startIdx = (currentLogsPage - 1) * ITEMS_PER_PAGE;
+      const pageLogs = allLogs.slice(startIdx, startIdx + ITEMS_PER_PAGE);
+
+      tbody.innerHTML = '';
+      pageLogs.forEach((log) => {
+        const tr = document.createElement('tr');
+        let actionClass = '';
+        if (log.action.includes('Failed') || log.action.includes('Reject') || log.action.includes('Delete')) {
+          actionClass = 'color: #dc2626;'; 
+        } else if (log.action.includes('Approve') || log.action.includes('Success')) {
+          actionClass = 'color: #16a34a;'; 
+        } else {
+          actionClass = 'color: var(--action-blue);';
+        }
+        
+        tr.innerHTML = `
+          <td style="white-space: nowrap; font-family: var(--font-mono); font-size: 11px;">${new Date(log.timestamp).toLocaleString()}</td>
+          <td><strong>${log.username}</strong></td>
+          <td><span style="font-family: var(--font-mono); font-size: 12px; font-weight: 600; ${actionClass}">${log.action}</span></td>
+          <td style="color: var(--body-muted);">${log.details}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      renderPagination('logsPagination', currentLogsPage, allLogs.length, 'logs');
+    }
+
+    function handleLogout() {
+      localStorage.removeItem('tester_jwt_token');
+      window.location.href = '/';
+    }
+
+    async function fetchFeedbacks() {
+      const tbody = document.getElementById('feedbacksTableBody');
+      if (!tbody) return;
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 24px;">Loading feedbacks...</td></tr>';
+
+      try {
+        const response = await fetch('/api/v1/admin/feedbacks?limit=1000', {
+          headers: getAuthHeaders()
+        });
+        const data = await response.json();
+
+        if (!data.success) {
+          tbody.innerHTML = `<tr><td colspan="5" style="color:var(--coral); text-align:center; padding: 24px;">${data.error}</td></tr>`;
+          return;
+        }
+
+        allFeedbacks = data.feedbacks || [];
+        currentFeedbacksPage = 1;
+        renderFeedbacksTable();
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="5" style="color:var(--coral); text-align:center; padding: 24px;">Failed to load feedbacks: ${err.message}</td></tr>`;
+      }
+    }
+
+    function renderFeedbacksTable() {
+      const tbody = document.getElementById('feedbacksTableBody');
+      if (!tbody) return;
+
+      if (allFeedbacks.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 24px;">No user feedbacks found.</td></tr>';
+        document.getElementById('feedbacksPagination').innerHTML = '';
+        return;
+      }
+
+      const startIdx = (currentFeedbacksPage - 1) * ITEMS_PER_PAGE;
+      const pageFeedbacks = allFeedbacks.slice(startIdx, startIdx + ITEMS_PER_PAGE);
+
+      tbody.innerHTML = '';
+      pageFeedbacks.forEach((f, idx) => {
+        const globalIdx = startIdx + idx;
+        const tr = document.createElement('tr');
+        const ts = new Date(f.timestamp).toLocaleString();
+        
+        let fileCol = '<span style="color:var(--slate); font-style:italic;">No File</span>';
+        if (f.attachment) {
+          fileCol = `<a href="/feedbacks/attachments/${f.attachment}" target="_blank" style="color:var(--action-blue); text-decoration:none; font-weight:500;">View File ↗</a>`;
+        }
+
+        tr.innerHTML = `
+          <td>${ts}</td>
+          <td><span class="status-chip" style="background:#e2e8f0; color:#334155; border:none;">${f.type}</span></td>
+          <td style="max-width:400px; white-space:normal; word-wrap:break-word; color:var(--body-muted);">
+            ${f.details}
+          </td>
+          <td>
+            <div style="display: flex; align-items: center; justify-content: flex-start; gap: 12px;">
+              ${fileCol}
+            </div>
+          </td>
+          <td>
+            <button class="btn-pill-outline" onclick="deleteFeedback('${f.id}')" style="padding:4px 10px; font-size:11px; color:#dc2626; border-color:#dc2626;">Delete</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      renderPagination('feedbacksPagination', currentFeedbacksPage, allFeedbacks.length, 'feedbacks');
+    }
+
+    async function deleteFeedback(id) {
+      const confirm = await Swal.fire({
+        title: 'Delete Feedback?',
+        text: "This action cannot be undone.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#66666e',
+        confirmButtonText: 'Yes, delete it!'
+      });
+
+      if (!confirm.isConfirmed) return;
+
+      try {
+        const response = await fetch(`/api/v1/admin/feedbacks/${id}`, {
+          method: 'DELETE',
+          headers: getAuthHeaders()
+        });
+        const data = await response.json();
+        if (data.success) {
+          Swal.fire({ icon: 'success', title: 'Deleted!', text: data.message, timer: 1800, showConfirmButton: false, toast: true, position: 'top-end' });
+          await fetchFeedbacks();
+        } else {
+          Swal.fire({ icon: 'error', title: 'Action Failed', text: data.error, confirmButtonColor: '#005bbf' });
+        }
+      } catch (err) {
+        Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#005bbf' });
+      }
+    }
+
+    window.onload = verifyAdminAuth;
+  </script>
+
+</body>
+
+</html>

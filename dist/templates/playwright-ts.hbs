@@ -1,0 +1,206 @@
+import { test, expect } from '@playwright/test';
+
+test('{{testSuite}}', async ({ page }) => {
+  // Set explicit timeout for long E2E flows
+  test.setTimeout({{testTimeout}});
+
+  // Set viewport if configured
+  {{#if viewport}}
+  await page.setViewportSize({ width: {{viewport.width}}, height: {{viewport.height}} });
+  {{/if}}
+
+  // Navigate to target URL
+  await page.goto('{{{targetUrl}}}');
+  await page.waitForLoadState('networkidle');
+
+  // Maestro-like Auto-Wait and Scroll-Until-Visible Engine
+  const maestro = {
+    async interact(locator: any, action: 'click' | 'fill' | 'select' | 'check' | 'uncheck' | 'upload' | 'assert_visible' | 'assert_text', value?: string, expectedText?: string) {
+      let lastError;
+      for (let i = 0; i < 15; i++) {
+        try {
+          await locator.first().waitFor({ state: 'attached', timeout: 1500 });
+          
+          if (action === 'click') {
+            await locator.first().click({ force: true, timeout: 2000 });
+          } else if (action === 'fill') {
+            await locator.first().fill(value!, { force: true, timeout: 2000 });
+          } else if (action === 'select') {
+            await locator.first().selectOption(value!, { force: true, timeout: 2000 });
+          } else if (action === 'check') {
+            await locator.first().check({ force: true, timeout: 2000 });
+          } else if (action === 'uncheck') {
+            await locator.first().uncheck({ force: true, timeout: 2000 });
+          } else if (action === 'upload') {
+            await locator.first().setInputFiles(value!, { timeout: 2000 });
+          } else if (action === 'assert_visible') {
+            await expect(locator.first()).toBeVisible({ timeout: 2000 });
+          } else if (action === 'assert_text') {
+            await expect(locator.first()).toContainText(new RegExp(expectedText || '', 'i'), { timeout: 2000 });
+          }
+          return; // Success
+        } catch (e) {
+          lastError = e;
+          // Scroll down slightly if element is not interactable or not found
+          await page.evaluate(() => window.scrollBy(0, 400));
+          await page.waitForTimeout(300); // Allow lazy-loaded elements to render
+        }
+      }
+      throw new Error(`Maestro Auto-Scroll Timeout: Element not found or interactable. Last error: ${lastError?.message}`);
+    }
+  };
+
+  {{#if needsRobustHelper}}
+  // Helper for dynamic form locators (OutSystems/Complex UI)
+  async function legacyAction(type: 'select' | 'fill', label: string, value: string) {
+    const tag = type === 'select' ? 'select' : 'input';
+    const escapedLabel = label.replace(/'/g, "\\'");
+    const xpath = `xpath=((//*[normalize-space(.)='${escapedLabel}' or normalize-space(.)='${escapedLabel} *' or normalize-space(.)='${escapedLabel}*'])[1]/following::${tag}[1] | (//*[normalize-space(.)='${escapedLabel}' or normalize-space(.)='${escapedLabel} *' or normalize-space(.)='${escapedLabel}*'])[1]//${tag})[1]`;
+    const target = page.locator(xpath);
+    await maestro.interact(target, type, value);
+  }
+  {{/if}}
+
+  {{#each resolvedSteps}}
+  console.log('__STEP_START__ {{step}}');
+  // Step {{step}}: {{#if description}}{{{description}}}{{else}}{{action}} -> {{{targetLabel}}}{{/if}}
+  {{#if warning}}
+  // [WARNING]: {{{warning}}}
+  {{/if}}
+  
+  {{#if (eq action "fill")}}
+    {{#if (eq selectorType "getByTestId")}}
+  await maestro.interact(page.getByTestId('{{{selectorValue}}}'), 'fill', '{{{value}}}');
+    {{else if (eq selectorType "getByLabel")}}
+  await maestro.interact(page.getByLabel(new RegExp('{{{selectorValue}}}', 'i')), 'fill', '{{{value}}}');
+    {{else if (eq selectorType "getByRole")}}
+  await maestro.interact(page.getByRole('{{{selectorValue}}}', { name: new RegExp('{{{roleName}}}', 'i') }), 'fill', '{{{value}}}');
+    {{else if (eq selectorType "getByPlaceholder")}}
+  await maestro.interact(page.getByPlaceholder(new RegExp('{{{selectorValue}}}', 'i')), 'fill', '{{{value}}}');
+    {{else if (eq selectorType "getByText")}}
+  await maestro.interact(page.getByText(new RegExp('{{{selectorValue}}}', 'i')), 'fill', '{{{value}}}');
+    {{else}}
+      {{#if ../needsRobustHelper}}
+        {{#if targetLabel}}
+  await legacyAction('fill', '{{{targetLabel}}}', '{{{value}}}');
+        {{else}}
+  await maestro.interact(page.locator('{{{selectorValue}}}'), 'fill', '{{{value}}}');
+        {{/if}}
+      {{else}}
+  await maestro.interact(page.locator('{{{selectorValue}}}'), 'fill', '{{{value}}}');
+      {{/if}}
+    {{/if}}
+  {{/if}}
+
+  {{#if (eq action "click")}}
+    {{#if (eq selectorType "getByTestId")}}
+  await maestro.interact(page.getByTestId('{{{selectorValue}}}'), 'click');
+    {{else if (eq selectorType "getByLabel")}}
+  await maestro.interact(page.getByLabel(new RegExp('{{{selectorValue}}}', 'i')), 'click');
+    {{else if (eq selectorType "getByRole")}}
+  await maestro.interact(page.getByRole('{{{selectorValue}}}', { name: new RegExp('{{{roleName}}}', 'i') }), 'click');
+    {{else if (eq selectorType "getByPlaceholder")}}
+  await maestro.interact(page.getByPlaceholder(new RegExp('{{{selectorValue}}}', 'i')), 'click');
+    {{else if (eq selectorType "getByText")}}
+  await maestro.interact(page.getByText(new RegExp('{{{selectorValue}}}', 'i')), 'click');
+    {{else}}
+  await maestro.interact(page.locator('{{{selectorValue}}}'), 'click');
+    {{/if}}
+  {{/if}}
+
+  {{#if (eq action "select")}}
+    {{#if (eq selectorType "getByTestId")}}
+  await maestro.interact(page.getByTestId('{{{selectorValue}}}'), 'select', '{{{value}}}');
+    {{else if (eq selectorType "getByLabel")}}
+  await maestro.interact(page.getByLabel(new RegExp('{{{selectorValue}}}', 'i')), 'select', '{{{value}}}');
+    {{else}}
+      {{#if ../needsRobustHelper}}
+        {{#if targetLabel}}
+  await legacyAction('select', '{{{targetLabel}}}', '{{{value}}}');
+        {{else}}
+  await maestro.interact(page.locator('{{{selectorValue}}}'), 'select', '{{{value}}}');
+        {{/if}}
+      {{else}}
+  await maestro.interact(page.locator('{{{selectorValue}}}'), 'select', '{{{value}}}');
+      {{/if}}
+    {{/if}}
+  {{/if}}
+
+  {{#if (eq action "check")}}
+    {{#if (eq selectorType "getByTestId")}}
+  await maestro.interact(page.getByTestId('{{{selectorValue}}}'), 'check');
+    {{else if (eq selectorType "getByLabel")}}
+  await maestro.interact(page.getByLabel(new RegExp('{{{selectorValue}}}', 'i')), 'check');
+    {{else if (eq selectorType "getByRole")}}
+  await maestro.interact(page.getByRole('{{{selectorValue}}}', { name: new RegExp('{{{roleName}}}', 'i') }), 'check');
+    {{else}}
+  await maestro.interact(page.locator('{{{selectorValue}}}'), 'check');
+    {{/if}}
+  {{/if}}
+
+  {{#if (eq action "uncheck")}}
+    {{#if (eq selectorType "getByTestId")}}
+  await maestro.interact(page.getByTestId('{{{selectorValue}}}'), 'uncheck');
+    {{else if (eq selectorType "getByLabel")}}
+  await maestro.interact(page.getByLabel(new RegExp('{{{selectorValue}}}', 'i')), 'uncheck');
+    {{else}}
+  await maestro.interact(page.locator('{{{selectorValue}}}'), 'uncheck');
+    {{/if}}
+  {{/if}}
+
+  {{#if (eq action "upload")}}
+    {{#if (eq selectorType "getByTestId")}}
+  await maestro.interact(page.getByTestId('{{{selectorValue}}}'), 'upload', '{{{value}}}');
+    {{else if (eq selectorType "getByLabel")}}
+  await maestro.interact(page.getByLabel(new RegExp('{{{selectorValue}}}', 'i')), 'upload', '{{{value}}}');
+    {{else if (eq selectorType "getByRole")}}
+  await maestro.interact(page.getByRole('{{{selectorValue}}}', { name: new RegExp('{{{roleName}}}', 'i') }), 'upload', '{{{value}}}');
+    {{else if (eq selectorType "getByPlaceholder")}}
+  await maestro.interact(page.getByPlaceholder(new RegExp('{{{selectorValue}}}', 'i')), 'upload', '{{{value}}}');
+    {{else}}
+  await maestro.interact(page.locator('{{{selectorValue}}}'), 'upload', '{{{value}}}');
+    {{/if}}
+  {{/if}}
+
+  {{#if (eq action "assert_url")}}
+  await expect(page).toHaveURL(new RegExp('{{{selectorValue}}}', 'i'));
+  {{/if}}
+
+  {{#if (eq action "assert_text")}}
+    {{#if (eq selectorType "getByTestId")}}
+  await maestro.interact(page.getByTestId('{{{selectorValue}}}'), 'assert_text', undefined, '{{{expected}}}');
+    {{else if (eq selectorType "getByLabel")}}
+  await maestro.interact(page.getByLabel(new RegExp('{{{selectorValue}}}', 'i')), 'assert_text', undefined, '{{{expected}}}');
+    {{else if (eq selectorType "getByRole")}}
+  await maestro.interact(page.getByRole('{{{selectorValue}}}', { name: new RegExp('{{{roleName}}}', 'i') }), 'assert_text', undefined, '{{{expected}}}');
+    {{else if (eq selectorType "getByPlaceholder")}}
+  await maestro.interact(page.getByPlaceholder(new RegExp('{{{selectorValue}}}', 'i')), 'assert_text', undefined, '{{{expected}}}');
+    {{else if (eq selectorType "getByText")}}
+  await maestro.interact(page.getByText(new RegExp('{{{selectorValue}}}', 'i')), 'assert_text', undefined, '{{{expected}}}');
+    {{else}}
+  await maestro.interact(page.locator('{{{selectorValue}}}'), 'assert_text', undefined, '{{{expected}}}');
+    {{/if}}
+  {{/if}}
+
+  {{#if (eq action "assert_visible")}}
+    {{#if (eq selectorType "getByTestId")}}
+  await maestro.interact(page.getByTestId('{{{selectorValue}}}'), 'assert_visible');
+    {{else if (eq selectorType "getByLabel")}}
+  await maestro.interact(page.getByLabel(new RegExp('{{{selectorValue}}}', 'i')), 'assert_visible');
+    {{else if (eq selectorType "getByRole")}}
+  await maestro.interact(page.getByRole('{{{selectorValue}}}', { name: new RegExp('{{{roleName}}}', 'i') }), 'assert_visible');
+    {{else if (eq selectorType "getByPlaceholder")}}
+  await maestro.interact(page.getByPlaceholder(new RegExp('{{{selectorValue}}}', 'i')), 'assert_visible');
+    {{else if (eq selectorType "getByText")}}
+  await maestro.interact(page.getByText(new RegExp('{{{selectorValue}}}', 'i')), 'assert_visible');
+    {{else}}
+  await maestro.interact(page.locator('{{{selectorValue}}}'), 'assert_visible');
+    {{/if}}
+  {{/if}}
+
+  {{#if (eq action "wait")}}
+  await page.waitForTimeout({{selectorValue}});
+  {{/if}}
+
+  {{/each}}
+});

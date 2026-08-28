@@ -1,0 +1,70 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.DSLConfigSchema = exports.DSLStepSchema = exports.StepOptionsSchema = exports.DSLActionSchema = void 0;
+exports.validateDSL = validateDSL;
+const zod_1 = require("zod");
+exports.DSLActionSchema = zod_1.z.enum([
+    'fill',
+    'click',
+    'select',
+    'check',
+    'uncheck',
+    'upload',
+    'assert_text',
+    'assert_url',
+    'assert_visible',
+    'wait'
+]);
+exports.StepOptionsSchema = zod_1.z.object({
+    timeout: zod_1.z.number().positive().optional(),
+    force: zod_1.z.boolean().optional(),
+    iframeSelector: zod_1.z.string().optional(),
+    exact: zod_1.z.boolean().optional()
+}).optional();
+exports.DSLStepSchema = zod_1.z.object({
+    step: zod_1.z.number().int().positive(),
+    action: exports.DSLActionSchema,
+    targetLabel: zod_1.z.string().optional(),
+    value: zod_1.z.string().optional(),
+    expected: zod_1.z.string().optional(),
+    description: zod_1.z.string().optional(),
+    options: exports.StepOptionsSchema
+}).refine((data) => {
+    if (['fill', 'select', 'upload'].includes(data.action) && !data.value) {
+        return false;
+    }
+    if (data.action === 'assert_url' && !data.expected) {
+        return false;
+    }
+    if (['assert_text', 'assert_visible'].includes(data.action) && !data.expected && !data.targetLabel) {
+        return false;
+    }
+    return true;
+}, {
+    message: "Invalid step parameters for specified action"
+});
+exports.DSLConfigSchema = zod_1.z.object({
+    testSuite: zod_1.z.string().min(1, "testSuite must not be empty"),
+    targetUrl: zod_1.z.string().min(1, "targetUrl must not be empty"),
+    framework: zod_1.z.enum(['playwright', 'cypress', 'selenium', 'robotframework']).default('playwright').optional(),
+    language: zod_1.z.enum(['typescript', 'javascript', 'python', 'robot']).default('typescript').optional(),
+    viewport: zod_1.z.object({
+        width: zod_1.z.number().positive(),
+        height: zod_1.z.number().positive()
+    }).optional(),
+    steps: zod_1.z.array(exports.DSLStepSchema).min(1, "At least one step is required in steps array")
+});
+function validateDSL(input) {
+    const parseResult = exports.DSLConfigSchema.safeParse(input);
+    if (!parseResult.success) {
+        const formattedErrors = parseResult.error.errors.map((err) => `${err.path.join('.')}: ${err.message}`);
+        return {
+            valid: false,
+            errors: formattedErrors
+        };
+    }
+    return {
+        valid: true,
+        data: parseResult.data
+    };
+}
