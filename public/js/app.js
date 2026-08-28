@@ -1883,6 +1883,20 @@
             ? `${rawKey.substring(0, 15)}...${rawKey.substring(rawKey.length - 4)}`
             : rawKey;
 
+          const u = k.usage || { total: 0, generated: 0, success: 0, failed: 0 };
+          const usageHtml = `
+            <div style="display: flex; flex-direction: column; gap: 3px;">
+              <div style="font-weight: 600; font-size: 12px; color: var(--ink);">
+                ${u.total} <span style="font-size: 10px; font-weight: 400; color: var(--body-muted);">total</span>
+              </div>
+              <div style="display: flex; gap: 6px; font-size: 10px; font-family: var(--font-mono); line-height: 1;">
+                <span style="color: #3b82f6;" title="Generated Scripts">${u.generated} gen</span>
+                <span style="color: #10b981;" title="Passed Tests">${u.success} pass</span>
+                <span style="color: #ef4444;" title="Failed">${u.failed} fail</span>
+              </div>
+            </div>
+          `;
+
           tr.innerHTML = `
             <td><strong>${escapeHtml(k.name)}</strong></td>
             <td>
@@ -1896,6 +1910,7 @@
                 </button>
               </div>
             </td>
+            <td>${usageHtml}</td>
             <td><span style="font-size: 12px;">${new Date(k.createdAt).toLocaleDateString()}</span></td>
             <td><span style="font-size: 12px; color: var(--body-muted);">${k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleString() : 'Never'}</span></td>
             <td>${statusBadge}</td>
@@ -1904,7 +1919,7 @@
           tbody.appendChild(tr);
         });
       } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="6" style="color: var(--coral); text-align: center;">Failed to load API keys: ${err.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="color: var(--coral); text-align: center;">Failed to load API keys: ${err.message}</td></tr>`;
       }
     }
 

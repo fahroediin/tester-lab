@@ -94,6 +94,21 @@ CREATE TABLE IF NOT EXISTS api_keys (
 CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys (key_hash);
 CREATE INDEX IF NOT EXISTS idx_api_keys_user ON api_keys (user_id);
 
+-- 7. API KEY USAGE LOGS TABLE
+CREATE TABLE IF NOT EXISTS api_key_usage_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  api_key_id UUID REFERENCES api_keys(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL,
+  endpoint TEXT NOT NULL, -- 'generate-script' | 'run-test'
+  status TEXT NOT NULL, -- 'generated' | 'success' | 'failed'
+  details TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_api_key_usage_key ON api_key_usage_logs (api_key_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_api_key_usage_user ON api_key_usage_logs (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_api_key_usage_status ON api_key_usage_logs (status);
+
 
 -- ============================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
@@ -106,6 +121,7 @@ ALTER TABLE activity_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE app_config ENABLE ROW LEVEL SECURITY;
 ALTER TABLE feedbacks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE api_keys ENABLE ROW LEVEL SECURITY;
+ALTER TABLE api_key_usage_logs ENABLE ROW LEVEL SECURITY;
 
 -- USERS: Service role can do everything (server-side operations)
 CREATE POLICY "Service role full access on users"
@@ -140,6 +156,12 @@ CREATE POLICY "Service role full access on feedbacks"
 -- API KEYS: Service role can do everything
 CREATE POLICY "Service role full access on api_keys"
   ON api_keys FOR ALL
+  USING (true)
+  WITH CHECK (true);
+
+-- API KEY USAGE LOGS: Service role can do everything
+CREATE POLICY "Service role full access on api_key_usage_logs"
+  ON api_key_usage_logs FOR ALL
   USING (true)
   WITH CHECK (true);
 

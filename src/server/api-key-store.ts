@@ -160,11 +160,16 @@ export async function deleteApiKey(userId: string, keyId: string): Promise<boole
   return true;
 }
 
+export interface ApiKeyAuthResult {
+  user: User;
+  apiKey: ApiKeyRecord;
+}
+
 /**
  * Validate an incoming raw API Key against the database.
- * If valid and associated with an approved user, updates last_used_at and returns the User.
+ * If valid and associated with an approved user, updates last_used_at and returns User and ApiKeyRecord.
  */
-export async function validateApiKey(rawKey: string): Promise<User | null> {
+export async function validateApiKey(rawKey: string): Promise<ApiKeyAuthResult | null> {
   if (!rawKey || !rawKey.startsWith('tl_live_')) {
     return null;
   }
@@ -173,7 +178,7 @@ export async function validateApiKey(rawKey: string): Promise<User | null> {
 
   const { data: keyRecord, error: keyError } = await supabase
     .from('api_keys')
-    .select('id, user_id, status')
+    .select('*')
     .eq('key_hash', keyHash)
     .eq('status', 'active')
     .single();
@@ -206,12 +211,15 @@ export async function validateApiKey(rawKey: string): Promise<User | null> {
   ).catch((err: unknown) => console.warn('Failed to update api_key last_used_at:', err));
 
   return {
-    id: userRow.id,
-    username: userRow.username,
-    email: userRow.email,
-    passwordHash: userRow.password_hash,
-    role: userRow.role,
-    status: userRow.status,
-    createdAt: userRow.created_at
+    user: {
+      id: userRow.id,
+      username: userRow.username,
+      email: userRow.email,
+      passwordHash: userRow.password_hash,
+      role: userRow.role,
+      status: userRow.status,
+      createdAt: userRow.created_at
+    },
+    apiKey: rowToRecord(keyRecord)
   };
 }

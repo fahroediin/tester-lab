@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import { findUserByIdAsync } from './auth-store.js';
 import { validateApiKey } from './api-key-store.js';
 import type { User } from './auth-store.js';
+import type { ApiKeyRecord } from './api-key-store.js';
 
 export const JWT_SECRET = process.env.JWT_SECRET || (() => {
   console.warn('[SECURITY WARNING] JWT_SECRET not set in environment. Using auto-generated secret (sessions will NOT persist across restarts).');
@@ -12,6 +13,7 @@ export const JWT_SECRET = process.env.JWT_SECRET || (() => {
 
 export interface AuthenticatedRequest extends Request {
   user?: User;
+  apiKey?: ApiKeyRecord;
   authMethod?: 'jwt' | 'api_key';
 }
 
@@ -26,12 +28,13 @@ export async function authenticateJWT(req: AuthenticatedRequest, res: Response, 
   // 1. Check for API Key in X-API-Key header
   if (apiKeyHeader && apiKeyHeader.startsWith('tl_live_')) {
     try {
-      const user = await validateApiKey(apiKeyHeader);
-      if (!user) {
+      const authResult = await validateApiKey(apiKeyHeader);
+      if (!authResult) {
         res.status(401).json({ success: false, error: 'Invalid or revoked API Key.' });
         return;
       }
-      req.user = user;
+      req.user = authResult.user;
+      req.apiKey = authResult.apiKey;
       req.authMethod = 'api_key';
       next();
       return;
@@ -48,12 +51,13 @@ export async function authenticateJWT(req: AuthenticatedRequest, res: Response, 
     // 2a. API Key passed in Bearer header
     if (tokenOrKey.startsWith('tl_live_')) {
       try {
-        const user = await validateApiKey(tokenOrKey);
-        if (!user) {
+        const authResult = await validateApiKey(tokenOrKey);
+        if (!authResult) {
           res.status(401).json({ success: false, error: 'Invalid or revoked API Key.' });
           return;
         }
-        req.user = user;
+        req.user = authResult.user;
+        req.apiKey = authResult.apiKey;
         req.authMethod = 'api_key';
         next();
         return;

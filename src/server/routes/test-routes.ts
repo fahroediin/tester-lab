@@ -14,6 +14,7 @@ import { addHistory, updateHistory } from '../flow-history-store.js';
 import { TestScriptGenerator } from '../../index.js';
 import { DOMExtractor } from '../../crawler/dom-extractor.js';
 import { supabase } from '../supabase-client.js';
+import { recordApiKeyUsage } from '../api-key-usage-store.js';
 
 const execAsync = promisify(exec);
 export const testRoutes = Router();
@@ -51,6 +52,15 @@ testRoutes.post('/generate-script', authenticateJWT, requireApprovedUser, async 
         action: 'Generate Script Failed',
         details: 'Failed due to validation or generation errors'
       });
+      if (req.apiKey || req.authMethod === 'api_key') {
+        await recordApiKeyUsage({
+          apiKeyId: req.apiKey?.id,
+          userId: req.user!.id,
+          endpoint: 'generate-script',
+          status: 'failed',
+          details: `Generation failed: ${(result.warnings || []).join('; ')}`
+        });
+      }
       res.status(422).json({
         success: false,
         errors: result.warnings
@@ -64,6 +74,16 @@ testRoutes.post('/generate-script', authenticateJWT, requireApprovedUser, async 
       action: 'Generate Script',
       details: `Generated script for target URL: ${dsl.targetUrl}`
     });
+
+    if (req.apiKey || req.authMethod === 'api_key') {
+      await recordApiKeyUsage({
+        apiKeyId: req.apiKey?.id,
+        userId: req.user!.id,
+        endpoint: 'generate-script',
+        status: 'generated',
+        details: `Generated script for target URL: ${dsl.targetUrl}`
+      });
+    }
 
     const historyRecord = await addHistory({
       userId: req.user!.id,
@@ -154,6 +174,15 @@ testRoutes.post('/run-test', authenticateJWT, requireApprovedUser, async (req: A
         action: 'Run Test Blocked',
         details: `Code rejected: ${sanitizeResult.violations.join('; ')}`
       });
+      if (req.apiKey || req.authMethod === 'api_key') {
+        await recordApiKeyUsage({
+          apiKeyId: req.apiKey?.id,
+          userId: req.user!.id,
+          endpoint: 'run-test',
+          status: 'failed',
+          details: `Code rejected by sanitizer: ${sanitizeResult.violations.join('; ')}`
+        });
+      }
       res.status(403).json({
         success: false,
         error: 'Submitted code contains blocked patterns that are not allowed for security reasons.',
@@ -266,6 +295,16 @@ export default defineConfig({
         action: 'Run Test',
         details: `Ran script in ${mode} mode (Status: ${success ? 'Success' : 'Failed'}, Duration: ${durationMs}ms)`
       });
+
+      if (req.apiKey || req.authMethod === 'api_key') {
+        await recordApiKeyUsage({
+          apiKeyId: req.apiKey?.id,
+          userId: req.user!.id,
+          endpoint: 'run-test',
+          status: success ? 'success' : 'failed',
+          details: `Execution ${success ? 'Passed' : 'Failed'} (${durationMs}ms)`
+        });
+      }
 
       if (historyId) {
         await updateHistory(historyId, {

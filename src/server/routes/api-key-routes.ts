@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import { authenticateJWT, requireApprovedUser, requireJwtOnly } from '../auth-middleware.js';
 import type { AuthenticatedRequest } from '../auth-middleware.js';
 import { generateApiKey, getUserApiKeys, revokeApiKey, deleteApiKey } from '../api-key-store.js';
+import { getUserApiKeysUsageSummary, getAllApiKeysUsageSummary, getUsageResetDays, getPeriodStartDate } from '../api-key-usage-store.js';
 import { addLog } from '../activity-log-store.js';
 
 export const apiKeyRoutes = Router();
@@ -11,14 +12,31 @@ apiKeyRoutes.use(authenticateJWT, requireApprovedUser, requireJwtOnly);
 
 /**
  * GET /api/v1/api-keys
- * List all API keys belonging to the authenticated user
+ * List all API keys belonging to the authenticated user (or all keys if admin) with usage summary
  */
 apiKeyRoutes.get('/', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const keys = await getUserApiKeys(req.user!.id);
+    const usageMap = await getUserApiKeysUsageSummary(req.user!.id);
+    const periodDays = getUsageResetDays();
+    const periodStart = getPeriodStartDate().toISOString();
+
+    const enrichedKeys = keys.map((k) => ({
+      ...k,
+      usage: usageMap[k.id] || {
+        apiKeyId: k.id,
+        total: 0,
+        generated: 0,
+        success: 0,
+        failed: 0,
+        periodDays,
+        periodStart
+      }
+    }));
+
     res.json({
       success: true,
-      data: keys
+      data: enrichedKeys
     });
   } catch (err: any) {
     res.status(500).json({

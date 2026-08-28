@@ -26,12 +26,13 @@ async function authenticateJWT(req, res, next) {
     // 1. Check for API Key in X-API-Key header
     if (apiKeyHeader && apiKeyHeader.startsWith('tl_live_')) {
         try {
-            const user = await (0, api_key_store_js_1.validateApiKey)(apiKeyHeader);
-            if (!user) {
+            const authResult = await (0, api_key_store_js_1.validateApiKey)(apiKeyHeader);
+            if (!authResult) {
                 res.status(401).json({ success: false, error: 'Invalid or revoked API Key.' });
                 return;
             }
-            req.user = user;
+            req.user = authResult.user;
+            req.apiKey = authResult.apiKey;
             req.authMethod = 'api_key';
             next();
             return;
@@ -47,12 +48,13 @@ async function authenticateJWT(req, res, next) {
         // 2a. API Key passed in Bearer header
         if (tokenOrKey.startsWith('tl_live_')) {
             try {
-                const user = await (0, api_key_store_js_1.validateApiKey)(tokenOrKey);
-                if (!user) {
+                const authResult = await (0, api_key_store_js_1.validateApiKey)(tokenOrKey);
+                if (!authResult) {
                     res.status(401).json({ success: false, error: 'Invalid or revoked API Key.' });
                     return;
                 }
-                req.user = user;
+                req.user = authResult.user;
+                req.apiKey = authResult.apiKey;
                 req.authMethod = 'api_key';
                 next();
                 return;

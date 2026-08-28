@@ -19,6 +19,7 @@ const flow_history_store_js_1 = require("../flow-history-store.js");
 const index_js_1 = require("../../index.js");
 const dom_extractor_js_1 = require("../../crawler/dom-extractor.js");
 const supabase_client_js_1 = require("../supabase-client.js");
+const api_key_usage_store_js_1 = require("../api-key-usage-store.js");
 const execAsync = (0, util_1.promisify)(child_process_1.exec);
 exports.testRoutes = (0, express_1.Router)();
 const generator = new index_js_1.TestScriptGenerator();
@@ -50,6 +51,15 @@ exports.testRoutes.post('/generate-script', auth_middleware_js_1.authenticateJWT
                 action: 'Generate Script Failed',
                 details: 'Failed due to validation or generation errors'
             });
+            if (req.apiKey || req.authMethod === 'api_key') {
+                await (0, api_key_usage_store_js_1.recordApiKeyUsage)({
+                    apiKeyId: req.apiKey?.id,
+                    userId: req.user.id,
+                    endpoint: 'generate-script',
+                    status: 'failed',
+                    details: `Generation failed: ${(result.warnings || []).join('; ')}`
+                });
+            }
             res.status(422).json({
                 success: false,
                 errors: result.warnings
@@ -62,6 +72,15 @@ exports.testRoutes.post('/generate-script', auth_middleware_js_1.authenticateJWT
             action: 'Generate Script',
             details: `Generated script for target URL: ${dsl.targetUrl}`
         });
+        if (req.apiKey || req.authMethod === 'api_key') {
+            await (0, api_key_usage_store_js_1.recordApiKeyUsage)({
+                apiKeyId: req.apiKey?.id,
+                userId: req.user.id,
+                endpoint: 'generate-script',
+                status: 'generated',
+                details: `Generated script for target URL: ${dsl.targetUrl}`
+            });
+        }
         const historyRecord = await (0, flow_history_store_js_1.addHistory)({
             userId: req.user.id,
             username: req.user.username,
@@ -145,6 +164,15 @@ exports.testRoutes.post('/run-test', auth_middleware_js_1.authenticateJWT, auth_
                 action: 'Run Test Blocked',
                 details: `Code rejected: ${sanitizeResult.violations.join('; ')}`
             });
+            if (req.apiKey || req.authMethod === 'api_key') {
+                await (0, api_key_usage_store_js_1.recordApiKeyUsage)({
+                    apiKeyId: req.apiKey?.id,
+                    userId: req.user.id,
+                    endpoint: 'run-test',
+                    status: 'failed',
+                    details: `Code rejected by sanitizer: ${sanitizeResult.violations.join('; ')}`
+                });
+            }
             res.status(403).json({
                 success: false,
                 error: 'Submitted code contains blocked patterns that are not allowed for security reasons.',
@@ -249,6 +277,15 @@ export default defineConfig({
                 action: 'Run Test',
                 details: `Ran script in ${mode} mode (Status: ${success ? 'Success' : 'Failed'}, Duration: ${durationMs}ms)`
             });
+            if (req.apiKey || req.authMethod === 'api_key') {
+                await (0, api_key_usage_store_js_1.recordApiKeyUsage)({
+                    apiKeyId: req.apiKey?.id,
+                    userId: req.user.id,
+                    endpoint: 'run-test',
+                    status: success ? 'success' : 'failed',
+                    details: `Execution ${success ? 'Passed' : 'Failed'} (${durationMs}ms)`
+                });
+            }
             if (historyId) {
                 await (0, flow_history_store_js_1.updateHistory)(historyId, {
                     status: success ? 'SUCCESS' : 'FAILED',
