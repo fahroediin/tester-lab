@@ -1526,21 +1526,24 @@
       
       tbody.innerHTML = '';
       paginated.forEach(h => {
-        let statusColor = 'var(--slate)';
-        if (h.status === 'SUCCESS') statusColor = 'var(--deep-green)';
-        else if (h.status === 'FAILED') statusColor = 'var(--coral)';
-        else if (h.status === 'RUNNING') statusColor = '#eab308';
-        else if (h.status === 'GENERATED') statusColor = 'var(--action-blue)';
+        let badgeClass = 'status-badge-pill';
+        if (h.status === 'SUCCESS') badgeClass += ' status-badge-success';
+        else if (h.status === 'FAILED') badgeClass += ' status-badge-failed';
+        else if (h.status === 'RUNNING') badgeClass += ' status-badge-running';
+        else if (h.status === 'GENERATED') badgeClass += ' status-badge-generated';
+        else badgeClass += ' status-badge-generated';
         
         const tr = document.createElement('tr');
         tr.innerHTML = `
-          <td><span style="font-size: 11px; font-family: var(--font-mono); color: var(--slate);">${new Date(h.timestamp).toLocaleString()}</span></td>
-          <td><span style="font-weight: 500;">${h.testSuite}</span></td>
-          <td><span style="font-family: var(--font-mono); font-size: 11px; word-break: break-all;">${h.targetUrl}</span></td>
-          <td style="text-align: center;"><span style="font-weight: 600; font-size: 11px; color: ${statusColor};">${h.status}</span></td>
-          <td style="text-align: center; display: flex; gap: 8px; justify-content: center;">
-            <button class="btn-pill-outline" onclick="viewHistory('${h.id}')" style="padding: 4px 10px; font-size: 11px; min-height: unset; height: auto;">View</button>
-            <button class="btn-pill-outline" onclick="deleteHistory('${h.id}')" style="padding: 4px 10px; font-size: 11px; min-height: unset; height: auto; color: var(--coral); border-color: var(--coral);">Delete</button>
+          <td style="vertical-align: middle;"><span style="font-size: 11px; font-family: var(--font-mono); color: var(--slate);">${new Date(h.timestamp).toLocaleString()}</span></td>
+          <td style="vertical-align: middle;"><span style="font-weight: 500;">${h.testSuite}</span></td>
+          <td style="vertical-align: middle;"><span style="font-family: var(--font-mono); font-size: 11px; word-break: break-all;">${h.targetUrl}</span></td>
+          <td style="text-align: center; vertical-align: middle;"><span class="${badgeClass}">${h.status}</span></td>
+          <td style="text-align: center; vertical-align: middle;">
+            <div style="display: flex; gap: 8px; justify-content: center; align-items: center;">
+              <button class="btn-pill-outline" onclick="viewHistory('${h.id}')" style="padding: 4px 10px; font-size: 11px; min-height: unset; height: auto;">View</button>
+              <button class="btn-pill-outline" onclick="deleteHistory('${h.id}')" style="padding: 4px 10px; font-size: 11px; min-height: unset; height: auto; color: var(--coral); border-color: var(--coral);">Delete</button>
+            </div>
           </td>
         `;
         tbody.appendChild(tr);
@@ -1563,13 +1566,14 @@
         document.getElementById('histUrl').textContent = h.targetUrl;
         document.getElementById('histDate').textContent = new Date(h.timestamp).toLocaleString();
         
-        let statusColor = 'var(--slate)';
-        if (h.status === 'SUCCESS') statusColor = 'var(--deep-green)';
-        else if (h.status === 'FAILED') statusColor = 'var(--coral)';
-        else if (h.status === 'RUNNING') statusColor = '#eab308';
-        else if (h.status === 'GENERATED') statusColor = 'var(--action-blue)';
+        let modalBadgeClass = 'status-badge-pill';
+        if (h.status === 'SUCCESS') modalBadgeClass += ' status-badge-success';
+        else if (h.status === 'FAILED') modalBadgeClass += ' status-badge-failed';
+        else if (h.status === 'RUNNING') modalBadgeClass += ' status-badge-running';
+        else if (h.status === 'GENERATED') modalBadgeClass += ' status-badge-generated';
+        else modalBadgeClass += ' status-badge-generated';
         
-        document.getElementById('histStatus').innerHTML = `<span style="color: ${statusColor}; font-weight: bold;">${h.status}</span>`;
+        document.getElementById('histStatus').innerHTML = `<span class="${modalBadgeClass}">${h.status}</span>`;
         document.getElementById('histCode').textContent = h.generatedCode || 'No code generated';
         
         // Render Steps
