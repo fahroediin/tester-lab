@@ -319,6 +319,7 @@
     }
 
     function resetGeneratedState() {
+      latestGeneratedCode = ''; // Ensure memory is cleared
       const generatedCodeCard = document.getElementById('generatedCodeCard');
       const codeOutput = document.getElementById('codeOutput');
       const summarySection = document.getElementById('summarySection');
@@ -896,6 +897,10 @@
       const cliTerminalCard = document.getElementById('cliTerminalCard');
       if (cliTerminalCard) cliTerminalCard.classList.add('highlight-red');
 
+      // Disable Execution Steps so they cannot be changed during run
+      const stepListInputs = document.querySelectorAll('#stepList input, #stepList select, #stepList button');
+      stepListInputs.forEach(el => el.disabled = true);
+
       try {
         const response = await fetch('/api/v1/run-test', {
           method: 'POST',
@@ -944,8 +949,13 @@
         terminalOutput.textContent = `[ERROR] Failed to communicate with runner service: ${err.message}`;
       } finally {
         btn.disabled = false;
+        btn.innerHTML = 'Run Script Now';
         const cliTerminalCard = document.getElementById('cliTerminalCard');
         if (cliTerminalCard) cliTerminalCard.classList.remove('highlight-red');
+        
+        // Re-enable Execution Steps
+        const stepListInputs = document.querySelectorAll('#stepList input, #stepList select, #stepList button');
+        stepListInputs.forEach(el => el.disabled = false);
       }
     }
 
