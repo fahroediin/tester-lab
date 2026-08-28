@@ -1,7 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
-import { findUserById, User } from './auth-store.js';
+import { findUserByIdAsync } from './auth-store.js';
+import type { User } from './auth-store.js';
 
 export const JWT_SECRET = process.env.JWT_SECRET || (() => {
   console.warn('[SECURITY WARNING] JWT_SECRET not set in environment. Using auto-generated secret (sessions will NOT persist across restarts).');
@@ -22,15 +23,18 @@ export function authenticateJWT(req: AuthenticatedRequest, res: Response, next: 
   const token = authHeader.substring(7);
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
-    const user = findUserById(decoded.userId);
 
-    if (!user) {
-      res.status(401).json({ success: false, error: 'Invalid authentication token.' });
-      return;
-    }
+    findUserByIdAsync(decoded.userId).then(user => {
+      if (!user) {
+        res.status(401).json({ success: false, error: 'Invalid authentication token.' });
+        return;
+      }
 
-    req.user = user;
-    next();
+      req.user = user;
+      next();
+    }).catch(() => {
+      res.status(401).json({ success: false, error: 'Authentication error.' });
+    });
   } catch (err: unknown) {
     res.status(401).json({ success: false, error: 'Session expired or invalid token. Please log in again.' });
   }

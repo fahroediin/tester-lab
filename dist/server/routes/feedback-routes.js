@@ -4,26 +4,21 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.feedbackRoutes = void 0;
-const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
 const crypto_1 = __importDefault(require("crypto"));
 const express_1 = require("express");
+const supabase_client_js_1 = require("../supabase-client.js");
 exports.feedbackRoutes = (0, express_1.Router)();
 /**
  * POST /api/v1/feedback
- * Submit user feedback with optional file attachment
+ * Submit user feedback with optional file attachment (stored in Supabase Storage)
  */
-exports.feedbackRoutes.post('/', (req, res) => {
+exports.feedbackRoutes.post('/', async (req, res) => {
     try {
         const { type, details, fileBase64, filename } = req.body;
         if (!type || !details) {
             res.status(400).json({ success: false, error: 'Type and details are required' });
             return;
-        }
-        const feedbackDir = path_1.default.join(process.cwd(), 'data', 'feedbacks');
-        const attachmentsDir = path_1.default.join(feedbackDir, 'attachments');
-        if (!fs_1.default.existsSync(attachmentsDir)) {
-            fs_1.default.mkdirSync(attachmentsDir, { recursive: true });
         }
         const feedbackId = crypto_1.default.randomUUID();
         let savedFilename = null;
@@ -43,23 +38,33 @@ exports.feedbackRoutes.post('/', (req, res) => {
                 return;
             }
             savedFilename = `${feedbackId}${ext}`;
-            const filePath = path_1.default.join(attachmentsDir, savedFilename);
-            fs_1.default.writeFileSync(filePath, buffer);
+            // Upload to Supabase Storage
+            const { error: uploadError } = await supabase_client_js_1.supabase.storage
+                .from('feedback-attachments')
+                .upload(savedFilename, buffer, {
+                contentType: `image/${ext.replace('.', '')}`,
+                upsert: false
+            });
+            if (uploadError) {
+                console.error('Failed to upload feedback attachment to Supabase Storage:', uploadError);
+                res.status(500).json({ success: false, error: 'Failed to upload attachment' });
+                return;
+            }
         }
-        const feedbackData = {
+        // Save feedback metadata to Supabase table
+        const { error: insertError } = await supabase_client_js_1.supabase
+            .from('feedbacks')
+            .insert({
             id: feedbackId,
-            timestamp: new Date().toISOString(),
             type,
             details,
             attachment: savedFilename
-        };
-        const logFile = path_1.default.join(feedbackDir, 'feedbacks.json');
-        let feedbacks = [];
-        if (fs_1.default.existsSync(logFile)) {
-            feedbacks = JSON.parse(fs_1.default.readFileSync(logFile, 'utf-8'));
+        });
+        if (insertError) {
+            console.error('Failed to save feedback to Supabase:', insertError);
+            res.status(500).json({ success: false, error: 'Failed to save feedback' });
+            return;
         }
-        feedbacks.push(feedbackData);
-        fs_1.default.writeFileSync(logFile, JSON.stringify(feedbacks, null, 2));
         res.json({ success: true, message: 'Feedback submitted successfully' });
     }
     catch (err) {

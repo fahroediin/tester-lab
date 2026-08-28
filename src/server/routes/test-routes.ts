@@ -42,7 +42,7 @@ testRoutes.post('/generate-script', authenticateJWT, requireApprovedUser, async 
     });
 
     if (!result.success) {
-      addLog({
+      await addLog({
         userId: req.user!.id,
         username: req.user!.username,
         action: 'Generate Script Failed',
@@ -55,14 +55,14 @@ testRoutes.post('/generate-script', authenticateJWT, requireApprovedUser, async 
       return;
     }
 
-    addLog({
+    await addLog({
       userId: req.user!.id,
       username: req.user!.username,
       action: 'Generate Script',
       details: `Generated script for target URL: ${dsl.targetUrl}`
     });
 
-    const historyRecord = addHistory({
+    const historyRecord = await addHistory({
       userId: req.user!.id,
       username: req.user!.username,
       testSuite: dsl.testSuite || 'Unknown Test Suite',
@@ -145,7 +145,7 @@ testRoutes.post('/run-test', authenticateJWT, requireApprovedUser, async (req: A
     // Layer 2: Code Content Validation — block dangerous patterns
     const sanitizeResult = sanitizeCode(code);
     if (!sanitizeResult.safe) {
-      addLog({
+      await addLog({
         userId: req.user!.id,
         username: req.user!.username,
         action: 'Run Test Blocked',
@@ -160,7 +160,7 @@ testRoutes.post('/run-test', authenticateJWT, requireApprovedUser, async (req: A
     }
 
     if (historyId) {
-      updateHistory(historyId, { status: 'RUNNING' });
+      await updateHistory(historyId, { status: 'RUNNING' });
     }
 
     // Enqueue task into Concurrency Manager
@@ -246,7 +246,7 @@ export default defineConfig({
 
       const durationMs = Date.now() - startTime;
       
-      addLog({
+      await addLog({
         userId: req.user!.id,
         username: req.user!.username,
         action: 'Run Test',
@@ -254,7 +254,7 @@ export default defineConfig({
       });
 
       if (historyId) {
-        updateHistory(historyId, {
+        await updateHistory(historyId, {
           status: success ? 'SUCCESS' : 'FAILED',
           durationMs,
           runLogs: logs.trim(),

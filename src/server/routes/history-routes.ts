@@ -9,10 +9,10 @@ export const historyRoutes = Router();
  * GET /api/v1/history
  * Get all history records for the current user
  */
-historyRoutes.get('/', authenticateJWT, requireApprovedUser, (req: AuthenticatedRequest, res: Response) => {
+historyRoutes.get('/', authenticateJWT, requireApprovedUser, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.user!.id;
-    const history = getUserHistory(userId);
+    const history = await getUserHistory(userId);
     
     // Map to strip out heavy fields (like generatedCode, resolvedSteps, logs) for the list view
     const summary = history.map(h => ({
@@ -36,12 +36,12 @@ historyRoutes.get('/', authenticateJWT, requireApprovedUser, (req: Authenticated
  * GET /api/v1/history/:id
  * Get details for a specific history record
  */
-historyRoutes.get('/:id', authenticateJWT, requireApprovedUser, (req: AuthenticatedRequest, res: Response) => {
+historyRoutes.get('/:id', authenticateJWT, requireApprovedUser, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     const userId = req.user!.id;
     
-    const record = getHistoryById(id || '');
+    const record = await getHistoryById(id || '');
     if (!record) {
       res.status(404).json({ success: false, error: 'History record not found' });
       return;
@@ -63,12 +63,12 @@ historyRoutes.get('/:id', authenticateJWT, requireApprovedUser, (req: Authentica
  * DELETE /api/v1/history/:id
  * Delete a specific history record
  */
-historyRoutes.delete('/:id', authenticateJWT, requireApprovedUser, (req: AuthenticatedRequest, res: Response) => {
+historyRoutes.delete('/:id', authenticateJWT, requireApprovedUser, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     const userId = req.user!.id;
     
-    const record = getHistoryById(id || '');
+    const record = await getHistoryById(id || '');
     if (!record) {
       res.status(404).json({ success: false, error: 'History record not found' });
       return;
@@ -79,7 +79,7 @@ historyRoutes.delete('/:id', authenticateJWT, requireApprovedUser, (req: Authent
       return;
     }
     
-    const deleted = deleteHistory(record.id);
+    const deleted = await deleteHistory(record.id);
     if (!deleted) {
       res.status(500).json({ success: false, error: 'Failed to delete record' });
       return;

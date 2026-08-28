@@ -8,9 +8,9 @@ export const configRoutes = Router();
  * GET /api/v1/config
  * Get application configuration
  */
-configRoutes.get('/', authenticateJWT, (req: Request, res: Response) => {
+configRoutes.get('/', authenticateJWT, async (req: Request, res: Response) => {
   try {
-    const config = loadConfig();
+    const config = await loadConfig();
     res.json({
       success: true,
       data: config
@@ -28,7 +28,7 @@ configRoutes.get('/', authenticateJWT, (req: Request, res: Response) => {
  * POST /api/v1/config
  * Update application configuration (Admin only)
  */
-configRoutes.post('/', authenticateJWT, requireAdmin, (req: Request, res: Response) => {
+configRoutes.post('/', authenticateJWT, requireAdmin, async (req: Request, res: Response) => {
   try {
     const { sampleTestSuite, sampleTargetUrl, sampleSteps } = req.body;
 
@@ -46,7 +46,7 @@ configRoutes.post('/', authenticateJWT, requireAdmin, (req: Request, res: Respon
       sampleSteps
     };
 
-    saveConfig(newConfig);
+    await saveConfig(newConfig);
 
     res.json({
       success: true,

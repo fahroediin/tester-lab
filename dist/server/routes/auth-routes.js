@@ -32,7 +32,7 @@ exports.authRoutes.post('/register', async (req, res) => {
             });
             return;
         }
-        const existingUser = (0, auth_store_js_1.findUserByUsername)(username);
+        const existingUser = await (0, auth_store_js_1.findUserByUsernameAsync)(username);
         if (existingUser) {
             res.status(409).json({
                 success: false,
@@ -41,14 +41,14 @@ exports.authRoutes.post('/register', async (req, res) => {
             return;
         }
         const passwordHash = bcryptjs_1.default.hashSync(password, 10);
-        const newUser = (0, auth_store_js_1.addUser)({
+        const newUser = await (0, auth_store_js_1.addUser)({
             username,
             email,
             passwordHash,
             role: 'user',
             status: 'pending'
         });
-        (0, activity_log_store_js_1.addLog)({
+        await (0, activity_log_store_js_1.addLog)({
             userId: newUser.id,
             username: newUser.username,
             action: 'Register',
@@ -68,7 +68,7 @@ exports.authRoutes.post('/register', async (req, res) => {
     }
     catch (err) {
         const error = err;
-        (0, activity_log_store_js_1.addLog)({
+        await (0, activity_log_store_js_1.addLog)({
             username: req.body.username || 'System',
             action: 'Register Failed',
             details: error.message || 'Internal Server Error'
@@ -93,9 +93,9 @@ exports.authRoutes.post('/login', async (req, res) => {
             });
             return;
         }
-        const user = (0, auth_store_js_1.findUserByUsername)(username);
+        const user = await (0, auth_store_js_1.findUserByUsernameAsync)(username);
         if (!user) {
-            (0, activity_log_store_js_1.addLog)({
+            await (0, activity_log_store_js_1.addLog)({
                 username: username,
                 action: 'Login Failed',
                 details: 'Invalid username'
@@ -108,7 +108,7 @@ exports.authRoutes.post('/login', async (req, res) => {
         }
         const isMatch = bcryptjs_1.default.compareSync(password, user.passwordHash);
         if (!isMatch) {
-            (0, activity_log_store_js_1.addLog)({
+            await (0, activity_log_store_js_1.addLog)({
                 userId: user.id,
                 username: user.username,
                 action: 'Login Failed',
@@ -121,7 +121,7 @@ exports.authRoutes.post('/login', async (req, res) => {
             return;
         }
         if (user.status === 'pending') {
-            (0, activity_log_store_js_1.addLog)({
+            await (0, activity_log_store_js_1.addLog)({
                 userId: user.id,
                 username: user.username,
                 action: 'Login Failed',
@@ -134,7 +134,7 @@ exports.authRoutes.post('/login', async (req, res) => {
             return;
         }
         if (user.status === 'rejected') {
-            (0, activity_log_store_js_1.addLog)({
+            await (0, activity_log_store_js_1.addLog)({
                 userId: user.id,
                 username: user.username,
                 action: 'Login Failed',
@@ -152,7 +152,7 @@ exports.authRoutes.post('/login', async (req, res) => {
             role: user.role,
             status: user.status
         }, auth_middleware_js_1.JWT_SECRET, { expiresIn: '7d' });
-        (0, activity_log_store_js_1.addLog)({
+        await (0, activity_log_store_js_1.addLog)({
             userId: user.id,
             username: user.username,
             action: 'Login Success',

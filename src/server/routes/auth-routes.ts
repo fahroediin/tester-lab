@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { findUserByUsername, addUser } from '../auth-store.js';
+import { findUserByUsernameAsync, addUser } from '../auth-store.js';
 import { addLog } from '../activity-log-store.js';
 import { authenticateJWT, JWT_SECRET } from '../auth-middleware.js';
 import type { AuthenticatedRequest } from '../auth-middleware.js';
@@ -32,7 +32,7 @@ authRoutes.post('/register', async (req: Request, res: Response) => {
       return;
     }
 
-    const existingUser = findUserByUsername(username);
+    const existingUser = await findUserByUsernameAsync(username);
     if (existingUser) {
       res.status(409).json({
         success: false,
@@ -42,7 +42,7 @@ authRoutes.post('/register', async (req: Request, res: Response) => {
     }
 
     const passwordHash = bcrypt.hashSync(password, 10);
-    const newUser = addUser({
+    const newUser = await addUser({
       username,
       email,
       passwordHash,
@@ -50,7 +50,7 @@ authRoutes.post('/register', async (req: Request, res: Response) => {
       status: 'pending'
     });
 
-    addLog({
+    await addLog({
       userId: newUser.id,
       username: newUser.username,
       action: 'Register',
@@ -70,7 +70,7 @@ authRoutes.post('/register', async (req: Request, res: Response) => {
     });
   } catch (err: unknown) {
     const error = err as Error;
-    addLog({
+    await addLog({
       username: req.body.username || 'System',
       action: 'Register Failed',
       details: error.message || 'Internal Server Error'
@@ -98,9 +98,9 @@ authRoutes.post('/login', async (req: Request, res: Response) => {
       return;
     }
 
-    const user = findUserByUsername(username);
+    const user = await findUserByUsernameAsync(username);
     if (!user) {
-      addLog({
+      await addLog({
         username: username,
         action: 'Login Failed',
         details: 'Invalid username'
@@ -114,7 +114,7 @@ authRoutes.post('/login', async (req: Request, res: Response) => {
 
     const isMatch = bcrypt.compareSync(password, user.passwordHash);
     if (!isMatch) {
-      addLog({
+      await addLog({
         userId: user.id,
         username: user.username,
         action: 'Login Failed',
@@ -128,7 +128,7 @@ authRoutes.post('/login', async (req: Request, res: Response) => {
     }
 
     if (user.status === 'pending') {
-      addLog({
+      await addLog({
         userId: user.id,
         username: user.username,
         action: 'Login Failed',
@@ -142,7 +142,7 @@ authRoutes.post('/login', async (req: Request, res: Response) => {
     }
 
     if (user.status === 'rejected') {
-      addLog({
+      await addLog({
         userId: user.id,
         username: user.username,
         action: 'Login Failed',
@@ -166,7 +166,7 @@ authRoutes.post('/login', async (req: Request, res: Response) => {
       { expiresIn: '7d' }
     );
 
-    addLog({
+    await addLog({
       userId: user.id,
       username: user.username,
       action: 'Login Success',

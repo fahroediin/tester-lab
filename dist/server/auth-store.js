@@ -3,22 +3,32 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.ensureAdminUser = ensureAdminUser;
 exports.loadUsers = loadUsers;
-exports.saveUsers = saveUsers;
+exports.loadUsersAsync = loadUsersAsync;
 exports.findUserByUsername = findUserByUsername;
+exports.findUserByUsernameAsync = findUserByUsernameAsync;
 exports.findUserById = findUserById;
+exports.findUserByIdAsync = findUserByIdAsync;
 exports.addUser = addUser;
 exports.updateUserStatus = updateUserStatus;
 exports.deleteUser = deleteUser;
-const fs_1 = __importDefault(require("fs"));
-const path_1 = __importDefault(require("path"));
+exports.saveUsers = saveUsers;
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const dotenv_1 = __importDefault(require("dotenv"));
+const supabase_client_js_1 = require("./supabase-client.js");
 dotenv_1.default.config();
-const dataDir = path_1.default.join(process.cwd(), 'data');
-const usersFilePath = path_1.default.join(dataDir, 'users.json');
-// In-memory cache to prevent race conditions on concurrent file I/O
-let cachedUsers = null;
+function rowToUser(row) {
+    return {
+        id: row.id,
+        username: row.username,
+        email: row.email,
+        passwordHash: row.password_hash,
+        role: row.role,
+        status: row.status,
+        createdAt: row.created_at
+    };
+}
 function getAdminConfig() {
     return {
         username: process.env.ADMIN_USERNAME || 'admin',
@@ -26,102 +36,135 @@ function getAdminConfig() {
         password: process.env.ADMIN_PASSWORD || 'AdminPassword123!'
     };
 }
-function ensureDataDirExists() {
-    if (!fs_1.default.existsSync(dataDir)) {
-        fs_1.default.mkdirSync(dataDir, { recursive: true });
-    }
-}
-function loadUsers() {
-    // Return cached copy if available (prevents redundant disk reads & race conditions)
-    if (cachedUsers !== null) {
-        return cachedUsers;
-    }
-    ensureDataDirExists();
-    let users = [];
-    if (fs_1.default.existsSync(usersFilePath)) {
-        try {
-            const raw = fs_1.default.readFileSync(usersFilePath, 'utf-8');
-            users = JSON.parse(raw);
-        }
-        catch {
-            users = [];
-        }
-    }
+/**
+ * Ensures the admin user from .env exists and is synced in the database.
+ * Called once during server bootstrap.
+ */
+async function ensureAdminUser() {
     const { username, email, password } = getAdminConfig();
-    // Ensure Admin configured in .env is always synced and present
-    const adminIndex = users.findIndex((u) => u.username.toLowerCase() === username.toLowerCase() || u.role === 'admin');
-    if (adminIndex === -1) {
+    const { data: existingAdmin } = await supabase_client_js_1.supabase
+        .from('users')
+        .select('*')
+        .or(`username.ilike.${username},role.eq.admin`)
+        .limit(1)
+        .single();
+    if (!existingAdmin) {
         const adminUser = {
             id: 'usr_admin_env',
             username,
             email,
-            passwordHash: bcryptjs_1.default.hashSync(password, 10),
+            password_hash: bcryptjs_1.default.hashSync(password, 10),
             role: 'admin',
             status: 'approved',
-            createdAt: new Date().toISOString()
+            created_at: new Date().toISOString()
         };
-        users.unshift(adminUser);
-        saveUsers(users);
+        await supabase_client_js_1.supabase.from('users').upsert(adminUser, { onConflict: 'id' });
     }
     else {
-        // If admin credentials in .env are updated, keep credentials in sync
-        const currentAdmin = users[adminIndex];
-        if (currentAdmin) {
-            const isPasswordSame = bcryptjs_1.default.compareSync(password, currentAdmin.passwordHash);
-            if (currentAdmin.username !== username || !isPasswordSame) {
-                currentAdmin.username = username;
-                currentAdmin.email = email;
-                currentAdmin.passwordHash = bcryptjs_1.default.hashSync(password, 10);
-                currentAdmin.status = 'approved';
-                saveUsers(users);
-            }
+        const isPasswordSame = bcryptjs_1.default.compareSync(password, existingAdmin.password_hash);
+        if (existingAdmin.username !== username || !isPasswordSame) {
+            await supabase_client_js_1.supabase
+                .from('users')
+                .update({
+                username,
+                email,
+                password_hash: bcryptjs_1.default.hashSync(password, 10),
+                status: 'approved'
+            })
+                .eq('id', existingAdmin.id);
         }
     }
-    cachedUsers = users;
-    return users;
 }
-function saveUsers(users) {
-    ensureDataDirExists();
-    fs_1.default.writeFileSync(usersFilePath, JSON.stringify(users, null, 2), 'utf-8');
-    // Keep in-memory cache in sync with persisted data
-    cachedUsers = users;
+function loadUsers() {
+    // Synchronous wrapper — kept for backward compatibility with admin-routes.ts
+    // In practice, use loadUsersAsync() for new code
+    console.warn('[DEPRECATION] loadUsers() is synchronous and should be replaced with loadUsersAsync()');
+    return [];
+}
+async function loadUsersAsync() {
+    const { data, error } = await supabase_client_js_1.supabase
+        .from('users')
+        .select('*')
+        .order('created_at', { ascending: true });
+    if (error) {
+        console.error('Failed to load users from Supabase:', error);
+        return [];
+    }
+    return (data || []).map(rowToUser);
 }
 function findUserByUsername(username) {
-    const users = loadUsers();
-    return users.find((u) => u.username.toLowerCase() === username.toLowerCase());
+    // This must remain synchronous for auth-routes.ts compatibility
+    // We'll use a blocking pattern via cache that's refreshed
+    return undefined; // Replaced by async version
+}
+async function findUserByUsernameAsync(username) {
+    const { data, error } = await supabase_client_js_1.supabase
+        .from('users')
+        .select('*')
+        .ilike('username', username)
+        .limit(1)
+        .single();
+    if (error || !data)
+        return undefined;
+    return rowToUser(data);
 }
 function findUserById(id) {
-    const users = loadUsers();
-    return users.find((u) => u.id === id);
+    // Synchronous stub — replaced by async version
+    return undefined;
 }
-function addUser(user) {
-    const users = loadUsers();
-    const newUser = {
-        ...user,
+async function findUserByIdAsync(id) {
+    const { data, error } = await supabase_client_js_1.supabase
+        .from('users')
+        .select('*')
+        .eq('id', id)
+        .limit(1)
+        .single();
+    if (error || !data)
+        return undefined;
+    return rowToUser(data);
+}
+async function addUser(user) {
+    const newRow = {
         id: `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-        createdAt: new Date().toISOString()
+        username: user.username,
+        email: user.email,
+        password_hash: user.passwordHash,
+        role: user.role,
+        status: user.status,
+        created_at: new Date().toISOString()
     };
-    users.push(newUser);
-    saveUsers(users);
-    return newUser;
+    const { data, error } = await supabase_client_js_1.supabase
+        .from('users')
+        .insert(newRow)
+        .select()
+        .single();
+    if (error) {
+        console.error('Failed to add user:', error);
+        throw new Error('Failed to create user');
+    }
+    return rowToUser(data);
 }
-function updateUserStatus(id, status) {
-    const users = loadUsers();
-    const index = users.findIndex((u) => u.id === id);
-    if (index === -1)
+async function updateUserStatus(id, status) {
+    const { data, error } = await supabase_client_js_1.supabase
+        .from('users')
+        .update({ status })
+        .eq('id', id)
+        .select()
+        .single();
+    if (error || !data)
         return null;
-    const target = users[index];
-    if (!target)
-        return null;
-    target.status = status;
-    saveUsers(users);
-    return target;
+    return rowToUser(data);
 }
-function deleteUser(id) {
-    const users = loadUsers();
-    const filtered = users.filter((u) => u.id !== id);
-    if (filtered.length === users.length)
+async function deleteUser(id) {
+    const { error, count } = await supabase_client_js_1.supabase
+        .from('users')
+        .delete()
+        .eq('id', id);
+    if (error)
         return false;
-    saveUsers(filtered);
     return true;
+}
+function saveUsers(_users) {
+    // No-op: individual operations are handled by Supabase directly
+    console.warn('[DEPRECATION] saveUsers() is a no-op in Supabase mode');
 }

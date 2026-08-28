@@ -41,7 +41,7 @@ exports.testRoutes.post('/generate-script', auth_middleware_js_1.authenticateJWT
             outPath
         });
         if (!result.success) {
-            (0, activity_log_store_js_1.addLog)({
+            await (0, activity_log_store_js_1.addLog)({
                 userId: req.user.id,
                 username: req.user.username,
                 action: 'Generate Script Failed',
@@ -53,13 +53,13 @@ exports.testRoutes.post('/generate-script', auth_middleware_js_1.authenticateJWT
             });
             return;
         }
-        (0, activity_log_store_js_1.addLog)({
+        await (0, activity_log_store_js_1.addLog)({
             userId: req.user.id,
             username: req.user.username,
             action: 'Generate Script',
             details: `Generated script for target URL: ${dsl.targetUrl}`
         });
-        const historyRecord = (0, flow_history_store_js_1.addHistory)({
+        const historyRecord = await (0, flow_history_store_js_1.addHistory)({
             userId: req.user.id,
             username: req.user.username,
             testSuite: dsl.testSuite || 'Unknown Test Suite',
@@ -136,7 +136,7 @@ exports.testRoutes.post('/run-test', auth_middleware_js_1.authenticateJWT, auth_
         // Layer 2: Code Content Validation — block dangerous patterns
         const sanitizeResult = (0, code_sanitizer_js_1.sanitizeCode)(code);
         if (!sanitizeResult.safe) {
-            (0, activity_log_store_js_1.addLog)({
+            await (0, activity_log_store_js_1.addLog)({
                 userId: req.user.id,
                 username: req.user.username,
                 action: 'Run Test Blocked',
@@ -150,7 +150,7 @@ exports.testRoutes.post('/run-test', auth_middleware_js_1.authenticateJWT, auth_
             return;
         }
         if (historyId) {
-            (0, flow_history_store_js_1.updateHistory)(historyId, { status: 'RUNNING' });
+            await (0, flow_history_store_js_1.updateHistory)(historyId, { status: 'RUNNING' });
         }
         // Enqueue task into Concurrency Manager
         const runResult = await queue_manager_js_1.globalTestRunnerQueue.enqueue(async () => {
@@ -230,14 +230,14 @@ export default defineConfig({
                 catch { }
             }
             const durationMs = Date.now() - startTime;
-            (0, activity_log_store_js_1.addLog)({
+            await (0, activity_log_store_js_1.addLog)({
                 userId: req.user.id,
                 username: req.user.username,
                 action: 'Run Test',
                 details: `Ran script in ${mode} mode (Status: ${success ? 'Success' : 'Failed'}, Duration: ${durationMs}ms)`
             });
             if (historyId) {
-                (0, flow_history_store_js_1.updateHistory)(historyId, {
+                await (0, flow_history_store_js_1.updateHistory)(historyId, {
                     status: success ? 'SUCCESS' : 'FAILED',
                     durationMs,
                     runLogs: logs.trim(),

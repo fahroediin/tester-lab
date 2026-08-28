@@ -23,13 +23,16 @@ function authenticateJWT(req, res, next) {
     const token = authHeader.substring(7);
     try {
         const decoded = jsonwebtoken_1.default.verify(token, exports.JWT_SECRET);
-        const user = (0, auth_store_js_1.findUserById)(decoded.userId);
-        if (!user) {
-            res.status(401).json({ success: false, error: 'Invalid authentication token.' });
-            return;
-        }
-        req.user = user;
-        next();
+        (0, auth_store_js_1.findUserByIdAsync)(decoded.userId).then(user => {
+            if (!user) {
+                res.status(401).json({ success: false, error: 'Invalid authentication token.' });
+                return;
+            }
+            req.user = user;
+            next();
+        }).catch(() => {
+            res.status(401).json({ success: false, error: 'Authentication error.' });
+        });
     }
     catch (err) {
         res.status(401).json({ success: false, error: 'Session expired or invalid token. Please log in again.' });

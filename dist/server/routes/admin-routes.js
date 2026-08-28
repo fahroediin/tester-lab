@@ -1,22 +1,18 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.adminRoutes = void 0;
-const fs_1 = __importDefault(require("fs"));
-const path_1 = __importDefault(require("path"));
 const express_1 = require("express");
 const auth_middleware_js_1 = require("../auth-middleware.js");
 const auth_store_js_1 = require("../auth-store.js");
 const activity_log_store_js_1 = require("../activity-log-store.js");
+const supabase_client_js_1 = require("../supabase-client.js");
 exports.adminRoutes = (0, express_1.Router)();
 /**
  * GET /api/v1/admin/users
  * List all registration requests (Admin only)
  */
-exports.adminRoutes.get('/users', auth_middleware_js_1.authenticateJWT, auth_middleware_js_1.requireAdmin, (req, res) => {
-    const users = (0, auth_store_js_1.loadUsers)().map((u) => ({
+exports.adminRoutes.get('/users', auth_middleware_js_1.authenticateJWT, auth_middleware_js_1.requireAdmin, async (req, res) => {
+    const users = (await (0, auth_store_js_1.loadUsersAsync)()).map((u) => ({
         id: u.id,
         username: u.username,
         email: u.email,
@@ -33,9 +29,9 @@ exports.adminRoutes.get('/users', auth_middleware_js_1.authenticateJWT, auth_mid
  * GET /api/v1/admin/logs
  * List all activity logs (Admin only)
  */
-exports.adminRoutes.get('/logs', auth_middleware_js_1.authenticateJWT, auth_middleware_js_1.requireAdmin, (req, res) => {
+exports.adminRoutes.get('/logs', auth_middleware_js_1.authenticateJWT, auth_middleware_js_1.requireAdmin, async (req, res) => {
     const limit = parseInt(req.query.limit) || 200;
-    const logs = (0, activity_log_store_js_1.getLogs)(limit);
+    const logs = await (0, activity_log_store_js_1.getLogs)(limit);
     res.json({
         success: true,
         logs
@@ -45,26 +41,40 @@ exports.adminRoutes.get('/logs', auth_middleware_js_1.authenticateJWT, auth_midd
  * GET /api/v1/admin/feedbacks
  * List all user feedbacks (Admin only)
  */
-exports.adminRoutes.get('/feedbacks', auth_middleware_js_1.authenticateJWT, auth_middleware_js_1.requireAdmin, (req, res) => {
+exports.adminRoutes.get('/feedbacks', auth_middleware_js_1.authenticateJWT, auth_middleware_js_1.requireAdmin, async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
-        const feedbackDir = path_1.default.join(process.cwd(), 'data', 'feedbacks');
-        const logFile = path_1.default.join(feedbackDir, 'feedbacks.json');
-        let feedbacks = [];
-        if (fs_1.default.existsSync(logFile)) {
-            feedbacks = JSON.parse(fs_1.default.readFileSync(logFile, 'utf-8'));
-        }
-        // Sort newest first
-        feedbacks.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-        const total = feedbacks.length;
+        // Get total count
+        const { count: total } = await supabase_client_js_1.supabase
+            .from('feedbacks')
+            .select('*', { count: 'exact', head: true });
+        // Get paginated feedbacks
         const startIndex = (page - 1) * limit;
-        const endIndex = page * limit;
-        const paginatedFeedbacks = feedbacks.slice(startIndex, endIndex);
+        const { data: feedbacks, error } = await supabase_client_js_1.supabase
+            .from('feedbacks')
+            .select('*')
+            .order('timestamp', { ascending: false })
+            .range(startIndex, startIndex + limit - 1);
+        if (error) {
+            res.status(500).json({ success: false, error: error.message });
+            return;
+        }
+        // Map attachment filenames to Supabase Storage public URLs
+        const mappedFeedbacks = (feedbacks || []).map((f) => {
+            const result = { ...f };
+            if (f.attachment && typeof f.attachment === 'string') {
+                const { data: urlData } = supabase_client_js_1.supabase.storage
+                    .from('feedback-attachments')
+                    .getPublicUrl(f.attachment);
+                result.attachmentUrl = urlData?.publicUrl || null;
+            }
+            return result;
+        });
         res.json({
             success: true,
-            feedbacks: paginatedFeedbacks,
-            total,
+            feedbacks: mappedFeedbacks,
+            total: total || 0,
             page,
             limit
         });
@@ -78,33 +88,35 @@ exports.adminRoutes.get('/feedbacks', auth_middleware_js_1.authenticateJWT, auth
  * DELETE /api/v1/admin/feedbacks/:id
  * Delete user feedback (Admin only)
  */
-exports.adminRoutes.delete('/feedbacks/:id', auth_middleware_js_1.authenticateJWT, auth_middleware_js_1.requireAdmin, (req, res) => {
+exports.adminRoutes.delete('/feedbacks/:id', auth_middleware_js_1.authenticateJWT, auth_middleware_js_1.requireAdmin, async (req, res) => {
     try {
         const id = req.params.id;
-        const feedbackDir = path_1.default.join(process.cwd(), 'data', 'feedbacks');
-        const logFile = path_1.default.join(feedbackDir, 'feedbacks.json');
-        if (!fs_1.default.existsSync(logFile)) {
-            res.status(404).json({ success: false, error: 'Feedbacks not found' });
-            return;
-        }
-        const feedbacks = JSON.parse(fs_1.default.readFileSync(logFile, 'utf-8'));
-        const index = feedbacks.findIndex(f => f.id === id);
-        if (index === -1) {
+        // Get feedback to find attachment
+        const { data: feedback, error: fetchError } = await supabase_client_js_1.supabase
+            .from('feedbacks')
+            .select('*')
+            .eq('id', id)
+            .single();
+        if (fetchError || !feedback) {
             res.status(404).json({ success: false, error: 'Feedback not found' });
             return;
         }
-        const feedback = feedbacks[index];
-        // Delete attachment if it exists
+        // Delete attachment from Supabase Storage if it exists
         if (feedback.attachment) {
-            const attachmentPath = path_1.default.join(feedbackDir, 'attachments', feedback.attachment);
-            if (fs_1.default.existsSync(attachmentPath)) {
-                fs_1.default.unlinkSync(attachmentPath);
-            }
+            await supabase_client_js_1.supabase.storage
+                .from('feedback-attachments')
+                .remove([feedback.attachment]);
         }
-        // Remove from array and save
-        feedbacks.splice(index, 1);
-        fs_1.default.writeFileSync(logFile, JSON.stringify(feedbacks, null, 2));
-        (0, activity_log_store_js_1.addLog)({
+        // Delete feedback record
+        const { error: deleteError } = await supabase_client_js_1.supabase
+            .from('feedbacks')
+            .delete()
+            .eq('id', id);
+        if (deleteError) {
+            res.status(500).json({ success: false, error: deleteError.message });
+            return;
+        }
+        await (0, activity_log_store_js_1.addLog)({
             userId: req.user.id,
             username: req.user.username,
             action: 'Admin Delete Feedback',
@@ -121,14 +133,14 @@ exports.adminRoutes.delete('/feedbacks/:id', auth_middleware_js_1.authenticateJW
  * POST /api/v1/admin/users/:id/approve
  * Approve user registration request (Admin only)
  */
-exports.adminRoutes.post('/users/:id/approve', auth_middleware_js_1.authenticateJWT, auth_middleware_js_1.requireAdmin, (req, res) => {
+exports.adminRoutes.post('/users/:id/approve', auth_middleware_js_1.authenticateJWT, auth_middleware_js_1.requireAdmin, async (req, res) => {
     const id = req.params.id;
-    const updated = (0, auth_store_js_1.updateUserStatus)(id, 'approved');
+    const updated = await (0, auth_store_js_1.updateUserStatus)(id, 'approved');
     if (!updated) {
         res.status(404).json({ success: false, error: 'User not found.' });
         return;
     }
-    (0, activity_log_store_js_1.addLog)({
+    await (0, activity_log_store_js_1.addLog)({
         userId: req.user.id,
         username: req.user.username,
         action: 'Admin Approve',
@@ -144,14 +156,14 @@ exports.adminRoutes.post('/users/:id/approve', auth_middleware_js_1.authenticate
  * POST /api/v1/admin/users/:id/reject
  * Reject user registration request (Admin only)
  */
-exports.adminRoutes.post('/users/:id/reject', auth_middleware_js_1.authenticateJWT, auth_middleware_js_1.requireAdmin, (req, res) => {
+exports.adminRoutes.post('/users/:id/reject', auth_middleware_js_1.authenticateJWT, auth_middleware_js_1.requireAdmin, async (req, res) => {
     const id = req.params.id;
-    const updated = (0, auth_store_js_1.updateUserStatus)(id, 'rejected');
+    const updated = await (0, auth_store_js_1.updateUserStatus)(id, 'rejected');
     if (!updated) {
         res.status(404).json({ success: false, error: 'User not found.' });
         return;
     }
-    (0, activity_log_store_js_1.addLog)({
+    await (0, activity_log_store_js_1.addLog)({
         userId: req.user.id,
         username: req.user.username,
         action: 'Admin Reject',
@@ -167,14 +179,14 @@ exports.adminRoutes.post('/users/:id/reject', auth_middleware_js_1.authenticateJ
  * DELETE /api/v1/admin/users/:id
  * Delete user account (Admin only)
  */
-exports.adminRoutes.delete('/users/:id', auth_middleware_js_1.authenticateJWT, auth_middleware_js_1.requireAdmin, (req, res) => {
+exports.adminRoutes.delete('/users/:id', auth_middleware_js_1.authenticateJWT, auth_middleware_js_1.requireAdmin, async (req, res) => {
     const id = req.params.id;
-    const deleted = (0, auth_store_js_1.deleteUser)(id);
+    const deleted = await (0, auth_store_js_1.deleteUser)(id);
     if (!deleted) {
         res.status(404).json({ success: false, error: 'User not found.' });
         return;
     }
-    (0, activity_log_store_js_1.addLog)({
+    await (0, activity_log_store_js_1.addLog)({
         userId: req.user.id,
         username: req.user.username,
         action: 'Admin Delete',

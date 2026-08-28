@@ -1,5 +1,4 @@
-import fs from 'fs';
-import path from 'path';
+import { supabase } from './supabase-client.js';
 
 export interface AppConfig {
   sampleTestSuite: string;
@@ -12,40 +11,51 @@ export interface AppConfig {
   }>;
 }
 
-const DATA_DIR = path.join(process.cwd(), 'data');
-const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
-
 const DEFAULT_CONFIG: AppConfig = {
   sampleTestSuite: '',
   sampleTargetUrl: '',
   sampleSteps: []
 };
 
-function ensureDataDir(): void {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-}
-
-export function loadConfig(): AppConfig {
+export async function loadConfig(): Promise<AppConfig> {
   try {
-    ensureDataDir();
-    if (!fs.existsSync(CONFIG_FILE)) {
-      saveConfig(DEFAULT_CONFIG);
+    const { data, error } = await supabase
+      .from('app_config')
+      .select('*')
+      .eq('id', 1)
+      .single();
+
+    if (error || !data) {
       return DEFAULT_CONFIG;
     }
-    const data = fs.readFileSync(CONFIG_FILE, 'utf-8');
-    return JSON.parse(data);
+
+    return {
+      sampleTestSuite: data.sample_test_suite || '',
+      sampleTargetUrl: data.sample_target_url || '',
+      sampleSteps: Array.isArray(data.sample_steps) ? data.sample_steps : []
+    };
   } catch (err) {
-    console.error('Failed to load config, returning default:', err);
+    console.error('Failed to load config from Supabase:', err);
     return DEFAULT_CONFIG;
   }
 }
 
-export function saveConfig(newConfig: AppConfig): void {
+export async function saveConfig(newConfig: AppConfig): Promise<void> {
   try {
-    ensureDataDir();
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify(newConfig, null, 2), 'utf-8');
+    const { error } = await supabase
+      .from('app_config')
+      .upsert({
+        id: 1,
+        sample_test_suite: newConfig.sampleTestSuite,
+        sample_target_url: newConfig.sampleTargetUrl,
+        sample_steps: newConfig.sampleSteps,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'id' });
+
+    if (error) {
+      console.error('Failed to save config:', error);
+      throw new Error('Could not save configuration');
+    }
   } catch (err) {
     console.error('Failed to save config:', err);
     throw new Error('Could not save configuration');

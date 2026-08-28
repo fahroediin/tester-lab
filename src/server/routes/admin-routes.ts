@@ -1,10 +1,9 @@
-import fs from 'fs';
-import path from 'path';
 import { Router, Request, Response } from 'express';
 import { authenticateJWT, requireAdmin } from '../auth-middleware.js';
 import type { AuthenticatedRequest } from '../auth-middleware.js';
-import { loadUsers, updateUserStatus, deleteUser } from '../auth-store.js';
+import { loadUsersAsync, updateUserStatus, deleteUser } from '../auth-store.js';
 import { getLogs, addLog } from '../activity-log-store.js';
+import { supabase } from '../supabase-client.js';
 
 export const adminRoutes = Router();
 
@@ -12,8 +11,8 @@ export const adminRoutes = Router();
  * GET /api/v1/admin/users
  * List all registration requests (Admin only)
  */
-adminRoutes.get('/users', authenticateJWT, requireAdmin, (req: AuthenticatedRequest, res: Response) => {
-  const users = loadUsers().map((u) => ({
+adminRoutes.get('/users', authenticateJWT, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  const users = (await loadUsersAsync()).map((u) => ({
     id: u.id,
     username: u.username,
     email: u.email,
@@ -32,9 +31,9 @@ adminRoutes.get('/users', authenticateJWT, requireAdmin, (req: AuthenticatedRequ
  * GET /api/v1/admin/logs
  * List all activity logs (Admin only)
  */
-adminRoutes.get('/logs', authenticateJWT, requireAdmin, (req: AuthenticatedRequest, res: Response) => {
+adminRoutes.get('/logs', authenticateJWT, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
   const limit = parseInt(req.query.limit as string) || 200;
-  const logs = getLogs(limit);
+  const logs = await getLogs(limit);
   res.json({
     success: true,
     logs
@@ -45,32 +44,45 @@ adminRoutes.get('/logs', authenticateJWT, requireAdmin, (req: AuthenticatedReque
  * GET /api/v1/admin/feedbacks
  * List all user feedbacks (Admin only)
  */
-adminRoutes.get('/feedbacks', authenticateJWT, requireAdmin, (req: AuthenticatedRequest, res: Response) => {
+adminRoutes.get('/feedbacks', authenticateJWT, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
     
-    const feedbackDir = path.join(process.cwd(), 'data', 'feedbacks');
-    const logFile = path.join(feedbackDir, 'feedbacks.json');
+    // Get total count
+    const { count: total } = await supabase
+      .from('feedbacks')
+      .select('*', { count: 'exact', head: true });
     
-    let feedbacks: unknown[] = [];
-    if (fs.existsSync(logFile)) {
-      feedbacks = JSON.parse(fs.readFileSync(logFile, 'utf-8'));
+    // Get paginated feedbacks
+    const startIndex = (page - 1) * limit;
+    const { data: feedbacks, error } = await supabase
+      .from('feedbacks')
+      .select('*')
+      .order('timestamp', { ascending: false })
+      .range(startIndex, startIndex + limit - 1);
+    
+    if (error) {
+      res.status(500).json({ success: false, error: error.message });
+      return;
     }
     
-    // Sort newest first
-    feedbacks.sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    
-    const total = feedbacks.length;
-    const startIndex = (page - 1) * limit;
-    const endIndex = page * limit;
-    
-    const paginatedFeedbacks = feedbacks.slice(startIndex, endIndex);
+    // Map attachment filenames to Supabase Storage public URLs
+    const mappedFeedbacks = (feedbacks || []).map((f: Record<string, unknown>) => {
+      const result: Record<string, unknown> = { ...f };
+      if (f.attachment && typeof f.attachment === 'string') {
+        const { data: urlData } = supabase.storage
+          .from('feedback-attachments')
+          .getPublicUrl(f.attachment as string);
+        result.attachmentUrl = urlData?.publicUrl || null;
+      }
+      return result;
+    });
     
     res.json({
       success: true,
-      feedbacks: paginatedFeedbacks,
-      total,
+      feedbacks: mappedFeedbacks,
+      total: total || 0,
       page,
       limit
     });
@@ -84,40 +96,41 @@ adminRoutes.get('/feedbacks', authenticateJWT, requireAdmin, (req: Authenticated
  * DELETE /api/v1/admin/feedbacks/:id
  * Delete user feedback (Admin only)
  */
-adminRoutes.delete('/feedbacks/:id', authenticateJWT, requireAdmin, (req: AuthenticatedRequest, res: Response) => {
+adminRoutes.delete('/feedbacks/:id', authenticateJWT, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const id = req.params.id as string;
-    const feedbackDir = path.join(process.cwd(), 'data', 'feedbacks');
-    const logFile = path.join(feedbackDir, 'feedbacks.json');
     
-    if (!fs.existsSync(logFile)) {
-      res.status(404).json({ success: false, error: 'Feedbacks not found' });
-      return;
-    }
+    // Get feedback to find attachment
+    const { data: feedback, error: fetchError } = await supabase
+      .from('feedbacks')
+      .select('*')
+      .eq('id', id)
+      .single();
     
-    const feedbacks: any[] = JSON.parse(fs.readFileSync(logFile, 'utf-8'));
-    const index = feedbacks.findIndex(f => f.id === id);
-    
-    if (index === -1) {
+    if (fetchError || !feedback) {
       res.status(404).json({ success: false, error: 'Feedback not found' });
       return;
     }
     
-    const feedback = feedbacks[index];
-    
-    // Delete attachment if it exists
+    // Delete attachment from Supabase Storage if it exists
     if (feedback.attachment) {
-      const attachmentPath = path.join(feedbackDir, 'attachments', feedback.attachment);
-      if (fs.existsSync(attachmentPath)) {
-        fs.unlinkSync(attachmentPath);
-      }
+      await supabase.storage
+        .from('feedback-attachments')
+        .remove([feedback.attachment]);
     }
     
-    // Remove from array and save
-    feedbacks.splice(index, 1);
-    fs.writeFileSync(logFile, JSON.stringify(feedbacks, null, 2));
+    // Delete feedback record
+    const { error: deleteError } = await supabase
+      .from('feedbacks')
+      .delete()
+      .eq('id', id);
     
-    addLog({
+    if (deleteError) {
+      res.status(500).json({ success: false, error: deleteError.message });
+      return;
+    }
+    
+    await addLog({
       userId: req.user!.id,
       username: req.user!.username,
       action: 'Admin Delete Feedback',
@@ -136,16 +149,16 @@ adminRoutes.delete('/feedbacks/:id', authenticateJWT, requireAdmin, (req: Authen
  * POST /api/v1/admin/users/:id/approve
  * Approve user registration request (Admin only)
  */
-adminRoutes.post('/users/:id/approve', authenticateJWT, requireAdmin, (req: AuthenticatedRequest, res: Response) => {
+adminRoutes.post('/users/:id/approve', authenticateJWT, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
   const id = req.params.id as string;
-  const updated = updateUserStatus(id, 'approved');
+  const updated = await updateUserStatus(id, 'approved');
 
   if (!updated) {
     res.status(404).json({ success: false, error: 'User not found.' });
     return;
   }
 
-  addLog({
+  await addLog({
     userId: req.user!.id,
     username: req.user!.username,
     action: 'Admin Approve',
@@ -163,16 +176,16 @@ adminRoutes.post('/users/:id/approve', authenticateJWT, requireAdmin, (req: Auth
  * POST /api/v1/admin/users/:id/reject
  * Reject user registration request (Admin only)
  */
-adminRoutes.post('/users/:id/reject', authenticateJWT, requireAdmin, (req: AuthenticatedRequest, res: Response) => {
+adminRoutes.post('/users/:id/reject', authenticateJWT, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
   const id = req.params.id as string;
-  const updated = updateUserStatus(id, 'rejected');
+  const updated = await updateUserStatus(id, 'rejected');
 
   if (!updated) {
     res.status(404).json({ success: false, error: 'User not found.' });
     return;
   }
 
-  addLog({
+  await addLog({
     userId: req.user!.id,
     username: req.user!.username,
     action: 'Admin Reject',
@@ -190,16 +203,16 @@ adminRoutes.post('/users/:id/reject', authenticateJWT, requireAdmin, (req: Authe
  * DELETE /api/v1/admin/users/:id
  * Delete user account (Admin only)
  */
-adminRoutes.delete('/users/:id', authenticateJWT, requireAdmin, (req: AuthenticatedRequest, res: Response) => {
+adminRoutes.delete('/users/:id', authenticateJWT, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
   const id = req.params.id as string;
-  const deleted = deleteUser(id);
+  const deleted = await deleteUser(id);
 
   if (!deleted) {
     res.status(404).json({ success: false, error: 'User not found.' });
     return;
   }
 
-  addLog({
+  await addLog({
     userId: req.user!.id,
     username: req.user!.username,
     action: 'Admin Delete',

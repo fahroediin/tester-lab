@@ -12,13 +12,13 @@ const feedback_routes_js_1 = require("./routes/feedback-routes.js");
 const test_routes_js_1 = require("./routes/test-routes.js");
 const history_routes_js_1 = require("./routes/history-routes.js");
 const config_routes_js_1 = require("./routes/config-routes.js");
+const auth_store_js_1 = require("./auth-store.js");
 const app = (0, express_1.default)();
 const port = process.env.PORT || 3000;
 app.use(express_1.default.json({ limit: '10mb' }));
 // Serve static files from public directory
 app.use(express_1.default.static(path_1.default.join(process.cwd(), 'public')));
 app.use(express_1.default.static(path_1.default.join(process.cwd(), 'dist', 'public')));
-app.use('/feedbacks/attachments', express_1.default.static(path_1.default.join(process.cwd(), 'data', 'feedbacks', 'attachments')));
 /**
  * Root Route: Serve Interactive HTML Web UI
  */
@@ -56,6 +56,14 @@ app.use((err, req, res, next) => {
 // API 404 Fallback
 app.use('/api/*', (req, res) => {
     res.status(404).json({ success: false, error: `API endpoint not found: ${req.method} ${req.originalUrl}` });
+});
+// Bootstrap: ensure admin user exists in Supabase
+(0, auth_store_js_1.ensureAdminUser)()
+    .then(() => {
+    console.log('[Bootstrap] Admin user sync complete.');
+})
+    .catch((err) => {
+    console.error('[Bootstrap] Failed to sync admin user:', err);
 });
 app.listen(port, () => {
     console.log(`Tester Lab backend listening on http://localhost:${port}`);

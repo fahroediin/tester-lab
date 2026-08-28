@@ -1,43 +1,49 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.loadConfig = loadConfig;
 exports.saveConfig = saveConfig;
-const fs_1 = __importDefault(require("fs"));
-const path_1 = __importDefault(require("path"));
-const DATA_DIR = path_1.default.join(process.cwd(), 'data');
-const CONFIG_FILE = path_1.default.join(DATA_DIR, 'config.json');
+const supabase_client_js_1 = require("./supabase-client.js");
 const DEFAULT_CONFIG = {
     sampleTestSuite: '',
     sampleTargetUrl: '',
     sampleSteps: []
 };
-function ensureDataDir() {
-    if (!fs_1.default.existsSync(DATA_DIR)) {
-        fs_1.default.mkdirSync(DATA_DIR, { recursive: true });
-    }
-}
-function loadConfig() {
+async function loadConfig() {
     try {
-        ensureDataDir();
-        if (!fs_1.default.existsSync(CONFIG_FILE)) {
-            saveConfig(DEFAULT_CONFIG);
+        const { data, error } = await supabase_client_js_1.supabase
+            .from('app_config')
+            .select('*')
+            .eq('id', 1)
+            .single();
+        if (error || !data) {
             return DEFAULT_CONFIG;
         }
-        const data = fs_1.default.readFileSync(CONFIG_FILE, 'utf-8');
-        return JSON.parse(data);
+        return {
+            sampleTestSuite: data.sample_test_suite || '',
+            sampleTargetUrl: data.sample_target_url || '',
+            sampleSteps: Array.isArray(data.sample_steps) ? data.sample_steps : []
+        };
     }
     catch (err) {
-        console.error('Failed to load config, returning default:', err);
+        console.error('Failed to load config from Supabase:', err);
         return DEFAULT_CONFIG;
     }
 }
-function saveConfig(newConfig) {
+async function saveConfig(newConfig) {
     try {
-        ensureDataDir();
-        fs_1.default.writeFileSync(CONFIG_FILE, JSON.stringify(newConfig, null, 2), 'utf-8');
+        const { error } = await supabase_client_js_1.supabase
+            .from('app_config')
+            .upsert({
+            id: 1,
+            sample_test_suite: newConfig.sampleTestSuite,
+            sample_target_url: newConfig.sampleTargetUrl,
+            sample_steps: newConfig.sampleSteps,
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'id' });
+        if (error) {
+            console.error('Failed to save config:', error);
+            throw new Error('Could not save configuration');
+        }
     }
     catch (err) {
         console.error('Failed to save config:', err);

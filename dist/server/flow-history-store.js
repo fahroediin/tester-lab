@@ -10,91 +10,100 @@ exports.updateHistory = updateHistory;
 exports.deleteHistory = deleteHistory;
 const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
-const crypto_1 = require("crypto");
-const DATA_DIR = path_1.default.join(process.cwd(), 'data');
-const HISTORY_FILE = path_1.default.join(DATA_DIR, 'flow-history.json');
-function ensureDataDir() {
-    if (!fs_1.default.existsSync(DATA_DIR)) {
-        fs_1.default.mkdirSync(DATA_DIR, { recursive: true });
-    }
+const supabase_client_js_1 = require("./supabase-client.js");
+function rowToFlowHistory(row) {
+    return {
+        id: row.id,
+        userId: row.user_id,
+        username: row.username,
+        timestamp: row.timestamp,
+        testSuite: row.test_suite,
+        targetUrl: row.target_url,
+        status: row.status,
+        generatedCode: row.generated_code,
+        resolvedSteps: Array.isArray(row.resolved_steps) ? row.resolved_steps : [],
+        rawDsl: row.raw_dsl || undefined,
+        videoUrl: row.video_url || undefined,
+        runLogs: row.run_logs || undefined,
+        durationMs: row.duration_ms || undefined
+    };
 }
-function loadHistoryData() {
-    try {
-        ensureDataDir();
-        if (!fs_1.default.existsSync(HISTORY_FILE)) {
-            return [];
-        }
-        const data = fs_1.default.readFileSync(HISTORY_FILE, 'utf-8');
-        return JSON.parse(data);
+async function addHistory(record) {
+    const { data, error } = await supabase_client_js_1.supabase
+        .from('flow_history')
+        .insert({
+        user_id: record.userId,
+        username: record.username,
+        test_suite: record.testSuite,
+        target_url: record.targetUrl,
+        status: record.status,
+        generated_code: record.generatedCode,
+        resolved_steps: record.resolvedSteps,
+        raw_dsl: record.rawDsl || null
+    })
+        .select()
+        .single();
+    if (error || !data) {
+        console.error('Failed to add history record:', error);
+        throw new Error('Failed to save history record');
     }
-    catch (err) {
-        console.error('Failed to load history data:', err);
+    return rowToFlowHistory(data);
+}
+async function getUserHistory(userId) {
+    const { data, error } = await supabase_client_js_1.supabase
+        .from('flow_history')
+        .select('*')
+        .eq('user_id', userId)
+        .order('timestamp', { ascending: false });
+    if (error) {
+        console.error('Failed to fetch user history:', error);
         return [];
     }
+    return (data || []).map(rowToFlowHistory);
 }
-function saveHistoryData(history) {
-    try {
-        ensureDataDir();
-        fs_1.default.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2), 'utf-8');
-    }
-    catch (err) {
-        console.error('Failed to save history data:', err);
-    }
+async function getHistoryById(id) {
+    const { data, error } = await supabase_client_js_1.supabase
+        .from('flow_history')
+        .select('*')
+        .eq('id', id)
+        .limit(1)
+        .single();
+    if (error || !data)
+        return undefined;
+    return rowToFlowHistory(data);
 }
-function addHistory(record) {
-    const history = loadHistoryData();
-    const newRecord = {
-        ...record,
-        id: (0, crypto_1.randomUUID)(),
-        timestamp: new Date().toISOString()
-    };
-    history.push(newRecord);
-    saveHistoryData(history);
-    return newRecord;
-}
-function getUserHistory(userId) {
-    const history = loadHistoryData();
-    return history
-        .filter(record => record.userId === userId)
-        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-}
-function getHistoryById(id) {
-    const history = loadHistoryData();
-    return history.find(record => record.id === id);
-}
-function updateHistory(id, updates) {
-    const history = loadHistoryData();
-    const index = history.findIndex(record => record.id === id);
-    if (index === -1) {
+async function updateHistory(id, updates) {
+    const updatePayload = {};
+    if (updates.status !== undefined)
+        updatePayload.status = updates.status;
+    if (updates.rawDsl !== undefined)
+        updatePayload.raw_dsl = updates.rawDsl;
+    if (updates.videoUrl !== undefined)
+        updatePayload.video_url = updates.videoUrl;
+    if (updates.runLogs !== undefined)
+        updatePayload.run_logs = updates.runLogs;
+    if (updates.durationMs !== undefined)
+        updatePayload.duration_ms = updates.durationMs;
+    const { data, error } = await supabase_client_js_1.supabase
+        .from('flow_history')
+        .update(updatePayload)
+        .eq('id', id)
+        .select()
+        .single();
+    if (error || !data) {
+        console.error('Failed to update history:', error);
         return null;
     }
-    const existing = history[index];
-    if (!existing)
-        return null;
-    history[index] = {
-        ...existing,
-        status: updates.status !== undefined ? updates.status : existing.status,
-        rawDsl: updates.rawDsl !== undefined ? updates.rawDsl : existing.rawDsl,
-        videoUrl: updates.videoUrl !== undefined ? updates.videoUrl : existing.videoUrl,
-        runLogs: updates.runLogs !== undefined ? updates.runLogs : existing.runLogs,
-        durationMs: updates.durationMs !== undefined ? updates.durationMs : existing.durationMs
-    };
-    saveHistoryData(history);
-    return history[index] ?? null;
+    return rowToFlowHistory(data);
 }
-function deleteHistory(id) {
-    const history = loadHistoryData();
-    const index = history.findIndex(record => record.id === id);
-    if (index === -1) {
-        return false;
-    }
-    const record = history[index];
+async function deleteHistory(id) {
+    // First get the record to check for video
+    const record = await getHistoryById(id);
     if (!record)
         return false;
-    // Clean up associated video if exists
+    // Clean up associated video if exists (still stored locally)
     if (record.videoUrl) {
         try {
-            // videoUrl is something like /videos/<userId>/run_123.webm
             const videoPath = path_1.default.join(process.cwd(), 'public', record.videoUrl);
             if (fs_1.default.existsSync(videoPath)) {
                 fs_1.default.unlinkSync(videoPath);
@@ -104,7 +113,13 @@ function deleteHistory(id) {
             console.warn(`Failed to delete video for history ${id}:`, err);
         }
     }
-    history.splice(index, 1);
-    saveHistoryData(history);
+    const { error } = await supabase_client_js_1.supabase
+        .from('flow_history')
+        .delete()
+        .eq('id', id);
+    if (error) {
+        console.error('Failed to delete history:', error);
+        return false;
+    }
     return true;
 }

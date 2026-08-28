@@ -8,6 +8,7 @@ import { feedbackRoutes } from './routes/feedback-routes.js';
 import { testRoutes } from './routes/test-routes.js';
 import { historyRoutes } from './routes/history-routes.js';
 import { configRoutes } from './routes/config-routes.js';
+import { ensureAdminUser } from './auth-store.js';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -17,7 +18,6 @@ app.use(express.json({ limit: '10mb' }));
 // Serve static files from public directory
 app.use(express.static(path.join(process.cwd(), 'public')));
 app.use(express.static(path.join(process.cwd(), 'dist', 'public')));
-app.use('/feedbacks/attachments', express.static(path.join(process.cwd(), 'data', 'feedbacks', 'attachments')));
 
 /**
  * Root Route: Serve Interactive HTML Web UI
@@ -60,6 +60,15 @@ app.use((err: any, req: Request, res: Response, next: express.NextFunction) => {
 app.use('/api/*', (req: Request, res: Response) => {
   res.status(404).json({ success: false, error: `API endpoint not found: ${req.method} ${req.originalUrl}` });
 });
+
+// Bootstrap: ensure admin user exists in Supabase
+ensureAdminUser()
+  .then(() => {
+    console.log('[Bootstrap] Admin user sync complete.');
+  })
+  .catch((err) => {
+    console.error('[Bootstrap] Failed to sync admin user:', err);
+  });
 
 app.listen(port, () => {
   console.log(`Tester Lab backend listening on http://localhost:${port}`);

@@ -9,10 +9,10 @@ exports.historyRoutes = (0, express_1.Router)();
  * GET /api/v1/history
  * Get all history records for the current user
  */
-exports.historyRoutes.get('/', auth_middleware_js_1.authenticateJWT, auth_middleware_js_1.requireApprovedUser, (req, res) => {
+exports.historyRoutes.get('/', auth_middleware_js_1.authenticateJWT, auth_middleware_js_1.requireApprovedUser, async (req, res) => {
     try {
         const userId = req.user.id;
-        const history = (0, flow_history_store_js_1.getUserHistory)(userId);
+        const history = await (0, flow_history_store_js_1.getUserHistory)(userId);
         // Map to strip out heavy fields (like generatedCode, resolvedSteps, logs) for the list view
         const summary = history.map(h => ({
             id: h.id,
@@ -34,11 +34,11 @@ exports.historyRoutes.get('/', auth_middleware_js_1.authenticateJWT, auth_middle
  * GET /api/v1/history/:id
  * Get details for a specific history record
  */
-exports.historyRoutes.get('/:id', auth_middleware_js_1.authenticateJWT, auth_middleware_js_1.requireApprovedUser, (req, res) => {
+exports.historyRoutes.get('/:id', auth_middleware_js_1.authenticateJWT, auth_middleware_js_1.requireApprovedUser, async (req, res) => {
     try {
         const { id } = req.params;
         const userId = req.user.id;
-        const record = (0, flow_history_store_js_1.getHistoryById)(id || '');
+        const record = await (0, flow_history_store_js_1.getHistoryById)(id || '');
         if (!record) {
             res.status(404).json({ success: false, error: 'History record not found' });
             return;
@@ -58,11 +58,11 @@ exports.historyRoutes.get('/:id', auth_middleware_js_1.authenticateJWT, auth_mid
  * DELETE /api/v1/history/:id
  * Delete a specific history record
  */
-exports.historyRoutes.delete('/:id', auth_middleware_js_1.authenticateJWT, auth_middleware_js_1.requireApprovedUser, (req, res) => {
+exports.historyRoutes.delete('/:id', auth_middleware_js_1.authenticateJWT, auth_middleware_js_1.requireApprovedUser, async (req, res) => {
     try {
         const { id } = req.params;
         const userId = req.user.id;
-        const record = (0, flow_history_store_js_1.getHistoryById)(id || '');
+        const record = await (0, flow_history_store_js_1.getHistoryById)(id || '');
         if (!record) {
             res.status(404).json({ success: false, error: 'History record not found' });
             return;
@@ -71,7 +71,7 @@ exports.historyRoutes.delete('/:id', auth_middleware_js_1.authenticateJWT, auth_
             res.status(403).json({ success: false, error: 'Unauthorized to delete this record' });
             return;
         }
-        const deleted = (0, flow_history_store_js_1.deleteHistory)(record.id);
+        const deleted = await (0, flow_history_store_js_1.deleteHistory)(record.id);
         if (!deleted) {
             res.status(500).json({ success: false, error: 'Failed to delete record' });
             return;
