@@ -26,9 +26,98 @@
       --action-blue: #005bbf;
       --deep-green: #097335;
       --coral: #b30000;
+      --surface-2: #f0f0f4;
       --font-display: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       --font-mono: 'Fira Code', monospace;
+    }
+
+    [data-theme="dark"] {
+      --canvas: #090d16;
+      --surface: #090d16;
+      --card-bg: #111827;
+      --ink: #f9fafb;
+      --body-muted: #94a3b8;
+      --hairline: #1e293b;
+      --soft-stone: #1e293b;
+      --primary: #f3f4f6;
+      --action-blue: #60a5fa;
+      --deep-green: #10b981;
+      --coral: #ef4444;
+      --surface-2: #1e293b;
+    }
+
+    [data-theme="dark"] header {
+      background: #090d16;
+      border-bottom-color: #1e293b;
+    }
+
+    [data-theme="dark"] .btn-pill-outline,
+    [data-theme="dark"] .btn-primary {
+      background-color: #1e293b;
+      border-color: #334155;
+      color: #f8fafc;
+    }
+
+    [data-theme="dark"] .btn-pill-outline:hover {
+      background-color: #334155;
+      color: #60a5fa;
+    }
+
+    [data-theme="dark"] .tab-button {
+      color: #94a3b8;
+    }
+
+    [data-theme="dark"] .tab-button.active {
+      color: #60a5fa;
+      border-bottom-color: #60a5fa;
+    }
+
+    [data-theme="dark"] input,
+    [data-theme="dark"] select,
+    [data-theme="dark"] textarea {
+      background-color: #0b1324;
+      border-color: #1e293b;
+      color: #f8fafc;
+    }
+
+    [data-theme="dark"] .summary-table th,
+    [data-theme="dark"] .summary-table td {
+      border-bottom-color: #1e293b;
+    }
+
+    [data-theme="dark"] .summary-table tr:hover td {
+      background-color: rgba(255, 255, 255, 0.03);
+    }
+
+    [data-theme="dark"] .modal-card {
+      background: #111827;
+      border-color: #1e293b;
+      color: #f8fafc;
+    }
+
+    [data-theme="dark"] footer {
+      border-top-color: #1e293b;
+      background: #090d16;
+    }
+
+    .btn-theme-toggle {
+      background: var(--card-bg);
+      border: 1px solid var(--hairline);
+      color: var(--ink);
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn-theme-toggle:hover {
+      background: var(--surface-2);
+      transform: scale(1.05);
     }
 
     * {
@@ -352,6 +441,12 @@
       cursor: pointer;
     }
   </style>
+  <script>
+    (function() {
+      const savedTheme = localStorage.getItem('tester_lab_theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-theme', savedTheme);
+    })();
+  </script>
 </head>
 
 <body>
@@ -372,6 +467,22 @@
     </a>
 
     <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+      <button onclick="toggleTheme()" class="btn-theme-toggle" title="Toggle Dark/Light Mode" aria-label="Toggle Theme">
+        <svg class="theme-icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
+          <circle cx="12" cy="12" r="5"></circle>
+          <line x1="12" y1="1" x2="12" y2="3"></line>
+          <line x1="12" y1="21" x2="12" y2="23"></line>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+          <line x1="1" y1="12" x2="3" y2="12"></line>
+          <line x1="21" y1="12" x2="23" y2="12"></line>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+        </svg>
+        <svg class="theme-icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+      </button>
       <a href="/" class="btn-pill-outline">Back to Workspace</a>
       <span id="adminUserBadge" style="font-family: var(--font-mono); font-size: 12px; font-weight: 500; color: var(--ink); background: var(--soft-stone); padding: 6px 14px; border-radius: 9999px; border: 1px solid var(--hairline);">
         admin (admin)
@@ -1013,6 +1124,28 @@
       }
     }
 
+    // --- THEME SWITCHER LOGIC ---
+    function initTheme() {
+      const savedTheme = localStorage.getItem('tester_lab_theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-theme', savedTheme);
+      updateThemeIcons(savedTheme);
+    }
+
+    window.toggleTheme = function() {
+      const current = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', current);
+      localStorage.setItem('tester_lab_theme', current);
+      updateThemeIcons(current);
+    };
+
+    function updateThemeIcons(theme) {
+      const sunIcons = document.querySelectorAll('.theme-icon-sun');
+      const moonIcons = document.querySelectorAll('.theme-icon-moon');
+      sunIcons.forEach(el => el.style.display = theme === 'dark' ? 'block' : 'none');
+      moonIcons.forEach(el => el.style.display = theme === 'dark' ? 'none' : 'block');
+    }
+
+    initTheme();
     window.onload = verifyAdminAuth;
   </script>
 

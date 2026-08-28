@@ -1730,6 +1730,28 @@
       }
     }
 
+    // --- THEME SWITCHER LOGIC ---
+    function initTheme() {
+      const savedTheme = localStorage.getItem('tester_lab_theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-theme', savedTheme);
+      updateThemeIcons(savedTheme);
+    }
+
+    window.toggleTheme = function() {
+      const current = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', current);
+      localStorage.setItem('tester_lab_theme', current);
+      updateThemeIcons(current);
+    };
+
+    function updateThemeIcons(theme) {
+      const sunIcons = document.querySelectorAll('.theme-icon-sun');
+      const moonIcons = document.querySelectorAll('.theme-icon-moon');
+      sunIcons.forEach(el => el.style.display = theme === 'dark' ? 'block' : 'none');
+      moonIcons.forEach(el => el.style.display = theme === 'dark' ? 'none' : 'block');
+    }
+
     // Initialize on page load
+    initTheme();
     renderSteps();
     checkAuthSession();
