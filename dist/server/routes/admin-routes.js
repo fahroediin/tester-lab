@@ -32,6 +32,22 @@ exports.adminRoutes.get('/logs', auth_middleware_js_1.authenticateJWT, auth_midd
     const logs = await (0, activity_log_store_js_1.getLogs)(limit);
     res.json({ success: true, logs });
 });
+async function resolveAttachmentUrl(attachment) {
+    try {
+        const { data, error } = await supabase_client_js_1.supabase.storage
+            .from('feedback-attachments')
+            .createSignedUrl(attachment, 3600);
+        if (!error && data?.signedUrl)
+            return data.signedUrl;
+    }
+    catch {
+        // fallback to public url if signed url fails
+    }
+    const { data: urlData } = supabase_client_js_1.supabase.storage
+        .from('feedback-attachments')
+        .getPublicUrl(attachment);
+    return urlData?.publicUrl || null;
+}
 /**
  * GET /api/v1/admin/feedbacks
  * List all user feedbacks (Admin only)
@@ -53,16 +69,10 @@ exports.adminRoutes.get('/feedbacks', auth_middleware_js_1.authenticateJWT, auth
             res.status(500).json({ success: false, error: error.message });
             return;
         }
-        const mappedFeedbacks = (feedbacks || []).map((f) => {
-            const result = { ...f };
-            if (f.attachment && typeof f.attachment === 'string') {
-                const { data: urlData } = supabase_client_js_1.supabase.storage
-                    .from('feedback-attachments')
-                    .getPublicUrl(f.attachment);
-                result.attachmentUrl = urlData?.publicUrl || null;
-            }
-            return result;
-        });
+        const mappedFeedbacks = await Promise.all((feedbacks || []).map(async (f) => ({
+            ...f,
+            attachmentUrl: typeof f.attachment === 'string' ? await resolveAttachmentUrl(f.attachment) : null
+        })));
         res.json({
             success: true,
             feedbacks: mappedFeedbacks,

@@ -35,6 +35,21 @@ adminRoutes.get('/logs', authenticateJWT, requireAdmin, async (req: Authenticate
   res.json({ success: true, logs });
 });
 
+async function resolveAttachmentUrl(attachment: string): Promise<string | null> {
+  try {
+    const { data, error } = await supabase.storage
+      .from('feedback-attachments')
+      .createSignedUrl(attachment, 3600);
+    if (!error && data?.signedUrl) return data.signedUrl;
+  } catch {
+    // fallback to public url if signed url fails
+  }
+  const { data: urlData } = supabase.storage
+    .from('feedback-attachments')
+    .getPublicUrl(attachment);
+  return urlData?.publicUrl || null;
+}
+
 /**
  * GET /api/v1/admin/feedbacks
  * List all user feedbacks (Admin only)
@@ -60,16 +75,12 @@ adminRoutes.get('/feedbacks', authenticateJWT, requireAdmin, async (req: Authent
       return;
     }
     
-    const mappedFeedbacks = (feedbacks || []).map((f: Record<string, unknown>) => {
-      const result: Record<string, unknown> = { ...f };
-      if (f.attachment && typeof f.attachment === 'string') {
-        const { data: urlData } = supabase.storage
-          .from('feedback-attachments')
-          .getPublicUrl(f.attachment as string);
-        result.attachmentUrl = urlData?.publicUrl || null;
-      }
-      return result;
-    });
+    const mappedFeedbacks = await Promise.all(
+      (feedbacks || []).map(async (f: Record<string, unknown>) => ({
+        ...f,
+        attachmentUrl: typeof f.attachment === 'string' ? await resolveAttachmentUrl(f.attachment) : null
+      }))
+    );
     
     res.json({
       success: true,
