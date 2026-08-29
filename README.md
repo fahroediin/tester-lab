@@ -6,7 +6,7 @@
 
 ---
 
-## 🌟 Mengapa Tanpa LLM?
+## Mengapa Tanpa LLM?
 
 1. **Deterministik & 100% Konsisten:** Hasil generasi script selalu identik untuk input bisnis yang sama. Tidak ada risiko halusinasi selector, kesalahan sintaks, atau perubahan perilaku acak.
 2. **Kepatuhan Privasi & Keamanan Data (Zero Data Leakage):** Struktur DOM internal, atribut halaman, dan data rahasia tidak pernah dikirim ke API kecerdasan buatan pihak ketiga.
@@ -15,9 +15,9 @@
 
 ---
 
-## 🚀 Fitur Utama
+## Fitur Utama
 
-- **Deterministic 6-Tier Scoring Matrix:** Pencocokan label ke elemen DOM interaktif dengan bobot prioritas teruji (*Test ID $\rightarrow$ Associated Label $\rightarrow$ ARIA Role & Accessible Name $\rightarrow$ InnerText $\rightarrow$ Placeholder/Aria-Label $\rightarrow$ Fuzzy Levenshtein*).
+- **Deterministic 6-Tier Scoring Matrix:** Pencocokan label ke elemen DOM interaktif dengan bobot prioritas teruji (*Test ID -> Associated Label -> ARIA Role & Accessible Name -> InnerText -> Placeholder/Aria-Label -> Fuzzy Levenshtein*).
 - **Multi-Framework Code Transpiler:** Transpilasi otomatis ke **Playwright (TS/JS)**, **Cypress**, **Selenium Python**, dan **Robot Framework** terformat rapi via Prettier AST.
 - **Dry-Run & Self-Healing Engine:** Validasi headless langsung pasca-generasi dengan kemampuan *auto-healing* ke kandidat Rank-2 jika selector pertama gagal.
 - **Web Workspace & Interactive Admin Portal:** UI modern responsif dengan Scenario Builder, Flow History + video playback, Feedback Reporting, API Key Management, dan Admin Control Center.
@@ -31,7 +31,7 @@
 
 ---
 
-## 📐 Arsitektur & Pipeline Sistem
+## Arsitektur & Pipeline Sistem
 
 ```
 [ Business Rule DSL (JSON / YAML) ]
@@ -69,7 +69,7 @@
 
 ---
 
-## 📊 Matriks Skoring Heuristik
+## Matriks Skoring Heuristik
 
 Pencocokan elemen dilakukan menggunakan matriks bobot deterministik untuk memilih *locator strategy* paling stabil:
 
@@ -84,7 +84,7 @@ Pencocokan elemen dilakukan menggunakan matriks bobot deterministik untuk memili
 
 ---
 
-## 🛠️ Prasyarat & Instalasi
+## Prasyarat & Instalasi
 
 ### Prasyarat
 - **Node.js**: `v18.x` atau `v20+` LTS
@@ -141,7 +141,7 @@ npm run build
 
 ---
 
-## 💻 Penggunaan CLI (`test-gen`)
+## Penggunaan CLI (`test-gen`)
 
 Tester Lab menyediakan CLI mandiri untuk generasi cepat dari terminal:
 
@@ -166,7 +166,7 @@ node dist/cli/index.js inspect --url https://example.com/login
 
 ---
 
-## 📝 Format DSL Input
+## Format DSL Input
 
 ### Contoh JSON DSL (`login-flow.json`):
 ```json
@@ -227,7 +227,7 @@ steps:
 
 ---
 
-## 🌐 Menjalankan Backend Server & Web Portal
+## Menjalankan Backend Server & Web Portal
 
 Jalankan server Express:
 ```bash
@@ -247,7 +247,7 @@ Buka browser di `http://localhost:3000` untuk mengakses Web Workspace & Admin Co
 
 ---
 
-## 📡 REST API Reference
+## REST API Reference
 
 | Endpoint | Method | Autentikasi | Deskripsi |
 | :--- | :---: | :---: | :--- |
@@ -269,7 +269,7 @@ Buka browser di `http://localhost:3000` untuk mengakses Web Workspace & Admin Co
 
 ---
 
-## 📂 Struktur Direktori
+## Struktur Direktori
 
 ```text
 tester-lab/
@@ -299,7 +299,7 @@ tester-lab/
 │   │   │   ├── config-routes.ts
 │   │   │   ├── feedback-routes.ts
 │   │   │   ├── history-routes.ts
-│   │   │   └── test-routes.ts
+│   │   └── test-routes.ts
 │   │   ├── services/
 │   │   │   └── test-runner-service.ts # Playwright test execution & video handler
 │   │   ├── activity-log-store.ts
@@ -335,7 +335,7 @@ tester-lab/
 
 ---
 
-## 📜 Lisensi
+## Lisensi
 
 ISC License.
 
