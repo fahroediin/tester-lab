@@ -172,36 +172,19 @@ CREATE POLICY "Service role full access on api_key_usage_logs"
 -- ============================================================
 -- Run this separately or via Supabase Dashboard > Storage:
 
--- 1. Feedback Attachments Bucket
+-- 1. Feedback Attachments Bucket (Private / Protected)
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('feedback-attachments', 'feedback-attachments', true)
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET public = EXCLUDED.public;
 
-CREATE POLICY "Public read access on feedback-attachments"
-  ON storage.objects FOR SELECT
-  USING (bucket_id = 'feedback-attachments');
-
-CREATE POLICY "Service role upload on feedback-attachments"
-  ON storage.objects FOR INSERT
-  WITH CHECK (bucket_id = 'feedback-attachments');
-
-CREATE POLICY "Service role delete on feedback-attachments"
-  ON storage.objects FOR DELETE
-  USING (bucket_id = 'feedback-attachments');
-
--- 2. Test Execution Videos Bucket
+-- 2. Test Execution Videos Bucket (Private / Protected)
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('test-videos', 'test-videos', true)
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET public = EXCLUDED.public;
 
-CREATE POLICY "Public read access on test-videos"
-  ON storage.objects FOR SELECT
-  USING (bucket_id = 'test-videos');
-
-CREATE POLICY "Service role upload on test-videos"
-  ON storage.objects FOR INSERT
-  WITH CHECK (bucket_id = 'test-videos');
-
-CREATE POLICY "Service role delete on test-videos"
-  ON storage.objects FOR DELETE
-  USING (bucket_id = 'test-videos');
+-- Service role has full unrestricted access on all storage objects
+DROP POLICY IF EXISTS "Service role full access on storage objects" ON storage.objects;
+CREATE POLICY "Service role full access on storage objects"
+  ON storage.objects FOR ALL TO service_role
+  USING (true)
+  WITH CHECK (true);
