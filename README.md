@@ -2,267 +2,343 @@
 
 **Sistem Generator Script Testing Otomatis Berbasis Rule & Heuristic DOM Matching (Deterministik, Tanpa LLM)**
 
-`tester-lab` adalah engine otomatisasi yang menghasilkan *end-to-end test script* secara otomatis berdasarkan file skenario aturan bisnis (**JSON DSL**), tanpa bergantung pada Large Language Model (LLM). Engine ini secara bawaan mendukung berbagai framework industri teratas: **Playwright (TS/JS), Cypress (JS), Selenium (Python), dan Robot Framework**.
+`tester-lab` adalah engine otomatisasi pengujian *end-to-end* yang menghasilkan script test secara otomatis berdasarkan file skenario aturan bisnis (**JSON / YAML DSL**), tanpa bergantung pada Large Language Model (LLM). Engine ini secara bawaan mendukung berbagai framework industri terkemuka: **Playwright (TypeScript & JavaScript), Cypress, Selenium (Python), dan Robot Framework**.
 
 ---
 
-## Mengapa Tanpa LLM?
+## 🌟 Mengapa Tanpa LLM?
 
-1. **Deterministik & Dapat Diprediksi (100% Consistent):** Hasil generasi script selalu konsisten untuk input bisnis yang sama. Tidak ada risiko halusinasi selector atau sintaks kode.
-2. **Kepatuhan Privasi & Keamanan Data (Zero Data Leakage):** Struktur DOM internal, atribut halaman web, dan data sensitif tidak dikirim ke API pihak ketiga.
-3. **Performa Tinggi (< 1 Detik):** Ekstraksi & pencocokan heuristik berbasis memori lokal berjalan dalam hitungan milidetik, jauh lebih cepat dibanding latensi inferensi LLM.
-4. **Biaya Operasional Nol (Zero API Cost):** Tanpa langganan API berulang, tanpa kuota token.
-
----
-
-## Fitur Unggulan Terbaru
-
-1. **Robust Action Helper untuk Form Dinamis (OutSystems Support)**
-   Jika sebuah halaman memiliki form kompleks (seperti pada platform OutSystems) di mana elemen input tidak terhubung langsung secara semantik dengan labelnya, engine secara otomatis akan mendeteksi skenario fallback ini. Code generator kemudian akan menyuntikkan *helper function* khusus (`action()`) yang mencari elemen berdasarkan hubungan hierarkis (ancestor div) dengan teks label visualnya, menjamin eksekusi script yang *robust* terhadap elemen UI yang dinamis.
-
-2. **Web UI: Import JSON Flow**
-   Sekarang Anda dapat mengimpor file alur pengujian JSON yang kompleks (misalnya `examples/newloan-flow.json`) secara instan ke dalam **Scenario Builder** pada antarmuka Web UI. Konfigurasi langkah pengujian akan otomatis dimuat dan siap untuk di-generate ulang!
+1. **Deterministik & 100% Konsisten:** Hasil generasi script selalu identik untuk input bisnis yang sama. Tidak ada risiko halusinasi selector, kesalahan sintaks, atau perubahan perilaku acak.
+2. **Kepatuhan Privasi & Keamanan Data (Zero Data Leakage):** Struktur DOM internal, atribut halaman, dan data rahasia tidak pernah dikirim ke API kecerdasan buatan pihak ketiga.
+3. **Performa Tinggi (< 1 Detik):** Ekstraksi dan pencocokan heuristik berbasis memori lokal berjalan dalam hitungan milidetik, jauh lebih cepat dibanding latensi inferensi LLM.
+4. **Biaya Operasional Nol (Zero Token/API Cost):** Tanpa langganan API berulang, tanpa kuota token bulanan.
 
 ---
 
-## Arsitektur & Alur Kerja Sistem
+## 🚀 Fitur Utama
 
-```text
-  [Input Layer: File Business Rule JSON / DSL]
-                       │
-                       ▼
-  [Module 1: DSL Validator (Zod Schema)]
-                       │
-                       ▼
-  [Module 2: Interactive DOM Crawler & Extractor (Playwright)]
-   - Buka URL Target via Headless Browser
-   - Ekstrak Interactive DOM, Accessibility Tree, & State Transitions
-                       │
-                       ▼
-  [Module 3: Heuristic & Scoring Matcher Engine]
-   - Match targetLabel vs DOM candidates via Deterministik Scoring Matrix
-   - Rank candidates & resolve ambiguity via visual bounding box
-                       │
-                       ▼
-  [Module 4: Code Transpiler & Generator Engine (Handlebars + Prettier)]
-   - Injeksi resolved steps ke template framework yang dipilih
-   - Dukungan Multi-Framework: Playwright (TS/JS), Cypress, Selenium (Py), Robot Framework
-   - Format kode otomatis menggunakan Prettier API
-                       │
-                       ▼
-  [Module 5: Dry-Run & Self-Healing Engine]
-   - Eksekusi headless otomatis pasca-generasi (khusus Playwright)
-   - Auto-healing fallback ke Rank 2 candidate jika selector bermasalah
-                       │
-                       ▼
-   [Output Artifact: File Script Testing (.spec.ts / cy.js / .py / .robot)]
+- **Deterministic 6-Tier Scoring Matrix:** Pencocokan label ke elemen DOM interaktif dengan bobot prioritas teruji (*Test ID $\rightarrow$ Associated Label $\rightarrow$ ARIA Role & Accessible Name $\rightarrow$ InnerText $\rightarrow$ Placeholder/Aria-Label $\rightarrow$ Fuzzy Levenshtein*).
+- **Multi-Framework Code Transpiler:** Transpilasi otomatis ke **Playwright (TS/JS)**, **Cypress**, **Selenium Python**, dan **Robot Framework** terformat rapi via Prettier AST.
+- **Dry-Run & Self-Healing Engine:** Validasi headless langsung pasca-generasi dengan kemampuan *auto-healing* ke kandidat Rank-2 jika selector pertama gagal.
+- **Web Workspace & Interactive Admin Portal:** UI modern responsif dengan Scenario Builder, Flow History + video playback, Feedback Reporting, API Key Management, dan Admin Control Center.
+- **Enterprise-Grade Security:**
+  - **API Key Masking & SHA-256 Hashing:** Penyimpanan hash kriptografis aman, raw key hanya ditampilkan sekali saat pembuatan, dan prefix di-mask (`tl_live_xxxx...yyyy`).
+  - **Dual Authentication Middleware:** Mendukung JWT Bearer Token dan `X-API-Key` dengan Role-Based Access Control (Admin / User) & User Status Approval (`pending`, `approved`, `rejected`).
+  - **AST/Regex Code Sanitizer:** Memblokir eksekusi kode berbahaya (`fs`, `child_process`, `eval`, `process.env`) sebelum dieksekusi.
+  - **PostgreSQL Row Level Security (RLS):** Seluruh tabel database diamankan dan diisolasi dengan hak akses `TO service_role`.
+- **Resource Concurrency Control:** In-memory queue manager untuk membatasi eksekusi paralel Playwright dan browser crawler guna mencegah *resource exhaustion*.
+- **Flexible DSL Support:** Mendukung format file konfigurasi skenario **JSON** dan **YAML** dengan normalisasi otomatis.
+
+---
+
+## 📐 Arsitektur & Pipeline Sistem
+
+```
+[ Business Rule DSL (JSON / YAML) ]
+               │
+               ▼
+    1. Zod DSL Validator & Normalizer (src/validator/dsl-validator.ts)
+               │
+               ▼
+    2. State-Transition DOM Extractor (src/crawler/dom-extractor.ts)
+       - Headless Playwright Chromium Crawler
+       - Ekstraksi elemen interaktif, accessibility tree, & bounding box
+               │
+               ▼
+    3. Heuristic Scoring & Matcher Engine (src/matcher/heuristic-matcher.ts)
+       - 6 Deterministik Heuristic Rules
+       - Tag suitability filtering & coordinate disambiguation
+               │
+               ▼
+    4. Selector Strategy Resolver (src/matcher/selector-resolver.ts)
+       - getByTestId, getByLabel, getByRole, getByPlaceholder, getByText, locator
+               │
+               ▼
+    5. Multi-Framework Code Generator (src/generator/code-generator.ts)
+       - Handlebars Templates (Playwright TS/JS, Cypress, Selenium, Robot)
+       - Format kode otomatis via Prettier
+               │
+               ▼
+    6. Dry-Run & Self-Healing Engine (src/validator/dry-run-engine.ts)
+       - Headless test execution validation
+       - Auto-healing fallback ke Rank 2 candidate jika selector bermasalah
+               │
+               ▼
+ [ Output Artifact: File Script Testing (.spec.ts / .cy.js / .py / .robot) ]
 ```
 
 ---
 
-## Matriks Bobot Skoring Heuristik
+## 📊 Matriks Skoring Heuristik
 
-Pencocokan elemen dilakukan menggunakan matriks bobot deterministik untuk menentukan selector terbaik (*locator strategy*):
+Pencocokan elemen dilakukan menggunakan matriks bobot deterministik untuk memilih *locator strategy* paling stabil:
 
-| Match Criteria / Rule | Skor Bobot | Locator Strategy Terpilih | Description & Stability |
-| :--- | :---: | :--- | :--- |
-| **Rule 1: Direct Test ID Match** | **100** | `page.getByTestId(...)` | Match exact `data-testid`, `data-qa`, `data-cy`. Kebal perubahan UI. |
-| **Rule 2: Associated Label Match** | **85 - 90** | `page.getByLabel(...)` | Match exact/partial `<label for="...">` terhubung. Standar aksesibilitas tinggi. |
-| **Rule 3: Accessibility Role & Name Match** | **75 - 80** | `page.getByRole(...)` | Match ARIA Role (`button`, `textbox`, `checkbox`) & ARIA Name/innerText. |
-| **Rule 4: Placeholder / Aria-Label Match** | **70** | `page.getByPlaceholder(...)` | Match atribut `placeholder` atau `aria-label`. |
-| **Rule 5: InnerText / Visual Text Match** | **60 - 65** | `page.getByText(...)` | Match teks visual yang terlihat di layar (`innerText`). |
-| **Rule 6: Fuzzy Levenshtein Distance Match** | **30 - 50** | `page.locator('text=...')` | Toleransi perbedaan ejaan (misal: `"User Name"` vs `"Username"`). |
+| Prioritas | Kriteria / Rule | Skor | Strategi Locator | Deskripsi & Stabilitas |
+| :---: | :--- | :---: | :--- | :--- |
+| **1** | **Direct Test ID Match** | **100** | `page.getByTestId(...)` | Match exact `data-testid`, `data-test`, `id-test`. Paling kebal perubahan UI. |
+| **2** | **Associated Label Match** | **85 – 90** | `page.getByLabel(...)` | Match `<label for="...">` atau wrapper label langsung. Standar aksesibilitas tinggi. |
+| **3** | **ARIA Role & Name Match** | **75 – 88** | `page.getByRole(...)` | Match semantik ARIA role (`button`, `textbox`, `combobox`) + accessible name. |
+| **4** | **Visual Text / Value Match** | **60 – 85** | `page.getByText(...)` | Match teks visual yang terlihat di layar (`innerText`). |
+| **5** | **Placeholder / Aria-Label** | **65 – 80** | `page.getByPlaceholder(...)` | Match atribut `placeholder` atau `aria-label` pada elemen input. |
+| **6** | **Fuzzy Levenshtein Match** | **30 – 50** | `page.locator('text=...')` | Toleransi perbedaan ejaan ringan / dynamic prefix. |
 
 ---
 
-## Prasyarat & Instalasi
+## 🛠️ Prasyarat & Instalasi
 
 ### Prasyarat
 - **Node.js**: `v18.x` atau `v20+` LTS
 - **NPM**: `v9.x` atau `v10+`
 
-### Instalasi Dependensi
+### 1. Clone Repositori & Install Dependensi
 ```bash
-# Clone repositori dan install dependensi
+git clone https://github.com/fahroediin/tester-lab.git
+cd tester-lab
 npm install
+```
 
-# Install browser binary Playwright Chromium
+### 2. Install Browser Binary Playwright
+```bash
 npx playwright install chromium
 ```
 
-### Build Project
+### 3. Konfigurasi Environment (`.env`)
+Salin template `.env.example` ke `.env`:
+```bash
+cp .env.example .env
+```
+Sesuaikan konfigurasi environment:
+```env
+PORT=3000
+HOST=0.0.0.0
+
+# Super Admin Account Bootstrap
+ADMIN_USERNAME=admin
+ADMIN_EMAIL=admin@testerlab.com
+ADMIN_PASSWORD=AdminPassword123!
+
+# JWT Secret
+JWT_SECRET=tester-lab-jwt-secret-key-2026-secure
+
+# Concurrency & Playwright Timeouts
+PLAYWRIGHT_TIMEOUT=120000
+MAX_CONCURRENT_TESTS=3
+MAX_CONCURRENT_GENERATIONS=5
+
+# Supabase Credentials (PostgreSQL & Storage)
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+
+# API Key Usage Reset Cycle (hari)
+API_KEY_USAGE_RESET_DAYS=30
+```
+
+### 4. Build Project
 ```bash
 npm run build
 ```
 
 ---
 
-## Format File DSL Input (`login-flow.json`)
+## 💻 Penggunaan CLI (`test-gen`)
 
-Pengguna mendefinisikan alur pengujian dalam format JSON sederhana:
+Tester Lab menyediakan CLI mandiri untuk generasi cepat dari terminal:
 
+### 1. Generasi Script dari File JSON atau YAML
+```bash
+# Menggunakan file JSON
+node dist/cli/index.js generate --config ./examples/login-flow.json --out ./tests/login.spec.ts
+
+# Menggunakan file YAML
+node dist/cli/index.js generate --config ./tests/DEV_TERRAL.yaml --out ./tests/dev_terral.spec.ts
+```
+
+### 2. Generasi dengan Verifikasi Otomatis (Dry-Run)
+```bash
+node dist/cli/index.js generate --config ./examples/login-flow.json --out ./tests/login.spec.ts --dry-run
+```
+
+### 3. Inspeksi Elemen DOM dari Target URL
+```bash
+node dist/cli/index.js inspect --url https://example.com/login
+```
+
+---
+
+## 📝 Format DSL Input
+
+### Contoh JSON DSL (`login-flow.json`):
 ```json
 {
-  "testSuite": "Login Authentication Test",
-  "targetUrl": "http://localhost:4000/login",
+  "testSuite": "Login Authentication Flow",
+  "targetUrl": "https://example.com/login",
   "framework": "playwright",
   "language": "typescript",
   "steps": [
     {
       "step": 1,
       "action": "fill",
-      "targetLabel": "Email / Username",
+      "targetLabel": "Email Address",
       "value": "user@example.com",
-      "description": "Isi kolom login pengguna"
+      "description": "Isi kolom email pengguna"
     },
     {
       "step": 2,
       "action": "fill",
-      "targetLabel": "Kata Sandi",
-      "value": "P@ssword123",
-      "description": "Isi password pengguna"
+      "targetLabel": "Password",
+      "value": "SecurePass123!",
+      "description": "Isi kata sandi"
     },
     {
       "step": 3,
       "action": "click",
-      "targetLabel": "Masuk Ke Akun",
-      "description": "Klik tombol login"
+      "targetLabel": "Sign In",
+      "description": "Klik tombol sign in"
     },
     {
       "step": 4,
       "action": "assert_url",
       "expected": "/dashboard",
       "description": "Verifikasi URL beralih ke dashboard"
-    },
-    {
-      "step": 5,
-      "action": "assert_text",
-      "targetLabel": "Header Dashboard",
-      "expected": "Selamat Datang Kembali",
-      "description": "Verifikasi teks salam pembuka muncul"
     }
   ]
 }
 ```
 
----
-
-## Penggunaan CLI (Command Line Interface)
-
-### 1. Generasi Test Script dengan Verifikasi Dry-Run
-```bash
-node dist/cli/index.js generate --config ./examples/login-flow.json --out ./tests/login.spec.ts --dry-run
-```
-
-**Output Log CLI:**
-```text
-[Crawler] Navigating to http://localhost:4000/login & inspecting state transition DOM elements...
-[Crawler] Completed extraction & heuristic matching for 5 steps.
-[Generator] Emitting code string via Handlebars & Prettier...
-[Dry-Run] Executing generated script in headless mode for verification...
-
-================ GENERATION SUMMARY ================
-[PASS] Step 1 (fill): Matched 'Email / Username' via getByTestId('email-input') with score 95
-[PASS] Step 2 (fill): Matched 'Kata Sandi' via getByTestId('password-input') with score 95
-[PASS] Step 3 (click): Matched 'Masuk Ke Akun' via getByTestId('btn-login') with score 85
-[PASS] Step 4 (assert_url): Matched '/dashboard' via url('dashboard') with score 100
-[PASS] Step 5 (assert_text): Matched 'Header Dashboard' via getByTestId('dashboard-header') with score 100
-[Output] Script saved to file: ./tests/login.spec.ts
-
-================ DRY-RUN RESULT ================
-Dry-Run Verification Passed!
-```
-
-### 2. Inspeksi Elemen DOM dari URL Target
-```bash
-node dist/cli/index.js inspect --url http://localhost:4000/login
+### Contoh YAML DSL (`login-flow.yaml`):
+```yaml
+testSuite: Login Authentication Flow
+targetUrl: https://example.com/login
+framework: playwright
+language: typescript
+steps:
+  - action: fill
+    targetLabel: Email Address
+    value: user@example.com
+  - action: fill
+    targetLabel: Password
+    value: SecurePass123!
+  - action: click
+    targetLabel: Sign In
+  - action: assert_url
+    expected: /dashboard
 ```
 
 ---
 
-## Penggunaan REST API Service
+## 🌐 Menjalankan Backend Server & Web Portal
 
-Anda juga dapat menjalankan generator ini sebagai layanan web (REST API):
-
+Jalankan server Express:
 ```bash
-# Jalankan REST API Server
 npm run start
 ```
-Server akan berjalan di `http://localhost:3000`.
+Buka browser di `http://localhost:3000` untuk mengakses Web Workspace & Admin Console.
 
-### Endpoints:
-1. **`POST /api/v1/generate-script`**
-   - **Payload:**
-     ```json
-     {
-       "dsl": { ... DSLConfig JSON ... },
-       "dryRun": true,
-       "outPath": "./tests/api_generated.spec.ts"
-     }
-     ```
-   - **Response:** Returns `code`, `resolvedSteps`, `warnings`, `logs`, dan `dryRunPassed`.
-
-2. **`POST /api/v1/inspect-dom`**
-   - **Payload:** `{ "url": "http://localhost:4000/login" }`
-   - **Response:** Returns daftar seluruh kandidat elemen interaktif pada halaman web.
+### Fitur Antarmuka Web:
+- **Scenario Builder:** Pembuat skenario visual, import JSON/YAML, dan eksekusi generasi script satu klik.
+- **Execution History:** Riwayat lengkap skenario yang digenerasi beserta log eksekusi dan pemutar rekaman video Playwright.
+- **API Key Management:** Pembuatan dan pencabutan API key dengan ringkasan status hit (`generated`, `success`, `failed`).
+- **Admin Control Panel:**
+  - Persetujuan & penolakan pendaftaran pengguna (`pending`, `approved`, `rejected`).
+  - Ringkasan aktivitas sistem & audit log.
+  - Manajemen feedback dan unduhan lampiran pengguna.
+  - Statistik agregat penggunaan API Key secara *real-time*.
 
 ---
 
-## Menjalankan Demo App & Test Verification
+## 📡 REST API Reference
 
-```bash
-# 1. Jalankan demo web app lokal (Port 4000)
-npm run demo
-
-# 2. Generasi script & eksekusi dry-run (Terminal terpisah)
-node dist/cli/index.js generate --config ./examples/login-flow.json --out ./tests/login.spec.ts --dry-run
-
-# 3. Jalankan script hasil generasi langsung dengan Playwright
-npx playwright test tests/login.spec.ts
-```
+| Endpoint | Method | Autentikasi | Deskripsi |
+| :--- | :---: | :---: | :--- |
+| `/api/v1/auth/register` | `POST` | Public | Mendaftarkan akun baru (status awal: `pending`). |
+| `/api/v1/auth/login` | `POST` | Public | Login pengguna, mengembalikan JWT token. |
+| `/api/v1/auth/me` | `GET` | JWT / API Key | Mengambil profil user yang sedang aktif. |
+| `/api/v1/generate-script` | `POST` | JWT / API Key | Mengekstraksi DOM dan menghasilkan script testing. |
+| `/api/v1/inspect-dom` | `POST` | JWT / API Key | Mengambil daftar elemen kandidat interaktif dari URL target. |
+| `/api/v1/run-test` | `POST` | JWT / API Key | Mengeksekusi script Playwright dan mengunggah artifact video. |
+| `/api/v1/api-keys` | `GET` | JWT Only | Mengambil daftar API Key pengguna beserta statistik hit. |
+| `/api/v1/api-keys` | `POST` | JWT Only | Membuat API Key baru (mengembalikan raw key sekali saja). |
+| `/api/v1/api-keys/:id` | `DELETE` | JWT Only | Mencabut (*revoke*) status aktif API Key. |
+| `/api/v1/history` | `GET` | JWT / API Key | Mengambil riwayat pengujian pengguna. |
+| `/api/v1/feedback` | `POST` | JWT / API Key | Mengirim feedback dan lampiran file. |
+| `/api/v1/admin/users` | `GET` | Admin Only | Mengambil daftar seluruh pengguna dan status approval. |
+| `/api/v1/admin/users/:id/approve` | `POST` | Admin Only | Menyetujui akun pendaftaran pengguna. |
+| `/api/v1/admin/api-keys/stats` | `GET` | Admin Only | Statistik agregat request & hit seluruh API Key. |
+| `/api/v1/admin/api-keys/logs` | `GET` | Admin Only | Log paginasi hit API Key di seluruh sistem. |
 
 ---
 
-## Struktur Direktori Proyek
+## 📂 Struktur Direktori
 
 ```text
 tester-lab/
-├── dist/                      # Output kompilasi JavaScript
-├── examples/                  # Contoh file DSL & demo web server
-│   ├── demo-server.ts
-│   └── login-flow.json
+├── public/                     # Frontend Web Portal (HTML, CSS, Vanilla JS)
+│   ├── css/style.css           # Modern Glassmorphic Design System
+│   ├── js/app.js               # Web UI Logic & REST API Client
+│   └── index.html              # Workspace Single Page Application
 ├── src/
-│   ├── cli/                   # Interface Command Line (Commander.js)
-│   │   └── index.ts
-│   ├── crawler/               # State-Transition DOM Extractor Engine
-│   │   └── domExtractor.ts
-│   ├── generator/             # Code Transpiler (Handlebars + Prettier)
-│   │   └── codeGenerator.ts
-│   ├── matcher/               # Heuristic & Scoring Matcher Engine
-│   │   └── heuristicMatcher.ts
-│   ├── server/                # Express REST API Service
-│   │   └── index.ts
-│   ├── templates/             # Template Handlebars (.hbs)
+│   ├── cli/
+│   │   └── index.ts            # CLI Interface (Commander.js + js-yaml)
+│   ├── crawler/
+│   │   ├── dom-candidate-extractor.ts  # Script ekstraksi DOM in-browser
+│   │   └── dom-extractor.ts            # Headless Playwright Chromium Crawler
+│   ├── generator/
+│   │   └── code-generator.ts   # Handlebars Multi-Framework Transpiler
+│   ├── matcher/
+│   │   ├── heuristic-matcher.ts # Orchestrator pencocokan multi-step
+│   │   ├── scoring-engine.ts    # 6-Tier Deterministic Scoring Engine
+│   │   └── selector-resolver.ts # Playwright locator strategy mapping
+│   ├── server/
+│   │   ├── lib/
+│   │   │   └── sanitized-env.ts # Subprocess environment sanitizer
+│   │   ├── routes/              # Express REST API Route Handlers (< 250 baris)
+│   │   │   ├── admin-routes.ts
+│   │   │   ├── api-key-routes.ts
+│   │   │   ├── auth-routes.ts
+│   │   │   ├── config-routes.ts
+│   │   │   ├── feedback-routes.ts
+│   │   │   ├── history-routes.ts
+│   │   │   └── test-routes.ts
+│   │   ├── services/
+│   │   │   └── test-runner-service.ts # Playwright test execution & video handler
+│   │   ├── activity-log-store.ts
+│   │   ├── api-key-store.ts     # API Key Store (SHA-256 hash & masked prefix)
+│   │   ├── api-key-usage-helpers.ts # In-memory buffer fallback & helper
+│   │   ├── api-key-usage-store.ts   # Database API Key usage metrics
+│   │   ├── auth-middleware.ts   # Dual JWT & API Key authentication
+│   │   ├── auth-store.ts        # Database user store adapter
+│   │   ├── code-sanitizer.ts    # AST/Regex test script security guard
+│   │   ├── config-store.ts
+│   │   ├── flow-history-store.ts
+│   │   ├── index.ts             # Express Server Bootstrap
+│   │   ├── queue-manager.ts     # Concurrency queue limiter
+│   │   └── supabase-client.ts   # Supabase client singleton
+│   ├── templates/               # Handlebars Code Generation Templates
+│   │   ├── cypress.hbs
 │   │   ├── playwright-js.hbs
-│   │   └── playwright-ts.hbs
-│   ├── types/                 # TypeScript Interfaces & Types
-│   │   └── index.ts
-│   ├── validator/             # DSL Zod Schema & Dry-Run Engine
-│   │   ├── dslValidator.ts
-│   │   └── dryRunEngine.ts
-│   └── index.ts               # Main Entry Point & Pipeline Orchestrator
-├── tests/                     # Output file .spec.ts hasil generasi
-├── Implementation-plan.md     # Dokumen spesifikasi perancangan
+│   │   ├── playwright-ts.hbs
+│   │   ├── robotframework.hbs
+│   │   └── selenium-py.hbs
+│   ├── types/
+│   │   └── index.ts             # Shared Domain Types & Interfaces
+│   ├── validator/
+│   │   ├── dry-run-engine.ts    # Headless test verification & self-healing
+│   │   └── dsl-validator.ts     # Zod DSL validation & normalizer
+│   └── index.ts                 # Library programmatic API export
+├── supabase/
+│   └── schema.sql               # Database schema, table definitions, & RLS
+├── CODING_STANDARD.md           # Standar Pengkodean & Arsitektur Resmi
 ├── package.json
 └── tsconfig.json
 ```
 
 ---
 
-## Lisensi
+## 📜 Lisensi
 
 ISC License.
 
 ---
 
-Crafted by: Fahrudin
+**Tester Lab Team** — *Crafted for reliable, deterministic, and blazing-fast test automation.*
