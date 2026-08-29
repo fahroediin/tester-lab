@@ -46,7 +46,7 @@ app.use('/api/v1', test_routes_js_1.testRoutes); // testRoutes has endpoints lik
 app.use((err, req, res, next) => {
     console.error('[Global Error Handler]', err.message || err);
     if (req.path.startsWith('/api/')) {
-        res.status(err.status || 500).json({
+        res.status(err.status || err.statusCode || 500).json({
             success: false,
             error: err.message || 'Internal Server Error'
         });
@@ -59,14 +59,17 @@ app.use((err, req, res, next) => {
 app.use('/api/*', (req, res) => {
     res.status(404).json({ success: false, error: `API endpoint not found: ${req.method} ${req.originalUrl}` });
 });
-// Bootstrap: ensure admin user exists in Supabase
-(0, auth_store_js_1.ensureAdminUser)()
-    .then(() => {
-    console.log('[Bootstrap] Admin user sync complete.');
-})
-    .catch((err) => {
-    console.error('[Bootstrap] Failed to sync admin user:', err);
-});
-app.listen(port, () => {
-    console.log(`Tester Lab backend listening on http://localhost:${port}`);
-});
+// Bootstrap: ensure admin user exists in Supabase, then listen
+async function startServer() {
+    try {
+        await (0, auth_store_js_1.ensureAdminUser)();
+        console.log('[Bootstrap] Admin user sync complete.');
+    }
+    catch (err) {
+        console.error('[Bootstrap] Failed to sync admin user:', err.message || err);
+    }
+    app.listen(port, () => {
+        console.log(`Tester Lab backend listening on http://localhost:${port}`);
+    });
+}
+startServer();

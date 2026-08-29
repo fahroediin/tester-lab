@@ -10,7 +10,18 @@ const os_1 = __importDefault(require("os"));
 const child_process_1 = require("child_process");
 const util_1 = require("util");
 const code_generator_js_1 = require("../generator/code-generator.js");
-const execAsync = (0, util_1.promisify)(child_process_1.exec);
+const execFileAsync = (0, util_1.promisify)(child_process_1.execFile);
+async function runPlaywrightTest(testFilePath, configFilePath) {
+    const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+    const args = ['playwright', 'test', testFilePath, `--config=${configFilePath}`];
+    return execFileAsync(npxCmd, args, {
+        cwd: process.cwd(),
+        env: {
+            ...getSanitizedEnv(),
+            NODE_PATH: path_1.default.join(process.cwd(), 'node_modules')
+        }
+    });
+}
 /**
  * Build a sanitized environment object for child processes.
  * Only includes variables required for Playwright to function.
@@ -70,15 +81,8 @@ export default defineConfig({
         try {
             fs_1.default.writeFileSync(testFilePath, code, 'utf-8');
             fs_1.default.writeFileSync(configFilePath, playwrightConfig, 'utf-8');
-            // Run playwright test on generated script from project working directory
-            const command = `npx playwright test "${testFilePath.replace(/\\/g, '/')}" --config="${configFilePath.replace(/\\/g, '/')}"`;
-            await execAsync(command, {
-                cwd: process.cwd(),
-                env: {
-                    ...getSanitizedEnv(),
-                    NODE_PATH: path_1.default.join(process.cwd(), 'node_modules')
-                }
-            });
+            // Run playwright test safely on generated script
+            await runPlaywrightTest(testFilePath, configFilePath);
             const durationMs = Date.now() - startTime;
             cleanupTempDir();
             return {
@@ -177,14 +181,7 @@ export default defineConfig({
         const patchedFilePath = path_1.default.join(tempDir, 'dryrun_healed.spec.ts');
         try {
             fs_1.default.writeFileSync(patchedFilePath, patchedResult.code, 'utf-8');
-            const command = `npx playwright test "${patchedFilePath.replace(/\\/g, '/')}" --config="${configFilePath.replace(/\\/g, '/')}"`;
-            await execAsync(command, {
-                cwd: process.cwd(),
-                env: {
-                    ...getSanitizedEnv(),
-                    NODE_PATH: path_1.default.join(process.cwd(), 'node_modules')
-                }
-            });
+            await runPlaywrightTest(patchedFilePath, configFilePath);
             return {
                 success: true,
                 healedCode: patchedResult.code,

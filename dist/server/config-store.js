@@ -25,7 +25,7 @@ async function loadConfig() {
         };
     }
     catch (err) {
-        console.error('Failed to load config from Supabase:', err);
+        console.error('Failed to load config from Supabase:', err.message || err);
         return DEFAULT_CONFIG;
     }
 }
@@ -46,7 +46,7 @@ async function saveConfig(newConfig) {
         }
     }
     catch (err) {
-        console.error('Failed to save config:', err);
+        console.error('Failed to save config:', err.message || err);
         throw new Error('Could not save configuration');
     }
 }

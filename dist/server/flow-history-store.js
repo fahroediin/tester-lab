@@ -119,7 +119,7 @@ async function deleteHistory(id) {
             }
         }
         catch (err) {
-            console.warn(`Failed to delete video for history ${id}:`, err);
+            console.warn(`Failed to delete video for history ${id}:`, err.message || err);
         }
     }
     const { error } = await supabase_client_js_1.supabase

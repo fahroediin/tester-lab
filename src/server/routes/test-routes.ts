@@ -1,22 +1,15 @@
-import fs from 'fs';
-import os from 'os';
-import path from 'path';
-import { Router, Request, Response } from 'express';
-import { exec } from 'child_process';
-import { promisify } from 'util';
+import { Router, Response } from 'express';
 import { authenticateJWT, requireApprovedUser } from '../auth-middleware.js';
 import type { AuthenticatedRequest } from '../auth-middleware.js';
 import { addLog } from '../activity-log-store.js';
 import { sanitizeCode } from '../code-sanitizer.js';
 import { globalTestRunnerQueue, globalTestGeneratorQueue } from '../queue-manager.js';
-import { getSanitizedEnv, findVideoFile } from '../lib/sanitized-env.js';
 import { addHistory, updateHistory } from '../flow-history-store.js';
 import { TestScriptGenerator } from '../../index.js';
 import { DOMExtractor } from '../../crawler/dom-extractor.js';
-import { supabase } from '../supabase-client.js';
 import { recordApiKeyUsage } from '../api-key-usage-store.js';
+import { executePlaywrightTest } from '../services/test-runner-service.js';
 
-const execAsync = promisify(exec);
 export const testRoutes = Router();
 
 const generator = new TestScriptGenerator();
@@ -200,103 +193,18 @@ testRoutes.post('/run-test', authenticateJWT, requireApprovedUser, async (req: A
 
     // Enqueue task into Concurrency Manager
     const runResult = await globalTestRunnerQueue.enqueue(async () => {
-      const startTime = Date.now();
-      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'playwright-ui-run-'));
-      const fileExt = language === 'javascript' ? '.spec.js' : '.spec.ts';
-      const testFilePath = path.join(tempDir, `manual_run${fileExt}`);
-      const configFilePath = path.join(tempDir, 'playwright.config.ts');
+      const execResult = await executePlaywrightTest({
+        code,
+        mode,
+        language,
+        userId
+      });
 
-      const isHeaded = mode === 'headed';
-      const manualTimeout = process.env.PLAYWRIGHT_TIMEOUT ? parseInt(process.env.PLAYWRIGHT_TIMEOUT, 10) : 120000;
-
-      const playwrightConfig = `
-import { defineConfig } from '@playwright/test';
-export default defineConfig({
-  testDir: '${tempDir.replace(/\\/g, '/')}',
-  outputDir: '${tempDir.replace(/\\/g, '/')}/results',
-  timeout: ${manualTimeout},
-  use: {
-    headless: ${!isHeaded},
-    video: 'on',
-    launchOptions: {
-      slowMo: ${isHeaded ? 1000 : 0}
-    },
-    viewport: { width: 1280, height: 720 },
-  },
-});
-`;
-
-      fs.writeFileSync(testFilePath, code, 'utf-8');
-      fs.writeFileSync(configFilePath, playwrightConfig, 'utf-8');
-
-      let command = `npx playwright test "${testFilePath.replace(/\\/g, '/')}" --config="${configFilePath.replace(/\\/g, '/')}"`;
-      if (isHeaded) {
-        command += ' --headed';
-        if (process.platform === 'linux' && !process.env.DISPLAY) {
-          command = `xvfb-run -a ${command}`;
-        }
-      }
-
-      let logs = '';
-      let success = false;
-      let videoUrl: string | undefined;
-
-      try {
-        const { stdout, stderr } = await execAsync(command, {
-          cwd: process.cwd(),
-          env: {
-            ...getSanitizedEnv(),
-            NODE_PATH: path.join(process.cwd(), 'node_modules')
-          }
-        });
-        logs = stdout || stderr || '[PASS] Test execution completed successfully.';
-        success = true;
-      } catch (err: unknown) {
-        const error = err as { stdout?: string; stderr?: string; message?: string };
-        logs = (error.stdout || '') + '\n' + (error.stderr || '') + '\n' + (error.message || '');
-        success = false;
-      }
-
-      // Check for video recording artifact and upload to Supabase Storage
-      try {
-        const foundVideo = findVideoFile(tempDir);
-        if (foundVideo) {
-          const sanitizedUserId = userId.replace(/[^a-zA-Z0-9_-]/g, '');
-          const videoName = `run_${Date.now()}.webm`;
-          const storagePath = `${sanitizedUserId}/${videoName}`;
-          const fileBuffer = fs.readFileSync(foundVideo);
-
-          const { error: uploadError } = await supabase.storage
-            .from('test-videos')
-            .upload(storagePath, fileBuffer, {
-              contentType: 'video/webm',
-              upsert: true
-            });
-
-          if (uploadError) {
-            console.error('Failed to upload video recording to Supabase Storage:', uploadError);
-          } else {
-            const { data: urlData } = supabase.storage
-              .from('test-videos')
-              .getPublicUrl(storagePath);
-            videoUrl = urlData?.publicUrl;
-          }
-        }
-      } catch (videoErr) {
-        console.warn('Video artifact extraction warning:', videoErr);
-      } finally {
-        try {
-          fs.rmSync(tempDir, { recursive: true, force: true });
-        } catch {}
-      }
-
-      const durationMs = Date.now() - startTime;
-      
       await addLog({
         userId: req.user!.id,
         username: req.user!.username,
         action: 'Run Test',
-        details: `Ran script in ${mode} mode (Status: ${success ? 'Success' : 'Failed'}, Duration: ${durationMs}ms)`
+        details: `Ran script in ${mode} mode (Status: ${execResult.success ? 'Success' : 'Failed'}, Duration: ${execResult.durationMs}ms)`
       });
 
       if (req.apiKey || req.authMethod === 'api_key') {
@@ -305,26 +213,21 @@ export default defineConfig({
           keyName: req.apiKey?.name,
           userId: req.user!.id,
           endpoint: 'run-test',
-          status: success ? 'success' : 'failed',
-          details: `Execution ${success ? 'Passed' : 'Failed'} (${durationMs}ms)`
+          status: execResult.success ? 'success' : 'failed',
+          details: `Execution ${execResult.success ? 'Passed' : 'Failed'} (${execResult.durationMs}ms)`
         });
       }
 
       if (historyId) {
         await updateHistory(historyId, {
-          status: success ? 'SUCCESS' : 'FAILED',
-          durationMs,
-          runLogs: logs.trim(),
-          ...(videoUrl ? { videoUrl } : {})
+          status: execResult.success ? 'SUCCESS' : 'FAILED',
+          durationMs: execResult.durationMs,
+          runLogs: execResult.logs.trim(),
+          ...(execResult.videoUrl ? { videoUrl: execResult.videoUrl } : {})
         });
       }
 
-      return {
-        success,
-        logs: logs.trim(),
-        videoUrl,
-        durationMs
-      };
+      return execResult;
     });
 
     res.json(runResult);

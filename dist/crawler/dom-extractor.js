@@ -74,7 +74,7 @@ class DOMExtractor {
                         }
                     }
                     catch (err) {
-                        console.warn(`[Crawler] Step ${step.step} state execution warning:`, err);
+                        console.warn(`[Crawler] Step ${step.step} state execution warning:`, err.message || err);
                     }
                 }
             }

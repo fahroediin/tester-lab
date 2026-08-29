@@ -1,12 +1,24 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
-import type { DryRunResult, ResolvedStep, DSLConfig } from '../types/index.js';
+import type { DryRunResult, ResolvedStep, DSLConfig, SelectorType } from '../types/index.js';
 import { CodeGenerator } from '../generator/code-generator.js';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
+
+async function runPlaywrightTest(testFilePath: string, configFilePath: string): Promise<{ stdout: string; stderr: string }> {
+  const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+  const args = ['playwright', 'test', testFilePath, `--config=${configFilePath}`];
+  return execFileAsync(npxCmd, args, {
+    cwd: process.cwd(),
+    env: {
+      ...getSanitizedEnv(),
+      NODE_PATH: path.join(process.cwd(), 'node_modules')
+    }
+  });
+}
 
 /**
  * Build a sanitized environment object for child processes.
@@ -77,15 +89,8 @@ export default defineConfig({
       fs.writeFileSync(testFilePath, code, 'utf-8');
       fs.writeFileSync(configFilePath, playwrightConfig, 'utf-8');
 
-      // Run playwright test on generated script from project working directory
-      const command = `npx playwright test "${testFilePath.replace(/\\/g, '/')}" --config="${configFilePath.replace(/\\/g, '/')}"`;
-      await execAsync(command, { 
-        cwd: process.cwd(),
-        env: {
-          ...getSanitizedEnv(),
-          NODE_PATH: path.join(process.cwd(), 'node_modules')
-        }
-      });
+      // Run playwright test safely on generated script
+      await runPlaywrightTest(testFilePath, configFilePath);
 
       const durationMs = Date.now() - startTime;
       cleanupTempDir();
@@ -177,7 +182,7 @@ export default defineConfig({
         if (newSelector !== oldSelector) {
           patchedSteps[i] = {
             ...step,
-            selectorType: newType as any,
+            selectorType: newType as SelectorType,
             selectorValue: newValue,
             warning: `Self-Healed: Fallback to Rank 2 candidate (${rank2.matchReason})`
           } as ResolvedStep;
@@ -201,14 +206,7 @@ export default defineConfig({
 
     try {
       fs.writeFileSync(patchedFilePath, patchedResult.code, 'utf-8');
-      const command = `npx playwright test "${patchedFilePath.replace(/\\/g, '/')}" --config="${configFilePath.replace(/\\/g, '/')}"`;
-      await execAsync(command, { 
-        cwd: process.cwd(),
-        env: {
-          ...getSanitizedEnv(),
-          NODE_PATH: path.join(process.cwd(), 'node_modules')
-        }
-      });
+      await runPlaywrightTest(patchedFilePath, configFilePath);
       return {
         success: true,
         healedCode: patchedResult.code,

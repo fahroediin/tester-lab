@@ -101,8 +101,8 @@ export class DOMExtractor {
             } else {
               await page.waitForTimeout(100); // short delay for frontend frameworks (React/Vue/OutSystems) reactivity
             }
-          } catch (err) {
-            console.warn(`[Crawler] Step ${step.step} state execution warning:`, err);
+          } catch (err: unknown) {
+            console.warn(`[Crawler] Step ${step.step} state execution warning:`, (err as Error).message || err);
           }
         }
       }
@@ -126,7 +126,7 @@ export class DOMExtractor {
     } else if (type === 'getByLabel') {
       locator = page.getByLabel(val).first();
     } else if (type === 'getByRole') {
-      locator = page.getByRole(val as any, { name: resolved.roleName }).first();
+      locator = page.getByRole(val as Parameters<Page['getByRole']>[0], { name: resolved.roleName }).first();
     } else if (type === 'getByPlaceholder') {
       locator = page.getByPlaceholder(val).first();
     } else if (type === 'getByText') {
@@ -141,11 +141,11 @@ export class DOMExtractor {
     } else if (step.action === 'click') {
       try {
         await locator.click({ force: true, timeout: 8000 });
-      } catch (e) {
+      } catch (e: unknown) {
         if (step.targetLabel) {
           try {
             await page.locator(`text="${step.targetLabel}"`).first().click({ force: true, timeout: 4000 });
-          } catch (e2) {
+          } catch (e2: unknown) {
             throw e;
           }
         } else {

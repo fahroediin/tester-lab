@@ -34,8 +34,8 @@ export async function loadConfig(): Promise<AppConfig> {
       sampleTargetUrl: data.sample_target_url || '',
       sampleSteps: Array.isArray(data.sample_steps) ? data.sample_steps : []
     };
-  } catch (err) {
-    console.error('Failed to load config from Supabase:', err);
+  } catch (err: unknown) {
+    console.error('Failed to load config from Supabase:', (err as Error).message || err);
     return DEFAULT_CONFIG;
   }
 }
@@ -56,8 +56,8 @@ export async function saveConfig(newConfig: AppConfig): Promise<void> {
       console.error('Failed to save config:', error);
       throw new Error('Could not save configuration');
     }
-  } catch (err) {
-    console.error('Failed to save config:', err);
+  } catch (err: unknown) {
+    console.error('Failed to save config:', (err as Error).message || err);
     throw new Error('Could not save configuration');
   }
 }

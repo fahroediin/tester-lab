@@ -1,52 +1,33 @@
 import dotenv from 'dotenv';
 import { supabase } from './supabase-client.js';
+import {
+  ApiKeyUsageLog,
+  ApiKeyUsageSummary,
+  AdminApiKeyStats,
+  EnrichedApiKeyUsageLog,
+  pushInMemoryLog,
+  getUsageResetDays,
+  getPeriodStartDate,
+  aggregateStatusCounts,
+  getInMemoryKeySummary,
+  getInMemoryUserKeySummaries,
+  getInMemoryAdminStats,
+  getInMemoryAdminLogs
+} from './api-key-usage-helpers.js';
 
 dotenv.config();
 
-export interface ApiKeyUsageLog {
-  id: string;
-  apiKeyId?: string;
-  keyName?: string;
-  userId: string;
-  endpoint: 'generate-script' | 'run-test';
-  status: 'generated' | 'success' | 'failed';
-  details?: string;
-  createdAt: string;
-}
-
-export interface ApiKeyUsageSummary {
-  apiKeyId: string;
-  total: number;
-  generated: number;
-  success: number;
-  failed: number;
-  periodDays: number;
-  periodStart: string;
-}
-
-// In-memory fallback logs in case database table is pending migration
-const inMemoryUsageLogs: ApiKeyUsageLog[] = [];
+export {
+  ApiKeyUsageLog,
+  ApiKeyUsageSummary,
+  AdminApiKeyStats,
+  EnrichedApiKeyUsageLog,
+  getUsageResetDays,
+  getPeriodStartDate
+};
 
 /**
- * Get the reset period in days from environment variable (default: 30 days / 1 month)
- */
-export function getUsageResetDays(): number {
-  const days = parseInt(process.env.API_KEY_USAGE_RESET_DAYS || '30', 10);
-  return isNaN(days) || days <= 0 ? 30 : days;
-}
-
-/**
- * Calculate the cutoff start date for the current reset period
- */
-export function getPeriodStartDate(): Date {
-  const resetDays = getUsageResetDays();
-  const date = new Date();
-  date.setDate(date.getDate() - resetDays);
-  return date;
-}
-
-/**
- * Record an API key usage event
+ * Record an API key usage event in memory and database
  */
 export async function recordApiKeyUsage(params: {
   apiKeyId?: string;
@@ -68,13 +49,8 @@ export async function recordApiKeyUsage(params: {
     createdAt: now
   };
 
-  // Keep in memory buffer
-  inMemoryUsageLogs.unshift(logEntry);
-  if (inMemoryUsageLogs.length > 5000) {
-    inMemoryUsageLogs.length = 5000;
-  }
+  pushInMemoryLog(logEntry);
 
-  // Persist to Supabase if table exists
   try {
     const { error } = await supabase
       .from('api_key_usage_logs')
@@ -89,11 +65,10 @@ export async function recordApiKeyUsage(params: {
       });
 
     if (error) {
-      // If table doesn't exist yet, we silently fallback to in-memory tracking without breaking requests
       console.warn('[API Key Usage Log] Supabase insert warning (using in-memory fallback):', error.message);
     }
-  } catch (err) {
-    console.warn('[API Key Usage Log] Unexpected error during log persistence:', err);
+  } catch (err: unknown) {
+    console.warn('[API Key Usage Log] Unexpected error during log persistence:', (err as Error).message || err);
   }
 }
 
@@ -104,10 +79,6 @@ export async function getApiKeyUsageSummary(apiKeyId: string): Promise<ApiKeyUsa
   const periodStart = getPeriodStartDate();
   const periodDays = getUsageResetDays();
 
-  let generated = 0;
-  let success = 0;
-  let failed = 0;
-
   try {
     const { data, error } = await supabase
       .from('api_key_usage_logs')
@@ -116,46 +87,57 @@ export async function getApiKeyUsageSummary(apiKeyId: string): Promise<ApiKeyUsa
       .gte('created_at', periodStart.toISOString());
 
     if (!error && data) {
-      data.forEach((row) => {
-        if (row.status === 'generated') generated++;
-        else if (row.status === 'success') success++;
-        else if (row.status === 'failed') failed++;
-      });
-
+      const counts = aggregateStatusCounts(data);
       return {
         apiKeyId,
         total: data.length,
-        generated,
-        success,
-        failed,
+        generated: counts.generated,
+        success: counts.success,
+        failed: counts.failed,
         periodDays,
         periodStart: periodStart.toISOString()
       };
     }
-  } catch (err) {
-    console.warn('[API Key Usage Summary] Error querying Supabase, falling back to memory:', err);
+  } catch (err: unknown) {
+    console.warn('[API Key Usage Summary] Error querying Supabase, falling back to memory:', (err as Error).message || err);
   }
 
-  // Fallback to in-memory logs
-  const matchingLogs = inMemoryUsageLogs.filter(
-    (l) => l.apiKeyId === apiKeyId && new Date(l.createdAt) >= periodStart
-  );
+  return getInMemoryKeySummary(apiKeyId, periodStart, periodDays);
+}
 
-  matchingLogs.forEach((l) => {
-    if (l.status === 'generated') generated++;
-    else if (l.status === 'success') success++;
-    else if (l.status === 'failed') failed++;
-  });
+/**
+ * Helper to aggregate multi-key summaries from database rows
+ */
+function buildSummariesFromRows(
+  rows: Array<{ api_key_id: string | null; status: string }>,
+  periodDays: number,
+  periodStartIso: string
+): Record<string, ApiKeyUsageSummary> {
+  const summaries: Record<string, ApiKeyUsageSummary> = {};
 
-  return {
-    apiKeyId,
-    total: matchingLogs.length,
-    generated,
-    success,
-    failed,
-    periodDays,
-    periodStart: periodStart.toISOString()
-  };
+  for (const row of rows) {
+    const keyId = row.api_key_id;
+    if (!keyId) continue;
+
+    if (!summaries[keyId]) {
+      summaries[keyId] = {
+        apiKeyId: keyId,
+        total: 0,
+        generated: 0,
+        success: 0,
+        failed: 0,
+        periodDays,
+        periodStart: periodStartIso
+      };
+    }
+
+    summaries[keyId].total++;
+    if (row.status === 'generated') summaries[keyId].generated++;
+    else if (row.status === 'success') summaries[keyId].success++;
+    else if (row.status === 'failed') summaries[keyId].failed++;
+  }
+
+  return summaries;
 }
 
 /**
@@ -164,7 +146,6 @@ export async function getApiKeyUsageSummary(apiKeyId: string): Promise<ApiKeyUsa
 export async function getUserApiKeysUsageSummary(userId: string): Promise<Record<string, ApiKeyUsageSummary>> {
   const periodStart = getPeriodStartDate();
   const periodDays = getUsageResetDays();
-  const summaries: Record<string, ApiKeyUsageSummary> = {};
 
   try {
     const { data, error } = await supabase
@@ -174,62 +155,13 @@ export async function getUserApiKeysUsageSummary(userId: string): Promise<Record
       .gte('created_at', periodStart.toISOString());
 
     if (!error && data) {
-      data.forEach((row) => {
-        const keyId = row.api_key_id;
-        if (!keyId) return;
-
-        if (!summaries[keyId]) {
-          summaries[keyId] = {
-            apiKeyId: keyId,
-            total: 0,
-            generated: 0,
-            success: 0,
-            failed: 0,
-            periodDays,
-            periodStart: periodStart.toISOString()
-          };
-        }
-
-        summaries[keyId].total++;
-        if (row.status === 'generated') summaries[keyId].generated++;
-        else if (row.status === 'success') summaries[keyId].success++;
-        else if (row.status === 'failed') summaries[keyId].failed++;
-      });
-
-      return summaries;
+      return buildSummariesFromRows(data, periodDays, periodStart.toISOString());
     }
-  } catch (err) {
-    console.warn('[User API Keys Usage] Error querying Supabase, using memory fallback:', err);
+  } catch (err: unknown) {
+    console.warn('[User API Keys Usage] Error querying Supabase, using memory fallback:', (err as Error).message || err);
   }
 
-  // In-memory fallback
-  const matchingLogs = inMemoryUsageLogs.filter(
-    (l) => l.userId === userId && new Date(l.createdAt) >= periodStart
-  );
-
-  matchingLogs.forEach((l) => {
-    const keyId = l.apiKeyId;
-    if (!keyId) return;
-
-    if (!summaries[keyId]) {
-      summaries[keyId] = {
-        apiKeyId: keyId,
-        total: 0,
-        generated: 0,
-        success: 0,
-        failed: 0,
-        periodDays,
-        periodStart: periodStart.toISOString()
-      };
-    }
-
-    summaries[keyId].total++;
-    if (l.status === 'generated') summaries[keyId].generated++;
-    else if (l.status === 'success') summaries[keyId].success++;
-    else if (l.status === 'failed') summaries[keyId].failed++;
-  });
-
-  return summaries;
+  return getInMemoryUserKeySummaries(periodStart, periodDays, userId);
 }
 
 /**
@@ -238,7 +170,6 @@ export async function getUserApiKeysUsageSummary(userId: string): Promise<Record
 export async function getAllApiKeysUsageSummary(): Promise<Record<string, ApiKeyUsageSummary>> {
   const periodStart = getPeriodStartDate();
   const periodDays = getUsageResetDays();
-  const summaries: Record<string, ApiKeyUsageSummary> = {};
 
   try {
     const { data, error } = await supabase
@@ -247,71 +178,13 @@ export async function getAllApiKeysUsageSummary(): Promise<Record<string, ApiKey
       .gte('created_at', periodStart.toISOString());
 
     if (!error && data) {
-      data.forEach((row) => {
-        const keyId = row.api_key_id;
-        if (!keyId) return;
-
-        if (!summaries[keyId]) {
-          summaries[keyId] = {
-            apiKeyId: keyId,
-            total: 0,
-            generated: 0,
-            success: 0,
-            failed: 0,
-            periodDays,
-            periodStart: periodStart.toISOString()
-          };
-        }
-
-        summaries[keyId].total++;
-        if (row.status === 'generated') summaries[keyId].generated++;
-        else if (row.status === 'success') summaries[keyId].success++;
-        else if (row.status === 'failed') summaries[keyId].failed++;
-      });
-
-      return summaries;
+      return buildSummariesFromRows(data, periodDays, periodStart.toISOString());
     }
-  } catch (err) {
-    console.warn('[All API Keys Usage] Error querying Supabase, using memory fallback:', err);
+  } catch (err: unknown) {
+    console.warn('[All API Keys Usage] Error querying Supabase, using memory fallback:', (err as Error).message || err);
   }
 
-  // In-memory fallback
-  const matchingLogs = inMemoryUsageLogs.filter(
-    (l) => new Date(l.createdAt) >= periodStart
-  );
-
-  matchingLogs.forEach((l) => {
-    const keyId = l.apiKeyId;
-    if (!keyId) return;
-
-    if (!summaries[keyId]) {
-      summaries[keyId] = {
-        apiKeyId: keyId,
-        total: 0,
-        generated: 0,
-        success: 0,
-        failed: 0,
-        periodDays,
-        periodStart: periodStart.toISOString()
-      };
-    }
-
-    summaries[keyId].total++;
-    if (l.status === 'generated') summaries[keyId].generated++;
-    else if (l.status === 'success') summaries[keyId].success++;
-    else if (l.status === 'failed') summaries[keyId].failed++;
-  });
-
-  return summaries;
-}
-
-export interface AdminApiKeyStats {
-  totalRequests: number;
-  totalGenerated: number;
-  totalSuccess: number;
-  totalFailed: number;
-  periodDays: number;
-  periodStart: string;
+  return getInMemoryUserKeySummaries(periodStart, periodDays);
 }
 
 /**
@@ -321,11 +194,6 @@ export async function getAdminApiKeyStats(): Promise<AdminApiKeyStats> {
   const periodStart = getPeriodStartDate();
   const periodDays = getUsageResetDays();
 
-  let totalRequests = 0;
-  let totalGenerated = 0;
-  let totalSuccess = 0;
-  let totalFailed = 0;
-
   try {
     const { data, error } = await supabase
       .from('api_key_usage_logs')
@@ -333,47 +201,21 @@ export async function getAdminApiKeyStats(): Promise<AdminApiKeyStats> {
       .gte('created_at', periodStart.toISOString());
 
     if (!error && data) {
-      totalRequests = data.length;
-      data.forEach((r) => {
-        if (r.status === 'generated') totalGenerated++;
-        else if (r.status === 'success') totalSuccess++;
-        else if (r.status === 'failed') totalFailed++;
-      });
-
+      const counts = aggregateStatusCounts(data);
       return {
-        totalRequests,
-        totalGenerated,
-        totalSuccess,
-        totalFailed,
+        totalRequests: data.length,
+        totalGenerated: counts.generated,
+        totalSuccess: counts.success,
+        totalFailed: counts.failed,
         periodDays,
         periodStart: periodStart.toISOString()
       };
     }
-  } catch (err) {
-    console.warn('[Admin API Key Stats] Supabase query error, fallback to memory:', err);
+  } catch (err: unknown) {
+    console.warn('[Admin API Key Stats] Supabase query error, fallback to memory:', (err as Error).message || err);
   }
 
-  const matching = inMemoryUsageLogs.filter((l) => new Date(l.createdAt) >= periodStart);
-  totalRequests = matching.length;
-  matching.forEach((r) => {
-    if (r.status === 'generated') totalGenerated++;
-    else if (r.status === 'success') totalSuccess++;
-    else if (r.status === 'failed') totalFailed++;
-  });
-
-  return {
-    totalRequests,
-    totalGenerated,
-    totalSuccess,
-    totalFailed,
-    periodDays,
-    periodStart: periodStart.toISOString()
-  };
-}
-
-export interface EnrichedApiKeyUsageLog extends ApiKeyUsageLog {
-  keyName?: string;
-  username?: string;
+  return getInMemoryAdminStats(periodStart, periodDays);
 }
 
 /**
@@ -394,12 +236,11 @@ export async function getAdminApiKeyLogs(page: number = 1, limit: number = 15): 
       .range(startIndex, startIndex + limit - 1);
 
     if (!error && logRows) {
-      // Gather keys & users for enrichment
       const keyIds = [...new Set(logRows.map(r => r.api_key_id).filter(Boolean))];
       const userIds = [...new Set(logRows.map(r => r.user_id).filter(Boolean))];
 
-      let keyMap: Record<string, string> = {};
-      let userMap: Record<string, string> = {};
+      const keyMap: Record<string, string> = {};
+      const userMap: Record<string, string> = {};
 
       if (keyIds.length > 0) {
         const { data: keys } = await supabase.from('api_keys').select('id, name').in('id', keyIds);
@@ -439,18 +280,9 @@ export async function getAdminApiKeyLogs(page: number = 1, limit: number = 15): 
         total: totalCount || logs.length
       };
     }
-  } catch (err) {
-    console.warn('[Admin API Key Logs] Supabase error, falling back to memory:', err);
+  } catch (err: unknown) {
+    console.warn('[Admin API Key Logs] Supabase error, falling back to memory:', (err as Error).message || err);
   }
 
-  const logs = inMemoryUsageLogs.slice(startIndex, startIndex + limit).map(l => ({
-    ...l,
-    keyName: l.keyName || (l.apiKeyId ? 'API Key (Deleted)' : 'Direct API'),
-    username: l.userId
-  }));
-
-  return {
-    logs,
-    total: inMemoryUsageLogs.length
-  };
+  return getInMemoryAdminLogs(page, limit);
 }

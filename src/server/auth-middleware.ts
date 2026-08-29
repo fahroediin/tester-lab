@@ -38,7 +38,7 @@ export async function authenticateJWT(req: AuthenticatedRequest, res: Response, 
       req.authMethod = 'api_key';
       next();
       return;
-    } catch (err) {
+    } catch (err: unknown) {
       res.status(401).json({ success: false, error: 'API Key validation failed.' });
       return;
     }
@@ -61,7 +61,7 @@ export async function authenticateJWT(req: AuthenticatedRequest, res: Response, 
         req.authMethod = 'api_key';
         next();
         return;
-      } catch (err) {
+      } catch (err: unknown) {
         res.status(401).json({ success: false, error: 'API Key validation failed.' });
         return;
       }
@@ -80,7 +80,7 @@ export async function authenticateJWT(req: AuthenticatedRequest, res: Response, 
       req.authMethod = 'jwt';
       next();
       return;
-    } catch (err) {
+    } catch (err: unknown) {
       res.status(401).json({ success: false, error: 'Session expired or invalid token. Please log in again.' });
       return;
     }

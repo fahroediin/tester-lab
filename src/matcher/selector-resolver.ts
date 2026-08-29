@@ -51,7 +51,7 @@ export function determineSelector(
     const cleanName = raw.replace(/[\uE000-\uF8FF\u2000-\u206F]/g, '').trim();
     return {
       selectorType: 'getByRole',
-      selectorValue: cand.role as any,
+      selectorValue: cand.role,
       roleName: cleanName || target
     };
   }

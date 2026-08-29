@@ -6,6 +6,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
+const js_yaml_1 = __importDefault(require("js-yaml"));
 const commander_1 = require("commander");
 const index_js_1 = require("../index.js");
 const dom_extractor_js_1 = require("../crawler/dom-extractor.js");
@@ -16,7 +17,7 @@ program
     .version('1.0.0');
 program
     .command('generate')
-    .description('Generate Playwright test script from business rule JSON DSL')
+    .description('Generate Playwright test script from business rule JSON/YAML DSL')
     .requiredOption('-c, --config <path>', 'Path to JSON/YAML DSL configuration file')
     .option('-o, --out <path>', 'Path to output generated test spec file (e.g. ./tests/login.spec.ts)')
     .option('-d, --dry-run', 'Execute dry-run validation after code generation', false)
@@ -27,8 +28,9 @@ program
             console.error(`[ERROR] Config file not found at ${configPath}`);
             process.exit(1);
         }
-        const rawJson = fs_1.default.readFileSync(configPath, 'utf-8');
-        const dslInput = JSON.parse(rawJson);
+        const rawContent = fs_1.default.readFileSync(configPath, 'utf-8');
+        const isYaml = configPath.endsWith('.yaml') || configPath.endsWith('.yml');
+        const dslInput = isYaml ? js_yaml_1.default.load(rawContent) : JSON.parse(rawContent);
         const generator = new index_js_1.TestScriptGenerator();
         const result = await generator.generate(dslInput, {
             outPath: options.out ? path_1.default.resolve(options.out) : undefined,

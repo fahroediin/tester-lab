@@ -98,8 +98,8 @@ test('{{testSuite}}', async ({ page }) => {
           trailingComma: 'none',
           printWidth: 100
         });
-      } catch (err) {
-        console.warn('Prettier formatting warning:', err);
+      } catch (err: unknown) {
+        console.warn('Prettier formatting warning:', (err as Error).message || err);
       }
     }
 

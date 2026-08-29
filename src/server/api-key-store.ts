@@ -69,7 +69,7 @@ export async function generateApiKey(userId: string, name: string = 'Default API
   const randomBytes = crypto.randomBytes(32).toString('hex');
   const rawKey = `tl_live_${randomBytes}`;
   const keyHash = hashApiKey(rawKey);
-  const keyPrefix = rawKey;
+  const keyPrefix = `${rawKey.substring(0, 16)}...${rawKey.substring(rawKey.length - 4)}`;
 
   const { data, error } = await supabase
     .from('api_keys')
@@ -163,8 +163,8 @@ export async function deleteApiKey(userId: string, keyId: string): Promise<boole
         })
         .eq('api_key_id', keyId);
     }
-  } catch (logErr) {
-    console.warn('Failed to decouple usage logs before key deletion:', logErr);
+  } catch (logErr: unknown) {
+    console.warn('Failed to decouple usage logs before key deletion:', (logErr as Error).message || logErr);
   }
 
   const { error } = await supabase
@@ -224,12 +224,15 @@ export async function validateApiKey(rawKey: string): Promise<ApiKeyAuthResult |
   }
 
   // Update last_used_at timestamp asynchronously
-  Promise.resolve(
-    supabase
+  try {
+    await supabase
       .from('api_keys')
       .update({ last_used_at: new Date().toISOString() })
-      .eq('id', keyRecord.id)
-  ).catch((err: unknown) => console.warn('Failed to update api_key last_used_at:', err));
+      .eq('id', keyRecord.id);
+  } catch (err: unknown) {
+    const error = err as Error;
+    console.warn('Failed to update api_key last_used_at:', error.message || error);
+  }
 
   return {
     user: {

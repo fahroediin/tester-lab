@@ -128,7 +128,7 @@ test('{{testSuite}}', async ({ page }) => {
                 });
             }
             catch (err) {
-                console.warn('Prettier formatting warning:', err);
+                console.warn('Prettier formatting warning:', err.message || err);
             }
         }
         const warnings = [];

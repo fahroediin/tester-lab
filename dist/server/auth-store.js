@@ -4,16 +4,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ensureAdminUser = ensureAdminUser;
-exports.loadUsers = loadUsers;
 exports.loadUsersAsync = loadUsersAsync;
-exports.findUserByUsername = findUserByUsername;
 exports.findUserByUsernameAsync = findUserByUsernameAsync;
-exports.findUserById = findUserById;
 exports.findUserByIdAsync = findUserByIdAsync;
 exports.addUser = addUser;
 exports.updateUserStatus = updateUserStatus;
 exports.deleteUser = deleteUser;
-exports.saveUsers = saveUsers;
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const supabase_client_js_1 = require("./supabase-client.js");
@@ -75,12 +71,6 @@ async function ensureAdminUser() {
         }
     }
 }
-function loadUsers() {
-    // Synchronous wrapper — kept for backward compatibility with admin-routes.ts
-    // In practice, use loadUsersAsync() for new code
-    console.warn('[DEPRECATION] loadUsers() is synchronous and should be replaced with loadUsersAsync()');
-    return [];
-}
 async function loadUsersAsync() {
     const { data, error } = await supabase_client_js_1.supabase
         .from('users')
@@ -92,11 +82,6 @@ async function loadUsersAsync() {
     }
     return (data || []).map(rowToUser);
 }
-function findUserByUsername(username) {
-    // This must remain synchronous for auth-routes.ts compatibility
-    // We'll use a blocking pattern via cache that's refreshed
-    return undefined; // Replaced by async version
-}
 async function findUserByUsernameAsync(username) {
     const { data, error } = await supabase_client_js_1.supabase
         .from('users')
@@ -107,10 +92,6 @@ async function findUserByUsernameAsync(username) {
     if (error || !data)
         return undefined;
     return rowToUser(data);
-}
-function findUserById(id) {
-    // Synchronous stub — replaced by async version
-    return undefined;
 }
 async function findUserByIdAsync(id) {
     const { data, error } = await supabase_client_js_1.supabase
@@ -156,15 +137,11 @@ async function updateUserStatus(id, status) {
     return rowToUser(data);
 }
 async function deleteUser(id) {
-    const { error, count } = await supabase_client_js_1.supabase
+    const { error } = await supabase_client_js_1.supabase
         .from('users')
         .delete()
         .eq('id', id);
     if (error)
         return false;
     return true;
-}
-function saveUsers(_users) {
-    // No-op: individual operations are handled by Supabase directly
-    console.warn('[DEPRECATION] saveUsers() is a no-op in Supabase mode');
 }

@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { supabase } from './supabase-client.js';
+import type { ResolvedStep, DSLConfig } from '../types/index.js';
 
 export interface FlowHistory {
   id: string;
@@ -11,10 +12,8 @@ export interface FlowHistory {
   targetUrl: string;
   status: 'GENERATED' | 'RUNNING' | 'SUCCESS' | 'FAILED';
   generatedCode: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  resolvedSteps: any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  rawDsl?: any;
+  resolvedSteps: ResolvedStep[];
+  rawDsl?: DSLConfig | Record<string, unknown>;
   videoUrl?: string;
   runLogs?: string;
   durationMs?: number;
@@ -46,8 +45,8 @@ function rowToFlowHistory(row: FlowHistoryRow): FlowHistory {
     targetUrl: row.target_url,
     status: row.status as FlowHistory['status'],
     generatedCode: row.generated_code,
-    resolvedSteps: Array.isArray(row.resolved_steps) ? row.resolved_steps : [],
-    rawDsl: row.raw_dsl || undefined,
+    resolvedSteps: Array.isArray(row.resolved_steps) ? (row.resolved_steps as ResolvedStep[]) : [],
+    rawDsl: (row.raw_dsl as DSLConfig | Record<string, unknown>) || undefined,
     videoUrl: row.video_url || undefined,
     runLogs: row.run_logs || undefined,
     durationMs: row.duration_ms || undefined
@@ -148,8 +147,8 @@ export async function deleteHistory(id: string): Promise<boolean> {
           fs.unlinkSync(videoPath);
         }
       }
-    } catch (err) {
-      console.warn(`Failed to delete video for history ${id}:`, err);
+    } catch (err: unknown) {
+      console.warn(`Failed to delete video for history ${id}:`, (err as Error).message || err);
     }
   }
 

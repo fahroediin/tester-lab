@@ -21,22 +21,16 @@ exports.adminRoutes.get('/users', auth_middleware_js_1.authenticateJWT, auth_mid
         status: u.status,
         createdAt: u.createdAt
     }));
-    res.json({
-        success: true,
-        users
-    });
+    res.json({ success: true, users });
 });
 /**
  * GET /api/v1/admin/logs
  * List all activity logs (Admin only)
  */
 exports.adminRoutes.get('/logs', auth_middleware_js_1.authenticateJWT, auth_middleware_js_1.requireAdmin, async (req, res) => {
-    const limit = parseInt(req.query.limit) || 200;
+    const limit = parseInt(req.query.limit, 10) || 200;
     const logs = await (0, activity_log_store_js_1.getLogs)(limit);
-    res.json({
-        success: true,
-        logs
-    });
+    res.json({ success: true, logs });
 });
 /**
  * GET /api/v1/admin/feedbacks
@@ -44,13 +38,11 @@ exports.adminRoutes.get('/logs', auth_middleware_js_1.authenticateJWT, auth_midd
  */
 exports.adminRoutes.get('/feedbacks', auth_middleware_js_1.authenticateJWT, auth_middleware_js_1.requireAdmin, async (req, res) => {
     try {
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 10;
-        // Get total count
+        const page = parseInt(req.query.page, 10) || 1;
+        const limit = parseInt(req.query.limit, 10) || 10;
         const { count: total } = await supabase_client_js_1.supabase
             .from('feedbacks')
             .select('*', { count: 'exact', head: true });
-        // Get paginated feedbacks
         const startIndex = (page - 1) * limit;
         const { data: feedbacks, error } = await supabase_client_js_1.supabase
             .from('feedbacks')
@@ -61,7 +53,6 @@ exports.adminRoutes.get('/feedbacks', auth_middleware_js_1.authenticateJWT, auth
             res.status(500).json({ success: false, error: error.message });
             return;
         }
-        // Map attachment filenames to Supabase Storage public URLs
         const mappedFeedbacks = (feedbacks || []).map((f) => {
             const result = { ...f };
             if (f.attachment && typeof f.attachment === 'string') {
@@ -92,7 +83,6 @@ exports.adminRoutes.get('/feedbacks', auth_middleware_js_1.authenticateJWT, auth
 exports.adminRoutes.delete('/feedbacks/:id', auth_middleware_js_1.authenticateJWT, auth_middleware_js_1.requireAdmin, async (req, res) => {
     try {
         const id = req.params.id;
-        // Get feedback to find attachment
         const { data: feedback, error: fetchError } = await supabase_client_js_1.supabase
             .from('feedbacks')
             .select('*')
@@ -102,13 +92,11 @@ exports.adminRoutes.delete('/feedbacks/:id', auth_middleware_js_1.authenticateJW
             res.status(404).json({ success: false, error: 'Feedback not found' });
             return;
         }
-        // Delete attachment from Supabase Storage if it exists
         if (feedback.attachment) {
             await supabase_client_js_1.supabase.storage
                 .from('feedback-attachments')
                 .remove([feedback.attachment]);
         }
-        // Delete feedback record
         const { error: deleteError } = await supabase_client_js_1.supabase
             .from('feedbacks')
             .delete()
@@ -193,10 +181,7 @@ exports.adminRoutes.delete('/users/:id', auth_middleware_js_1.authenticateJWT, a
         action: 'Admin Delete',
         details: `Deleted user ID '${id}'`
     });
-    res.json({
-        success: true,
-        message: 'User deleted successfully.'
-    });
+    res.json({ success: true, message: 'User deleted successfully.' });
 });
 /**
  * GET /api/v1/admin/api-keys/stats
@@ -205,15 +190,13 @@ exports.adminRoutes.delete('/users/:id', auth_middleware_js_1.authenticateJWT, a
 exports.adminRoutes.get('/api-keys/stats', auth_middleware_js_1.authenticateJWT, auth_middleware_js_1.requireAdmin, async (req, res) => {
     try {
         const stats = await (0, api_key_usage_store_js_1.getAdminApiKeyStats)();
-        res.json({
-            success: true,
-            data: stats
-        });
+        res.json({ success: true, data: stats });
     }
     catch (err) {
+        const error = err;
         res.status(500).json({
             success: false,
-            error: err.message || 'Failed to fetch API key stats'
+            error: error.message || 'Failed to fetch API key stats'
         });
     }
 });
@@ -223,8 +206,8 @@ exports.adminRoutes.get('/api-keys/stats', auth_middleware_js_1.authenticateJWT,
  */
 exports.adminRoutes.get('/api-keys/logs', auth_middleware_js_1.authenticateJWT, auth_middleware_js_1.requireAdmin, async (req, res) => {
     try {
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 15;
+        const page = parseInt(req.query.page, 10) || 1;
+        const limit = parseInt(req.query.limit, 10) || 15;
         const result = await (0, api_key_usage_store_js_1.getAdminApiKeyLogs)(page, limit);
         res.json({
             success: true,
@@ -235,9 +218,10 @@ exports.adminRoutes.get('/api-keys/logs', auth_middleware_js_1.authenticateJWT, 
         });
     }
     catch (err) {
+        const error = err;
         res.status(500).json({
             success: false,
-            error: err.message || 'Failed to fetch API key logs'
+            error: error.message || 'Failed to fetch API key logs'
         });
     }
 });

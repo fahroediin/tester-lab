@@ -67,8 +67,11 @@ function normalizeDSLInput(input: unknown): unknown {
   try {
     const cloned = JSON.parse(JSON.stringify(input));
     if (Array.isArray(cloned.steps)) {
-      cloned.steps = cloned.steps.map((s: any) => {
+      cloned.steps = cloned.steps.map((s: Record<string, unknown>, idx: number) => {
         if (s && typeof s === 'object') {
+          if (!s.step || typeof s.step !== 'number') {
+            s.step = idx + 1;
+          }
           // Normalize action: 'type' or 'input' -> 'fill'
           if (s.action === 'type' || s.action === 'input') {
             s.action = 'fill';

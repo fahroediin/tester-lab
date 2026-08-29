@@ -1,4 +1,4 @@
-import { Router, Request, Response } from 'express';
+import { Router, Response } from 'express';
 import { authenticateJWT, requireAdmin } from '../auth-middleware.js';
 import type { AuthenticatedRequest } from '../auth-middleware.js';
 import { loadUsersAsync, updateUserStatus, deleteUser } from '../auth-store.js';
@@ -22,10 +22,7 @@ adminRoutes.get('/users', authenticateJWT, requireAdmin, async (req: Authenticat
     createdAt: u.createdAt
   }));
 
-  res.json({
-    success: true,
-    users
-  });
+  res.json({ success: true, users });
 });
 
 /**
@@ -33,12 +30,9 @@ adminRoutes.get('/users', authenticateJWT, requireAdmin, async (req: Authenticat
  * List all activity logs (Admin only)
  */
 adminRoutes.get('/logs', authenticateJWT, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
-  const limit = parseInt(req.query.limit as string) || 200;
+  const limit = parseInt(req.query.limit as string, 10) || 200;
   const logs = await getLogs(limit);
-  res.json({
-    success: true,
-    logs
-  });
+  res.json({ success: true, logs });
 });
 
 /**
@@ -47,15 +41,13 @@ adminRoutes.get('/logs', authenticateJWT, requireAdmin, async (req: Authenticate
  */
 adminRoutes.get('/feedbacks', authenticateJWT, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
+    const page = parseInt(req.query.page as string, 10) || 1;
+    const limit = parseInt(req.query.limit as string, 10) || 10;
     
-    // Get total count
     const { count: total } = await supabase
       .from('feedbacks')
       .select('*', { count: 'exact', head: true });
     
-    // Get paginated feedbacks
     const startIndex = (page - 1) * limit;
     const { data: feedbacks, error } = await supabase
       .from('feedbacks')
@@ -68,7 +60,6 @@ adminRoutes.get('/feedbacks', authenticateJWT, requireAdmin, async (req: Authent
       return;
     }
     
-    // Map attachment filenames to Supabase Storage public URLs
     const mappedFeedbacks = (feedbacks || []).map((f: Record<string, unknown>) => {
       const result: Record<string, unknown> = { ...f };
       if (f.attachment && typeof f.attachment === 'string') {
@@ -101,7 +92,6 @@ adminRoutes.delete('/feedbacks/:id', authenticateJWT, requireAdmin, async (req: 
   try {
     const id = req.params.id as string;
     
-    // Get feedback to find attachment
     const { data: feedback, error: fetchError } = await supabase
       .from('feedbacks')
       .select('*')
@@ -113,14 +103,12 @@ adminRoutes.delete('/feedbacks/:id', authenticateJWT, requireAdmin, async (req: 
       return;
     }
     
-    // Delete attachment from Supabase Storage if it exists
     if (feedback.attachment) {
       await supabase.storage
         .from('feedback-attachments')
         .remove([feedback.attachment]);
     }
     
-    // Delete feedback record
     const { error: deleteError } = await supabase
       .from('feedbacks')
       .delete()
@@ -144,7 +132,6 @@ adminRoutes.delete('/feedbacks/:id', authenticateJWT, requireAdmin, async (req: 
     res.status(500).json({ success: false, error: error.message || 'Server error' });
   }
 });
-
 
 /**
  * POST /api/v1/admin/users/:id/approve
@@ -220,10 +207,7 @@ adminRoutes.delete('/users/:id', authenticateJWT, requireAdmin, async (req: Auth
     details: `Deleted user ID '${id}'`
   });
 
-  res.json({
-    success: true,
-    message: 'User deleted successfully.'
-  });
+  res.json({ success: true, message: 'User deleted successfully.' });
 });
 
 /**
@@ -233,14 +217,12 @@ adminRoutes.delete('/users/:id', authenticateJWT, requireAdmin, async (req: Auth
 adminRoutes.get('/api-keys/stats', authenticateJWT, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const stats = await getAdminApiKeyStats();
-    res.json({
-      success: true,
-      data: stats
-    });
-  } catch (err: any) {
+    res.json({ success: true, data: stats });
+  } catch (err: unknown) {
+    const error = err as Error;
     res.status(500).json({
       success: false,
-      error: err.message || 'Failed to fetch API key stats'
+      error: error.message || 'Failed to fetch API key stats'
     });
   }
 });
@@ -251,8 +233,8 @@ adminRoutes.get('/api-keys/stats', authenticateJWT, requireAdmin, async (req: Au
  */
 adminRoutes.get('/api-keys/logs', authenticateJWT, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 15;
+    const page = parseInt(req.query.page as string, 10) || 1;
+    const limit = parseInt(req.query.limit as string, 10) || 15;
     const result = await getAdminApiKeyLogs(page, limit);
 
     res.json({
@@ -262,10 +244,11 @@ adminRoutes.get('/api-keys/logs', authenticateJWT, requireAdmin, async (req: Aut
       page,
       limit
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const error = err as Error;
     res.status(500).json({
       success: false,
-      error: err.message || 'Failed to fetch API key logs'
+      error: error.message || 'Failed to fetch API key logs'
     });
   }
 });

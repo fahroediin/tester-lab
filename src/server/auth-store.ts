@@ -85,13 +85,6 @@ export async function ensureAdminUser(): Promise<void> {
   }
 }
 
-export function loadUsers(): User[] {
-  // Synchronous wrapper — kept for backward compatibility with admin-routes.ts
-  // In practice, use loadUsersAsync() for new code
-  console.warn('[DEPRECATION] loadUsers() is synchronous and should be replaced with loadUsersAsync()');
-  return [];
-}
-
 export async function loadUsersAsync(): Promise<User[]> {
   const { data, error } = await supabase
     .from('users')
@@ -106,12 +99,6 @@ export async function loadUsersAsync(): Promise<User[]> {
   return (data || []).map(rowToUser);
 }
 
-export function findUserByUsername(username: string): User | undefined {
-  // This must remain synchronous for auth-routes.ts compatibility
-  // We'll use a blocking pattern via cache that's refreshed
-  return undefined; // Replaced by async version
-}
-
 export async function findUserByUsernameAsync(username: string): Promise<User | undefined> {
   const { data, error } = await supabase
     .from('users')
@@ -122,11 +109,6 @@ export async function findUserByUsernameAsync(username: string): Promise<User | 
 
   if (error || !data) return undefined;
   return rowToUser(data);
-}
-
-export function findUserById(id: string): User | undefined {
-  // Synchronous stub — replaced by async version
-  return undefined;
 }
 
 export async function findUserByIdAsync(id: string): Promise<User | undefined> {
@@ -179,16 +161,11 @@ export async function updateUserStatus(id: string, status: 'approved' | 'rejecte
 }
 
 export async function deleteUser(id: string): Promise<boolean> {
-  const { error, count } = await supabase
+  const { error } = await supabase
     .from('users')
     .delete()
     .eq('id', id);
 
   if (error) return false;
   return true;
-}
-
-export function saveUsers(_users: User[]): void {
-  // No-op: individual operations are handled by Supabase directly
-  console.warn('[DEPRECATION] saveUsers() is a no-op in Supabase mode');
 }

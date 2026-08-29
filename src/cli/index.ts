@@ -1,9 +1,20 @@
 #!/usr/bin/env node
 import fs from 'fs';
 import path from 'path';
+import yaml from 'js-yaml';
 import { Command } from 'commander';
 import { TestScriptGenerator } from '../index.js';
 import { DOMExtractor } from '../crawler/dom-extractor.js';
+
+interface GenerateCliOptions {
+  config: string;
+  out?: string;
+  dryRun?: boolean;
+}
+
+interface InspectCliOptions {
+  url: string;
+}
 
 const program = new Command();
 
@@ -14,11 +25,11 @@ program
 
 program
   .command('generate')
-  .description('Generate Playwright test script from business rule JSON DSL')
+  .description('Generate Playwright test script from business rule JSON/YAML DSL')
   .requiredOption('-c, --config <path>', 'Path to JSON/YAML DSL configuration file')
   .option('-o, --out <path>', 'Path to output generated test spec file (e.g. ./tests/login.spec.ts)')
   .option('-d, --dry-run', 'Execute dry-run validation after code generation', false)
-  .action(async (options) => {
+  .action(async (options: GenerateCliOptions) => {
     try {
       const configPath = path.resolve(options.config);
       if (!fs.existsSync(configPath)) {
@@ -26,8 +37,9 @@ program
         process.exit(1);
       }
 
-      const rawJson = fs.readFileSync(configPath, 'utf-8');
-      const dslInput = JSON.parse(rawJson);
+      const rawContent = fs.readFileSync(configPath, 'utf-8');
+      const isYaml = configPath.endsWith('.yaml') || configPath.endsWith('.yml');
+      const dslInput = isYaml ? yaml.load(rawContent) : JSON.parse(rawContent);
 
       const generator = new TestScriptGenerator();
       const result = await generator.generate(dslInput, {
@@ -71,7 +83,7 @@ program
   .command('inspect')
   .description('Inspect interactive DOM element candidates from target URL')
   .requiredOption('-u, --url <url>', 'Target webpage URL')
-  .action(async (options) => {
+  .action(async (options: InspectCliOptions) => {
     try {
       console.log(`Inspecting DOM elements for URL: ${options.url}...`);
       const extractor = new DOMExtractor();

@@ -51,7 +51,7 @@ export class ConcurrencyQueueManager {
     try {
       const result = await item.taskFn();
       item.resolve(result);
-    } catch (err) {
+    } catch (err: unknown) {
       item.reject(err);
     } finally {
       this.activeCount--;

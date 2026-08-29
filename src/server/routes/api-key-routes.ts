@@ -2,7 +2,7 @@ import { Router, Response } from 'express';
 import { authenticateJWT, requireApprovedUser, requireJwtOnly } from '../auth-middleware.js';
 import type { AuthenticatedRequest } from '../auth-middleware.js';
 import { generateApiKey, getUserApiKeys, revokeApiKey, deleteApiKey } from '../api-key-store.js';
-import { getUserApiKeysUsageSummary, getAllApiKeysUsageSummary, getUsageResetDays, getPeriodStartDate } from '../api-key-usage-store.js';
+import { getUserApiKeysUsageSummary, getUsageResetDays, getPeriodStartDate } from '../api-key-usage-store.js';
 import { addLog } from '../activity-log-store.js';
 
 export const apiKeyRoutes = Router();
@@ -12,7 +12,7 @@ apiKeyRoutes.use(authenticateJWT, requireApprovedUser, requireJwtOnly);
 
 /**
  * GET /api/v1/api-keys
- * List all API keys belonging to the authenticated user (or all keys if admin) with usage summary
+ * List all API keys belonging to the authenticated user with usage summary
  */
 apiKeyRoutes.get('/', async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -38,10 +38,11 @@ apiKeyRoutes.get('/', async (req: AuthenticatedRequest, res: Response) => {
       success: true,
       data: enrichedKeys
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const error = err as Error;
     res.status(500).json({
       success: false,
-      error: err.message || 'Failed to fetch API keys'
+      error: error.message || 'Failed to fetch API keys'
     });
   }
 });
@@ -67,10 +68,11 @@ apiKeyRoutes.post('/', async (req: AuthenticatedRequest, res: Response) => {
       message: 'API Key generated successfully. Save this key now; it cannot be shown again.',
       data: apiKey
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const error = err as Error;
     res.status(500).json({
       success: false,
-      error: err.message || 'Failed to generate API key'
+      error: error.message || 'Failed to generate API key'
     });
   }
 });
@@ -107,10 +109,11 @@ apiKeyRoutes.delete('/:id', async (req: AuthenticatedRequest, res: Response) => 
       success: true,
       message: 'API key revoked successfully'
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const error = err as Error;
     res.status(500).json({
       success: false,
-      error: err.message || 'Failed to revoke API key'
+      error: error.message || 'Failed to revoke API key'
     });
   }
 });
@@ -147,10 +150,11 @@ apiKeyRoutes.delete('/:id/delete', async (req: AuthenticatedRequest, res: Respon
       success: true,
       message: 'API key deleted successfully'
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const error = err as Error;
     res.status(500).json({
       success: false,
-      error: err.message || 'Failed to delete API key'
+      error: error.message || 'Failed to delete API key'
     });
   }
 });
