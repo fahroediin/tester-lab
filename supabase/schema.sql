@@ -126,43 +126,43 @@ ALTER TABLE api_key_usage_logs ENABLE ROW LEVEL SECURITY;
 
 -- USERS: Service role can do everything (server-side operations)
 CREATE POLICY "Service role full access on users"
-  ON users TO service_role FOR ALL
+  ON users FOR ALL TO service_role
   USING (true)
   WITH CHECK (true);
 
 -- FLOW HISTORY: Service role can do everything
 CREATE POLICY "Service role full access on flow_history"
-  ON flow_history TO service_role FOR ALL
+  ON flow_history FOR ALL TO service_role
   USING (true)
   WITH CHECK (true);
 
 -- ACTIVITY LOGS: Service role can do everything
 CREATE POLICY "Service role full access on activity_logs"
-  ON activity_logs TO service_role FOR ALL
+  ON activity_logs FOR ALL TO service_role
   USING (true)
   WITH CHECK (true);
 
 -- APP CONFIG: Service role can do everything
 CREATE POLICY "Service role full access on app_config"
-  ON app_config TO service_role FOR ALL
+  ON app_config FOR ALL TO service_role
   USING (true)
   WITH CHECK (true);
 
 -- FEEDBACKS: Service role can do everything
 CREATE POLICY "Service role full access on feedbacks"
-  ON feedbacks TO service_role FOR ALL
+  ON feedbacks FOR ALL TO service_role
   USING (true)
   WITH CHECK (true);
 
 -- API KEYS: Service role can do everything
 CREATE POLICY "Service role full access on api_keys"
-  ON api_keys TO service_role FOR ALL
+  ON api_keys FOR ALL TO service_role
   USING (true)
   WITH CHECK (true);
 
 -- API KEY USAGE LOGS: Service role can do everything
 CREATE POLICY "Service role full access on api_key_usage_logs"
-  ON api_key_usage_logs TO service_role FOR ALL
+  ON api_key_usage_logs FOR ALL TO service_role
   USING (true)
   WITH CHECK (true);
 
