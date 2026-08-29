@@ -1629,8 +1629,9 @@
         const ts = new Date(f.timestamp).toLocaleString();
         
         let fileCol = '<span style="color:var(--slate); font-style:italic;">No File</span>';
-        if (f.attachment) {
-          fileCol = `<a href="/feedbacks/attachments/${f.attachment}" target="_blank" style="color:var(--action-blue); text-decoration:none; font-weight:500;">View File ↗</a>`;
+        const fileUrl = f.attachmentUrl || (f.attachment ? (f.attachment.startsWith('http') ? f.attachment : `/feedbacks/attachments/${f.attachment}`) : null);
+        if (fileUrl) {
+          fileCol = `<a href="${fileUrl}" target="_blank" rel="noopener noreferrer" style="color:var(--action-blue); text-decoration:none; font-weight:500;">View File ↗</a>`;
         }
 
         tr.innerHTML = `

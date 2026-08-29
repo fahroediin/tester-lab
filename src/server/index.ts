@@ -10,6 +10,7 @@ import { historyRoutes } from './routes/history-routes.js';
 import { configRoutes } from './routes/config-routes.js';
 import { apiKeyRoutes } from './routes/api-key-routes.js';
 import { ensureAdminUser } from './auth-store.js';
+import { supabase } from './supabase-client.js';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -34,6 +35,41 @@ app.get('/', (req: Request, res: Response) => {
 app.get('/admin', (req: Request, res: Response) => {
   const adminPath = path.join(process.cwd(), 'public', 'admin.html');
   res.sendFile(adminPath);
+});
+
+/**
+ * Direct Attachment Access Handler: Redirect to Supabase Storage Signed/Public URL
+ */
+app.get('/feedbacks/attachments/:filename', async (req: Request, res: Response) => {
+  try {
+    const filename = req.params.filename;
+    if (!filename) {
+      res.status(404).send('Attachment not found');
+      return;
+    }
+
+    const { data: signedData, error } = await supabase.storage
+      .from('feedback-attachments')
+      .createSignedUrl(filename, 3600);
+      
+    if (!error && signedData?.signedUrl) {
+      res.redirect(signedData.signedUrl);
+      return;
+    }
+    
+    const { data: urlData } = supabase.storage
+      .from('feedback-attachments')
+      .getPublicUrl(filename);
+      
+    if (urlData?.publicUrl) {
+      res.redirect(urlData.publicUrl);
+      return;
+    }
+
+    res.status(404).send('Attachment not found');
+  } catch {
+    res.status(404).send('Attachment not found');
+  }
 });
 
 // Register routes
