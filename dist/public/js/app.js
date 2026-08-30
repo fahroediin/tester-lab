@@ -2082,52 +2082,6 @@
 
     // --- INTERACTIVE STEP RECORDER LOGIC ---
     let recordedStepsBuffer = [];
-    let currentRecorderWindow = null;
-    let currentRecorderSessionId = '';
-    let recorderPollingInterval = null;
-
-    function generateBookmarkletSnippet(sessionId) {
-      const apiOrigin = window.location.origin;
-      return `javascript:(function(){var s=document.createElement('script');s.src='${apiOrigin}/js/recorder-agent.js?session=${sessionId}&api=${encodeURIComponent(apiOrigin)}';document.head.appendChild(s);})();`;
-    }
-
-    function copyBookmarkletSnippet() {
-      if (!currentRecorderSessionId) {
-        currentRecorderSessionId = 'rec_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
-      }
-      const snippet = generateBookmarkletSnippet(currentRecorderSessionId);
-      navigator.clipboard.writeText(snippet).then(() => {
-        showSnackbar({
-          type: 'success',
-          title: 'Snippet Copied',
-          message: 'Paste and run this snippet in your target website browser console or as a bookmarklet URL.'
-        });
-      }).catch(() => {
-        prompt('Copy this Bookmarklet snippet:', snippet);
-      });
-    }
-    window.copyBookmarkletSnippet = copyBookmarkletSnippet;
-
-    function openDedicatedRecorderWindow() {
-      const targetUrlInput = document.getElementById('targetUrl');
-      const targetUrl = targetUrlInput ? targetUrlInput.value.trim() : '';
-      if (!targetUrl) return;
-
-      const token = localStorage.getItem('tester_jwt_token') || (typeof authToken !== 'undefined' ? authToken : '') || localStorage.getItem('token') || '';
-      const proxyUrl = `/api/v1/recorder/proxy?url=${encodeURIComponent(targetUrl)}&token=${encodeURIComponent(token)}`;
-
-      if (currentRecorderWindow && !currentRecorderWindow.closed) {
-        currentRecorderWindow.focus();
-      } else {
-        currentRecorderWindow = window.open(proxyUrl, 'TesterLabRecorderWindow', 'width=1280,height=850,resizable=yes,scrollbars=yes');
-      }
-
-      showSnackbar({
-        type: 'info',
-        title: 'Dedicated Window Opened',
-        message: 'Interact with the target website in the dedicated window. Steps will be captured automatically.'
-      });
-    }
 
     function openRecorderModal() {
       const targetUrlInput = document.getElementById('targetUrl');
@@ -2157,19 +2111,12 @@
         return;
       }
 
-      currentRecorderSessionId = 'rec_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
       recordedStepsBuffer = [];
       updateRecorderStatsUI();
 
-      // Configure bookmarklet link with active session ID
-      const bmLink = document.getElementById('recorderBookmarkletLink');
-      if (bmLink) {
-        bmLink.href = generateBookmarkletSnippet(currentRecorderSessionId);
-      }
-
       const latestEl = document.getElementById('recorderLatestStepText');
       if (latestEl) {
-        latestEl.textContent = 'Ready. Interact with the target page below, in the dedicated window, or via the Bookmarklet.';
+        latestEl.textContent = 'Ready. Interact with the target page below to capture test steps automatically.';
       }
 
       const token = localStorage.getItem('tester_jwt_token') || (typeof authToken !== 'undefined' ? authToken : '') || localStorage.getItem('token') || '';
@@ -2179,21 +2126,6 @@
         iframe.src = proxyUrl;
       }
 
-      // Start background polling for steps ingested via HTTP from external tabs/bookmarklet
-      if (recorderPollingInterval) clearInterval(recorderPollingInterval);
-      recorderPollingInterval = setInterval(async () => {
-        if (!currentRecorderSessionId) return;
-        try {
-          const res = await fetch(`/api/v1/recorder/session/${currentRecorderSessionId}/steps`, {
-            headers: getAuthHeaders()
-          });
-          const data = await res.json();
-          if (data.success && Array.isArray(data.steps) && data.steps.length > 0) {
-            data.steps.forEach(st => handleIncomingRecordedStep(st));
-          }
-        } catch {}
-      }, 1000);
-
       const modal = document.getElementById('recorderModal');
       if (modal) {
         modal.style.display = 'flex';
@@ -2201,10 +2133,6 @@
     }
 
     function closeRecorderModal() {
-      if (recorderPollingInterval) {
-        clearInterval(recorderPollingInterval);
-        recorderPollingInterval = null;
-      }
       const modal = document.getElementById('recorderModal');
       if (modal) {
         modal.style.display = 'none';
@@ -2213,68 +2141,101 @@
       if (iframe) {
         iframe.src = 'about:blank';
       }
-      if (currentRecorderWindow && !currentRecorderWindow.closed) {
-        try {
-          currentRecorderWindow.close();
-        } catch {}
-      }
     }
 
-    function switchRecorderView(view) {
-      const btnStream = document.getElementById('recTabBtnStream');
-      const btnIframe = document.getElementById('recTabBtnIframe');
-      const viewStream = document.getElementById('recorderStreamView');
-      const viewIframe = document.getElementById('recorderIframeView');
-
-      if (view === 'stream') {
-        if (btnStream) btnStream.classList.add('active');
-        if (btnIframe) btnIframe.classList.remove('active');
-        if (viewStream) viewStream.style.display = 'flex';
-        if (viewIframe) viewIframe.style.display = 'none';
-      } else {
-        if (btnStream) btnStream.classList.remove('active');
-        if (btnIframe) btnIframe.classList.add('active');
-        if (viewStream) viewStream.style.display = 'none';
-        if (viewIframe) viewIframe.style.display = 'block';
-      }
-    }
-    window.switchRecorderView = switchRecorderView;
-
-    function removeRecordedStep(index) {
-      recordedStepsBuffer.splice(index, 1);
+    function clearRecordedSteps() {
+      recordedStepsBuffer = [];
       updateRecorderStatsUI();
+      const latestEl = document.getElementById('recorderLatestStepText');
+      if (latestEl) {
+        latestEl.textContent = 'Cleared. Interact with the target page below to capture test steps automatically.';
+      }
     }
-    window.removeRecordedStep = removeRecordedStep;
 
-    function renderRecorderStepsTable() {
-      const tbody = document.getElementById('recorderStepsTableBody');
-      if (!tbody) return;
+    function updateRecorderStatsUI() {
+      const countEl = document.getElementById('recorderLiveStepCount');
+      const countText = `${recordedStepsBuffer.length} step${recordedStepsBuffer.length === 1 ? '' : 's'} recorded`;
+      if (countEl) countEl.textContent = countText;
+    }
 
+    function applyRecordedSteps() {
       if (recordedStepsBuffer.length === 0) {
-        tbody.innerHTML = `
-          <tr>
-            <td colspan="6" style="text-align: center; color: var(--body-muted); padding: 40px;">
-              Waiting for interactions... Click or type on your target website tab to capture steps live.
-            </td>
-          </tr>
-        `;
+        showSnackbar({
+          type: 'warning',
+          title: 'No Steps Recorded',
+          message: 'No actions have been captured yet. Interact with the target page first.'
+        });
         return;
       }
 
-      tbody.innerHTML = recordedStepsBuffer.map((s, idx) => `
-        <tr>
-          <td style="font-family: var(--font-mono); font-size: 11px;">#${idx + 1}</td>
-          <td><span class="status-badge" style="background: rgba(0, 91, 191, 0.1); color: var(--action-blue); font-size: 10px;">${escapeHtml(s.action.toUpperCase())}</span></td>
-          <td style="font-weight: 500;">${escapeHtml(s.targetLabel || '-')}</td>
-          <td style="font-family: var(--font-mono); font-size: 11px; color: var(--body-muted);">${escapeHtml(s.value || '-')}</td>
-          <td style="font-size: 11px;">${escapeHtml(s.description || '-')}</td>
-          <td style="text-align: center;">
-            <button type="button" class="btn-pill-outline" onclick="removeRecordedStep(${idx})" style="padding: 2px 8px; font-size: 10px; color: var(--coral);">
-              Delete
-            </button>
-          </td>
-        </tr>
-      `).join('');
+      const startingIndex = steps.length;
+      recordedStepsBuffer.forEach((recStep, idx) => {
+        steps.push({
+          step: startingIndex + idx + 1,
+          action: recStep.action,
+          targetLabel: recStep.targetLabel,
+          value: recStep.value || '',
+          description: recStep.description || `${recStep.action.toUpperCase()} on ${recStep.targetLabel}`
+        });
+      });
+
+      renderSteps();
+      closeRecorderModal();
+
+      showSnackbar({
+        type: 'success',
+        title: 'Steps Applied',
+        message: `Successfully added ${recordedStepsBuffer.length} recorded step(s) to Execution Steps.`
+      });
+    }
+
+    function handleIncomingRecordedStep(payload) {
+      if (!payload || !payload.action) return;
+
+      // If the last step was a fill action on the same targetLabel, update its value
+      const lastStep = recordedStepsBuffer[recordedStepsBuffer.length - 1];
+      if (lastStep && lastStep.action === 'fill' && payload.action === 'fill' && lastStep.targetLabel === payload.targetLabel) {
+        lastStep.value = payload.value || '';
+        lastStep.description = payload.description || `Type ${lastStep.value} into ${lastStep.targetLabel}`;
+      } else {
+        const newStep = {
+          step: recordedStepsBuffer.length + 1,
+          action: payload.action,
+          targetLabel: payload.targetLabel || 'Element',
+          value: payload.value || '',
+          description: payload.description || `${payload.action.toUpperCase()} on ${payload.targetLabel}`
+        };
+        recordedStepsBuffer.push(newStep);
+      }
+
+      updateRecorderStatsUI();
+
+      const latestEl = document.getElementById('recorderLatestStepText');
+      const currentLast = recordedStepsBuffer[recordedStepsBuffer.length - 1];
+      if (latestEl && currentLast) {
+        latestEl.textContent = `Captured: ${currentLast.description}`;
+      }
+    }
+
+    // Global listener for postMessage events from the injected recorder-agent.js
+    window.addEventListener('message', (event) => {
+      if (!event.data || typeof event.data !== 'object') return;
+
+      if (event.data.type === 'TESTER_LAB_RECORD_STEP') {
+        handleIncomingRecordedStep(event.data.payload);
+      }
+    });
+
+    // Cross-tab BroadcastChannel listener
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        const bc = new BroadcastChannel('tester_lab_recorder_channel');
+        bc.onmessage = (event) => {
+          if (event.data && event.data.type === 'TESTER_LAB_RECORD_STEP') {
+            handleIncomingRecordedStep(event.data.payload);
+          }
+        };
+      } catch {}
     }
 
     function clearRecordedSteps() {

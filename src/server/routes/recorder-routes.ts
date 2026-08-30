@@ -134,6 +134,8 @@ recorderRoutes.delete('/session/:sessionId', authenticateJWT, requireApprovedUse
   res.json({ success: true });
 });
 
+let lastActiveProxyOrigin: string | null = null;
+
 /**
  * Middleware: Intercept sub-resource requests (Next.js chunks, OutSystems assets, scripts, CSS)
  */
@@ -149,7 +151,26 @@ export async function proxyAssetMiddleware(req: Request, res: Response, next: Ne
     return;
   }
 
-  const proxyOrigin = getCookieValue(req.headers.cookie, '__tl_proxy_origin');
+  let proxyOrigin: string | null = null;
+  const referer = req.headers.referer || (req.headers.referrer as string | undefined);
+  if (referer && referer.includes('/recorder/proxy?url=')) {
+    try {
+      const refUrl = new URL(referer);
+      const rawTarget = refUrl.searchParams.get('url');
+      if (rawTarget) {
+        proxyOrigin = new URL(rawTarget).origin;
+      }
+    } catch {}
+  }
+
+  if (!proxyOrigin) {
+    proxyOrigin = getCookieValue(req.headers.cookie, '__tl_proxy_origin');
+  }
+
+  if (!proxyOrigin && lastActiveProxyOrigin) {
+    proxyOrigin = lastActiveProxyOrigin;
+  }
+
   if (!proxyOrigin || !proxyOrigin.startsWith('http')) {
     next();
     return;
@@ -231,6 +252,7 @@ recorderRoutes.get('/proxy', authenticateJWT, requireApprovedUser, async (req: A
     const contentType = upstreamResponse.headers.get('content-type') || '';
     const finalUrl = upstreamResponse.url || targetUrl;
     const origin = new URL(finalUrl).origin;
+    lastActiveProxyOrigin = origin;
 
     // Forward status code
     res.status(upstreamResponse.status);
