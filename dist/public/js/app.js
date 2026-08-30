@@ -2220,20 +2220,79 @@
       }
     }
 
+    function switchRecorderView(view) {
+      const btnStream = document.getElementById('recTabBtnStream');
+      const btnIframe = document.getElementById('recTabBtnIframe');
+      const viewStream = document.getElementById('recorderStreamView');
+      const viewIframe = document.getElementById('recorderIframeView');
+
+      if (view === 'stream') {
+        if (btnStream) btnStream.classList.add('active');
+        if (btnIframe) btnIframe.classList.remove('active');
+        if (viewStream) viewStream.style.display = 'flex';
+        if (viewIframe) viewIframe.style.display = 'none';
+      } else {
+        if (btnStream) btnStream.classList.remove('active');
+        if (btnIframe) btnIframe.classList.add('active');
+        if (viewStream) viewStream.style.display = 'none';
+        if (viewIframe) viewIframe.style.display = 'block';
+      }
+    }
+    window.switchRecorderView = switchRecorderView;
+
+    function removeRecordedStep(index) {
+      recordedStepsBuffer.splice(index, 1);
+      updateRecorderStatsUI();
+    }
+    window.removeRecordedStep = removeRecordedStep;
+
+    function renderRecorderStepsTable() {
+      const tbody = document.getElementById('recorderStepsTableBody');
+      if (!tbody) return;
+
+      if (recordedStepsBuffer.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="6" style="text-align: center; color: var(--body-muted); padding: 40px;">
+              Waiting for interactions... Click or type on your target website tab to capture steps live.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = recordedStepsBuffer.map((s, idx) => `
+        <tr>
+          <td style="font-family: var(--font-mono); font-size: 11px;">#${idx + 1}</td>
+          <td><span class="status-badge" style="background: rgba(0, 91, 191, 0.1); color: var(--action-blue); font-size: 10px;">${escapeHtml(s.action.toUpperCase())}</span></td>
+          <td style="font-weight: 500;">${escapeHtml(s.targetLabel || '-')}</td>
+          <td style="font-family: var(--font-mono); font-size: 11px; color: var(--body-muted);">${escapeHtml(s.value || '-')}</td>
+          <td style="font-size: 11px;">${escapeHtml(s.description || '-')}</td>
+          <td style="text-align: center;">
+            <button type="button" class="btn-pill-outline" onclick="removeRecordedStep(${idx})" style="padding: 2px 8px; font-size: 10px; color: var(--coral);">
+              Delete
+            </button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
     function clearRecordedSteps() {
       recordedStepsBuffer = [];
       updateRecorderStatsUI();
       const latestEl = document.getElementById('recorderLatestStepText');
       if (latestEl) {
-        latestEl.textContent = 'Cleared. Interact with the target page below to capture test steps automatically.';
+        latestEl.textContent = 'Cleared. Interact with the target page to capture test steps automatically.';
       }
     }
 
     function updateRecorderStatsUI() {
       const countEl = document.getElementById('recorderLiveStepCount');
-      if (countEl) {
-        countEl.textContent = `${recordedStepsBuffer.length} step${recordedStepsBuffer.length === 1 ? '' : 's'} recorded`;
-      }
+      const countTabEl = document.getElementById('recorderLiveCountTab');
+      const countText = `${recordedStepsBuffer.length} step${recordedStepsBuffer.length === 1 ? '' : 's'} recorded`;
+      if (countEl) countEl.textContent = countText;
+      if (countTabEl) countTabEl.textContent = recordedStepsBuffer.length;
+      renderRecorderStepsTable();
     }
 
     function applyRecordedSteps() {
