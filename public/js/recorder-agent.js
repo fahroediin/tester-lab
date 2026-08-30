@@ -1,12 +1,13 @@
 /**
  * Tester Lab: In-Browser Event Recorder Agent
- * Injected automatically into the target application iframe to capture live user actions.
+ * Injected automatically into target applications (iframe or popup window) to capture live user actions.
  */
 (function() {
   if (window.__TESTER_LAB_RECORDER_ACTIVE__) return;
   window.__TESTER_LAB_RECORDER_ACTIVE__ = true;
 
   const inputTimers = new Map();
+  let localStepCount = 0;
 
   /**
    * Helper to extract the most descriptive human-readable label for any DOM element
@@ -56,13 +57,32 @@
     return el.tagName.toLowerCase();
   }
 
+  function updateFloatingBadge(desc) {
+    localStepCount++;
+    try {
+      let badge = document.getElementById('__tester_lab_recorder_badge__');
+      if (!badge && document.body) {
+        badge = document.createElement('div');
+        badge.id = '__tester_lab_recorder_badge__';
+        badge.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:2147483647;background:#0f172a;color:#38bdf8;padding:8px 14px;border-radius:8px;font-family:sans-serif,system-ui;font-size:12px;font-weight:500;box-shadow:0 6px 20px rgba(0,0,0,0.35);border:1px solid rgba(56,189,248,0.3);pointer-events:none;';
+        document.body.appendChild(badge);
+      }
+      if (badge) {
+        badge.textContent = `Tester Lab Recording: ${localStepCount} step(s) captured`;
+      }
+    } catch {
+      // Ignore DOM sandbox restrictions
+    }
+  }
+
   /**
-   * Send recorded action payload to the Tester Lab parent window
+   * Send recorded action payload to the Tester Lab parent/opener window
    */
   function emitStep(action, targetLabel, value, description) {
-    if (!window.parent || window.parent === window) return;
+    const parentWin = (window.opener && window.opener !== window) ? window.opener : (window.parent && window.parent !== window ? window.parent : null);
+    if (!parentWin) return;
 
-    window.parent.postMessage({
+    parentWin.postMessage({
       type: 'TESTER_LAB_RECORD_STEP',
       payload: {
         action: action,
@@ -71,6 +91,8 @@
         description: description || `${action.toUpperCase()} on ${targetLabel}`
       }
     }, '*');
+
+    updateFloatingBadge(description);
   }
 
   function flushInput(el) {
@@ -177,7 +199,8 @@
   }, true);
 
   // Ready signal
-  if (window.parent && window.parent !== window) {
-    window.parent.postMessage({ type: 'TESTER_LAB_RECORDER_READY' }, '*');
+  const parentWin = (window.opener && window.opener !== window) ? window.opener : (window.parent && window.parent !== window ? window.parent : null);
+  if (parentWin) {
+    parentWin.postMessage({ type: 'TESTER_LAB_RECORDER_READY' }, '*');
   }
 })();

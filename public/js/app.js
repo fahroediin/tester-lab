@@ -2082,6 +2082,28 @@
 
     // --- INTERACTIVE STEP RECORDER LOGIC ---
     let recordedStepsBuffer = [];
+    let currentRecorderWindow = null;
+
+    function openDedicatedRecorderWindow() {
+      const targetUrlInput = document.getElementById('targetUrl');
+      const targetUrl = targetUrlInput ? targetUrlInput.value.trim() : '';
+      if (!targetUrl) return;
+
+      const token = localStorage.getItem('tester_jwt_token') || (typeof authToken !== 'undefined' ? authToken : '') || localStorage.getItem('token') || '';
+      const proxyUrl = `/api/v1/recorder/proxy?url=${encodeURIComponent(targetUrl)}&token=${encodeURIComponent(token)}`;
+
+      if (currentRecorderWindow && !currentRecorderWindow.closed) {
+        currentRecorderWindow.focus();
+      } else {
+        currentRecorderWindow = window.open(proxyUrl, 'TesterLabRecorderWindow', 'width=1280,height=850,resizable=yes,scrollbars=yes');
+      }
+
+      showSnackbar({
+        type: 'info',
+        title: 'Dedicated Window Opened',
+        message: 'Interact with the target website in the dedicated window. Steps will be captured automatically.'
+      });
+    }
 
     function openRecorderModal() {
       const targetUrlInput = document.getElementById('targetUrl');
@@ -2116,13 +2138,14 @@
 
       const latestEl = document.getElementById('recorderLatestStepText');
       if (latestEl) {
-        latestEl.textContent = 'Ready. Interact with the target page below to capture test steps automatically.';
+        latestEl.textContent = 'Ready. Interact with the target page below or in the dedicated window to capture test steps automatically.';
       }
 
       const token = localStorage.getItem('tester_jwt_token') || (typeof authToken !== 'undefined' ? authToken : '') || localStorage.getItem('token') || '';
+      const proxyUrl = `/api/v1/recorder/proxy?url=${encodeURIComponent(targetUrl)}&token=${encodeURIComponent(token)}`;
       const iframe = document.getElementById('recorderIframe');
       if (iframe) {
-        iframe.src = `/api/v1/recorder/proxy?url=${encodeURIComponent(targetUrl)}&token=${encodeURIComponent(token)}`;
+        iframe.src = proxyUrl;
       }
 
       const modal = document.getElementById('recorderModal');
@@ -2139,6 +2162,11 @@
       const iframe = document.getElementById('recorderIframe');
       if (iframe) {
         iframe.src = 'about:blank';
+      }
+      if (currentRecorderWindow && !currentRecorderWindow.closed) {
+        try {
+          currentRecorderWindow.close();
+        } catch {}
       }
     }
 
