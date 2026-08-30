@@ -2119,7 +2119,7 @@
         latestEl.textContent = 'Ready. Interact with the target page below to capture test steps automatically.';
       }
 
-      const token = localStorage.getItem('tester_lab_token') || '';
+      const token = localStorage.getItem('tester_jwt_token') || (typeof authToken !== 'undefined' ? authToken : '') || localStorage.getItem('token') || '';
       const iframe = document.getElementById('recorderIframe');
       if (iframe) {
         iframe.src = `/api/v1/recorder/proxy?url=${encodeURIComponent(targetUrl)}&token=${encodeURIComponent(token)}`;
