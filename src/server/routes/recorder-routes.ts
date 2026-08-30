@@ -1,10 +1,10 @@
+import fs from 'fs';
+import path from 'path';
 import { Router, Response } from 'express';
 import { authenticateJWT, requireApprovedUser } from '../auth-middleware.js';
 import type { AuthenticatedRequest } from '../auth-middleware.js';
 
 export const recorderRoutes = Router();
-
-const INJECTED_AGENT_TAG = '<script src="/js/recorder-agent.js"></script>';
 
 /**
  * Validate that a URL string is a valid HTTP/HTTPS URL
@@ -19,9 +19,30 @@ function isValidHttpUrl(targetUrl: string): boolean {
 }
 
 /**
+ * Get inlined recorder agent script tag to inject directly into target page HTML
+ */
+function getInlinedRecorderScript(): string {
+  try {
+    const candidatePaths = [
+      path.join(process.cwd(), 'public', 'js', 'recorder-agent.js'),
+      path.join(process.cwd(), 'dist', 'public', 'js', 'recorder-agent.js')
+    ];
+    for (const p of candidatePaths) {
+      if (fs.existsSync(p)) {
+        const code = fs.readFileSync(p, 'utf-8');
+        return `<script id="__tester_lab_recorder_injected__">\n${code}\n</script>`;
+      }
+    }
+  } catch (err) {
+    console.warn('[Recorder Proxy] Failed to read recorder-agent.js from disk:', err);
+  }
+  return '<script src="/js/recorder-agent.js"></script>';
+}
+
+/**
  * GET /api/v1/recorder/proxy
  * Reverse-proxy endpoint to embed target websites inside the Recorder iframe.
- * Strips frame-blocking security headers and injects the recorder client script.
+ * Strips frame-blocking security headers and inlines the recorder client script.
  */
 recorderRoutes.get('/proxy', authenticateJWT, requireApprovedUser, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const targetUrl = req.query.url as string | undefined;
@@ -59,14 +80,15 @@ recorderRoutes.get('/proxy', authenticateJWT, requireApprovedUser, async (req: A
 
       // Ensure relative links, stylesheets, and images resolve to target origin
       const baseTag = `<base href="${finalUrl}">`;
+      const injectedScript = getInlinedRecorderScript();
       let injectedHtml = htmlText;
 
       if (injectedHtml.includes('<head>')) {
-        injectedHtml = injectedHtml.replace('<head>', `<head>\n  ${baseTag}\n  ${INJECTED_AGENT_TAG}`);
+        injectedHtml = injectedHtml.replace('<head>', `<head>\n  ${baseTag}\n  ${injectedScript}`);
       } else if (injectedHtml.includes('<html>')) {
-        injectedHtml = injectedHtml.replace('<html>', `<html>\n<head>${baseTag}${INJECTED_AGENT_TAG}</head>`);
+        injectedHtml = injectedHtml.replace('<html>', `<html>\n<head>${baseTag}${injectedScript}</head>`);
       } else {
-        injectedHtml = `${baseTag}${INJECTED_AGENT_TAG}\n${injectedHtml}`;
+        injectedHtml = `${baseTag}${injectedScript}\n${injectedHtml}`;
       }
 
       res.setHeader('Content-Type', 'text/html; charset=utf-8');

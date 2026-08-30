@@ -6,7 +6,6 @@
   if (window.__TESTER_LAB_RECORDER_ACTIVE__) return;
   window.__TESTER_LAB_RECORDER_ACTIVE__ = true;
 
-  // Track debounced typing inputs
   const inputTimers = new Map();
 
   /**
@@ -74,6 +73,22 @@
     }, '*');
   }
 
+  function flushInput(el) {
+    if (!el || (el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA')) return;
+    const type = (el.getAttribute('type') || '').toLowerCase();
+    if (type === 'checkbox' || type === 'radio' || type === 'button' || type === 'submit') return;
+
+    if (inputTimers.has(el)) {
+      clearTimeout(inputTimers.get(el));
+      inputTimers.delete(el);
+    }
+    const val = el.value || '';
+    if (val !== undefined && val !== null) {
+      const label = extractElementLabel(el);
+      emitStep('fill', label, val, `Type ${val} into ${label}`);
+    }
+  }
+
   // 1. Handle Click Events
   document.addEventListener('click', function(e) {
     const el = e.target;
@@ -82,9 +97,15 @@
     const tagName = el.tagName;
     const type = (el.getAttribute('type') || '').toLowerCase();
 
-    // Skip input clicks if they are text/password (input event will handle filling)
+    // Skip input clicks if they are text/password
     if (tagName === 'INPUT' && (type === 'text' || type === 'password' || type === 'email' || type === 'number' || type === 'tel' || type === 'search')) {
       return;
+    }
+
+    // Flush any focused inputs before recording click
+    const activeEl = document.activeElement;
+    if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA') && activeEl !== el) {
+      flushInput(activeEl);
     }
 
     // Checkbox / Radio
@@ -111,34 +132,51 @@
     const type = (el.getAttribute('type') || '').toLowerCase();
     if (type === 'checkbox' || type === 'radio' || type === 'button' || type === 'submit') return;
 
-    const label = extractElementLabel(el);
-
     if (inputTimers.has(el)) {
       clearTimeout(inputTimers.get(el));
     }
 
     const timer = setTimeout(() => {
-      const val = el.value || '';
-      emitStep('fill', label, val, `Type ${val} into ${label}`);
-      inputTimers.delete(el);
-    }, 600);
+      flushInput(el);
+    }, 400);
 
     inputTimers.set(el, timer);
   }, true);
 
-  // 3. Handle Select / Dropdown Changes
+  // 3. Handle Blur and Change on Input
   document.addEventListener('change', function(e) {
     const el = e.target;
-    if (!el || el.tagName !== 'SELECT') return;
+    if (!el) return;
 
-    const label = extractElementLabel(el);
-    const selectedOption = el.options[el.selectedIndex];
-    const val = selectedOption ? (selectedOption.text || selectedOption.value) : el.value;
+    if (el.tagName === 'SELECT') {
+      const label = extractElementLabel(el);
+      const selectedOption = el.options[el.selectedIndex];
+      const val = selectedOption ? (selectedOption.text || selectedOption.value) : el.value;
+      emitStep('select', label, val, `Select ${val} from ${label}`);
+      return;
+    }
 
-    emitStep('select', label, val, `Select ${val} from ${label}`);
+    if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+      flushInput(el);
+    }
   }, true);
 
-  // Notify parent window that agent is active and ready
+  document.addEventListener('blur', function(e) {
+    const el = e.target;
+    if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) {
+      flushInput(el);
+    }
+  }, true);
+
+  // 4. Handle Form Submit
+  document.addEventListener('submit', function(e) {
+    const activeEl = document.activeElement;
+    if (activeEl) {
+      flushInput(activeEl);
+    }
+  }, true);
+
+  // Ready signal
   if (window.parent && window.parent !== window) {
     window.parent.postMessage({ type: 'TESTER_LAB_RECORDER_READY' }, '*');
   }

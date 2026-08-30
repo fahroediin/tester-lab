@@ -2197,20 +2197,28 @@
         const payload = event.data.payload;
         if (!payload || !payload.action) return;
 
-        const newStep = {
-          step: recordedStepsBuffer.length + 1,
-          action: payload.action,
-          targetLabel: payload.targetLabel || 'Element',
-          value: payload.value || '',
-          description: payload.description || `${payload.action.toUpperCase()} on ${payload.targetLabel}`
-        };
+        // If the last step was a fill action on the same targetLabel, update its value
+        const lastStep = recordedStepsBuffer[recordedStepsBuffer.length - 1];
+        if (lastStep && lastStep.action === 'fill' && payload.action === 'fill' && lastStep.targetLabel === payload.targetLabel) {
+          lastStep.value = payload.value || '';
+          lastStep.description = payload.description || `Type ${lastStep.value} into ${lastStep.targetLabel}`;
+        } else {
+          const newStep = {
+            step: recordedStepsBuffer.length + 1,
+            action: payload.action,
+            targetLabel: payload.targetLabel || 'Element',
+            value: payload.value || '',
+            description: payload.description || `${payload.action.toUpperCase()} on ${payload.targetLabel}`
+          };
+          recordedStepsBuffer.push(newStep);
+        }
 
-        recordedStepsBuffer.push(newStep);
         updateRecorderStatsUI();
 
         const latestEl = document.getElementById('recorderLatestStepText');
-        if (latestEl) {
-          latestEl.textContent = `Captured: ${newStep.description}`;
+        const currentLast = recordedStepsBuffer[recordedStepsBuffer.length - 1];
+        if (latestEl && currentLast) {
+          latestEl.textContent = `Captured: ${currentLast.description}`;
         }
       }
     });
