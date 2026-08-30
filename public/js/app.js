@@ -2217,6 +2217,22 @@
       }
     }
 
+    // Global window exports for HTML event handlers
+    window.openRecorderModal = openRecorderModal;
+    window.closeRecorderModal = closeRecorderModal;
+    window.clearRecordedSteps = clearRecordedSteps;
+    window.applyRecordedSteps = applyRecordedSteps;
+
+    // Attach direct click listeners to Record Steps buttons
+    const btnRecord = document.getElementById('btnRecordSteps');
+    if (btnRecord) {
+      btnRecord.addEventListener('click', openRecorderModal);
+    }
+    const btnRecordBottom = document.getElementById('btnRecordStepsBottom');
+    if (btnRecordBottom) {
+      btnRecordBottom.addEventListener('click', openRecorderModal);
+    }
+
     // Global listener for postMessage events from the injected recorder-agent.js
     window.addEventListener('message', (event) => {
       if (!event.data || typeof event.data !== 'object') return;
