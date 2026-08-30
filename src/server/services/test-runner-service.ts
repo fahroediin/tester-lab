@@ -63,12 +63,19 @@ export default defineConfig({
     args.push('--headed');
   }
 
+  let execCommand = npxCmd;
+  let execArgs = args;
+  if (isHeaded && process.platform === 'linux' && !process.env.DISPLAY) {
+    execCommand = 'xvfb-run';
+    execArgs = ['-a', npxCmd, ...args];
+  }
+
   let logs = '';
   let success = false;
   let videoUrl: string | undefined;
 
   try {
-    const { stdout, stderr } = await execFileAsync(npxCmd, args, {
+    const { stdout, stderr } = await execFileAsync(execCommand, execArgs, {
       cwd: process.cwd(),
       env: {
         ...getSanitizedEnv(),

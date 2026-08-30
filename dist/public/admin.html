@@ -2018,6 +2018,9 @@
     }
 
     async function fetchApiKeyLogsAdmin() {
+      // Ensure top summary stat cards refresh together with log rows
+      fetchApiKeyStatsAdmin();
+
       const tbody = document.getElementById('apiKeyLogsTableBodyAdmin');
       if (!tbody) return;
       tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--body-muted); padding: 24px;">Loading API key hit logs...</td></tr>';

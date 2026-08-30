@@ -73,9 +73,10 @@ export function aggregateStatusCounts(items: Array<{ status: string }>): { gener
   let failed = 0;
 
   for (const item of items) {
-    if (item.status === 'generated') generated++;
-    else if (item.status === 'success') success++;
-    else if (item.status === 'failed') failed++;
+    const st = (item.status || '').toLowerCase().trim();
+    if (st === 'generated') generated++;
+    else if (st === 'success' || st === 'passed') success++;
+    else if (st === 'failed' || st === 'failure') failed++;
   }
 
   return { generated, success, failed };

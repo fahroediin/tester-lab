@@ -131,10 +131,11 @@ function buildSummariesFromRows(
       };
     }
 
+    const st = (row.status || '').toLowerCase().trim();
     summaries[keyId].total++;
-    if (row.status === 'generated') summaries[keyId].generated++;
-    else if (row.status === 'success') summaries[keyId].success++;
-    else if (row.status === 'failed') summaries[keyId].failed++;
+    if (st === 'generated') summaries[keyId].generated++;
+    else if (st === 'success' || st === 'passed') summaries[keyId].success++;
+    else if (st === 'failed' || st === 'failure') summaries[keyId].failed++;
   }
 
   return summaries;
