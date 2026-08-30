@@ -40,9 +40,18 @@ function getInlinedRecorderScript(): string {
 }
 
 /**
+ * Strip meta tags that could instruct the browser to block iframe rendering
+ */
+function sanitizeHtmlForIframe(html: string): string {
+  return html
+    .replace(/<meta[^>]*http-equiv=["']?(content-security-policy|x-frame-options|frame-ancestors)["']?[^>]*>/gi, '')
+    .replace(/<meta[^>]*content=["'][^"']*(frame-ancestors|deny|sameorigin)[^"']*["'][^>]*http-equiv=["']?[^"'>]+["']?[^>]*>/gi, '');
+}
+
+/**
  * GET /api/v1/recorder/proxy
  * Reverse-proxy endpoint to embed target websites inside the Recorder iframe.
- * Strips frame-blocking security headers and inlines the recorder client script.
+ * Strips frame-blocking security headers and meta tags, and inlines the recorder client script.
  */
 recorderRoutes.get('/proxy', authenticateJWT, requireApprovedUser, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const targetUrl = req.query.url as string | undefined;
@@ -56,9 +65,12 @@ recorderRoutes.get('/proxy', authenticateJWT, requireApprovedUser, async (req: A
     const upstreamResponse = await fetch(targetUrl, {
       method: 'GET',
       headers: {
-        'User-Agent': req.headers['user-agent'] || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': req.headers['accept'] || 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': (req.headers['accept-language'] as string) || 'en-US,en;q=0.9'
+        'User-Agent': req.headers['user-agent'] || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept': req.headers['accept'] || 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'Accept-Language': (req.headers['accept-language'] as string) || 'en-US,en;q=0.9',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'cross-site'
       },
       redirect: 'follow'
     });
@@ -69,26 +81,33 @@ recorderRoutes.get('/proxy', authenticateJWT, requireApprovedUser, async (req: A
     // Forward status code
     res.status(upstreamResponse.status);
 
-    // Set permissive frame headers so iframe embedding works cleanly
+    // Strip all frame-blocking security response headers
     res.removeHeader('X-Frame-Options');
     res.removeHeader('Content-Security-Policy');
     res.removeHeader('Content-Security-Policy-Report-Only');
+    res.removeHeader('Cross-Origin-Embedder-Policy');
+    res.removeHeader('Cross-Origin-Opener-Policy');
+    res.removeHeader('Cross-Origin-Resource-Policy');
     res.setHeader('X-Frame-Options', 'ALLOWALL');
+    res.setHeader('Access-Control-Allow-Origin', '*');
 
     if (contentType.includes('text/html')) {
-      const htmlText = await upstreamResponse.text();
+      const rawHtml = await upstreamResponse.text();
+      const sanitizedHtml = sanitizeHtmlForIframe(rawHtml);
 
       // Ensure relative links, stylesheets, and images resolve to target origin
       const baseTag = `<base href="${finalUrl}">`;
+      const antiFrameBuster = `<script>try { if (window.top !== window.self) { Object.defineProperty(window, 'top', { get: function() { return window.self; } }); } } catch(e) {}</script>`;
       const injectedScript = getInlinedRecorderScript();
-      let injectedHtml = htmlText;
+      const injectionBlock = `${baseTag}\n${antiFrameBuster}\n${injectedScript}`;
 
+      let injectedHtml = sanitizedHtml;
       if (injectedHtml.includes('<head>')) {
-        injectedHtml = injectedHtml.replace('<head>', `<head>\n  ${baseTag}\n  ${injectedScript}`);
+        injectedHtml = injectedHtml.replace('<head>', `<head>\n  ${injectionBlock}`);
       } else if (injectedHtml.includes('<html>')) {
-        injectedHtml = injectedHtml.replace('<html>', `<html>\n<head>${baseTag}${injectedScript}</head>`);
+        injectedHtml = injectedHtml.replace('<html>', `<html>\n<head>${injectionBlock}</head>`);
       } else {
-        injectedHtml = `${baseTag}${injectedScript}\n${injectedHtml}`;
+        injectedHtml = `${injectionBlock}\n${injectedHtml}`;
       }
 
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
