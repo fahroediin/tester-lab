@@ -2217,39 +2217,54 @@
       });
     }
 
+    function handleIncomingRecordedStep(payload) {
+      if (!payload || !payload.action) return;
+
+      // If the last step was a fill action on the same targetLabel, update its value
+      const lastStep = recordedStepsBuffer[recordedStepsBuffer.length - 1];
+      if (lastStep && lastStep.action === 'fill' && payload.action === 'fill' && lastStep.targetLabel === payload.targetLabel) {
+        lastStep.value = payload.value || '';
+        lastStep.description = payload.description || `Type ${lastStep.value} into ${lastStep.targetLabel}`;
+      } else {
+        const newStep = {
+          step: recordedStepsBuffer.length + 1,
+          action: payload.action,
+          targetLabel: payload.targetLabel || 'Element',
+          value: payload.value || '',
+          description: payload.description || `${payload.action.toUpperCase()} on ${payload.targetLabel}`
+        };
+        recordedStepsBuffer.push(newStep);
+      }
+
+      updateRecorderStatsUI();
+
+      const latestEl = document.getElementById('recorderLatestStepText');
+      const currentLast = recordedStepsBuffer[recordedStepsBuffer.length - 1];
+      if (latestEl && currentLast) {
+        latestEl.textContent = `Captured: ${currentLast.description}`;
+      }
+    }
+
     // Global listener for postMessage events from the injected recorder-agent.js
     window.addEventListener('message', (event) => {
       if (!event.data || typeof event.data !== 'object') return;
 
       if (event.data.type === 'TESTER_LAB_RECORD_STEP') {
-        const payload = event.data.payload;
-        if (!payload || !payload.action) return;
-
-        // If the last step was a fill action on the same targetLabel, update its value
-        const lastStep = recordedStepsBuffer[recordedStepsBuffer.length - 1];
-        if (lastStep && lastStep.action === 'fill' && payload.action === 'fill' && lastStep.targetLabel === payload.targetLabel) {
-          lastStep.value = payload.value || '';
-          lastStep.description = payload.description || `Type ${lastStep.value} into ${lastStep.targetLabel}`;
-        } else {
-          const newStep = {
-            step: recordedStepsBuffer.length + 1,
-            action: payload.action,
-            targetLabel: payload.targetLabel || 'Element',
-            value: payload.value || '',
-            description: payload.description || `${payload.action.toUpperCase()} on ${payload.targetLabel}`
-          };
-          recordedStepsBuffer.push(newStep);
-        }
-
-        updateRecorderStatsUI();
-
-        const latestEl = document.getElementById('recorderLatestStepText');
-        const currentLast = recordedStepsBuffer[recordedStepsBuffer.length - 1];
-        if (latestEl && currentLast) {
-          latestEl.textContent = `Captured: ${currentLast.description}`;
-        }
+        handleIncomingRecordedStep(event.data.payload);
       }
     });
+
+    // Cross-tab BroadcastChannel listener
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        const bc = new BroadcastChannel('tester_lab_recorder_channel');
+        bc.onmessage = (event) => {
+          if (event.data && event.data.type === 'TESTER_LAB_RECORD_STEP') {
+            handleIncomingRecordedStep(event.data.payload);
+          }
+        };
+      } catch {}
+    }
 
     // --- THEME SWITCHER LOGIC ---
     function initTheme() {

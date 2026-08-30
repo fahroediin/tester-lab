@@ -75,6 +75,8 @@ app.use('/api/v1/history', history_routes_js_1.historyRoutes);
 app.use('/api/v1/config', config_routes_js_1.configRoutes);
 app.use('/api/v1/recorder', recorder_routes_js_1.recorderRoutes);
 app.use('/api/v1', test_routes_js_1.testRoutes); // testRoutes has endpoints like /generate-script, /inspect-dom, /run-test directly under /api/v1
+// Fallback proxy middleware for target application assets (Next.js chunks, OutSystems assets, styles)
+app.use(recorder_routes_js_1.proxyAssetMiddleware);
 // Global Error Handler to ensure JSON responses for API errors (e.g. malformed JSON in body-parser)
 app.use((err, req, res, next) => {
     console.error('[Global Error Handler]', err.message || err);

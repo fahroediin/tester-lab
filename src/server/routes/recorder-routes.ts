@@ -1,10 +1,19 @@
 import fs from 'fs';
 import path from 'path';
-import { Router, Response } from 'express';
+import { Router, Response, Request, NextFunction } from 'express';
 import { authenticateJWT, requireApprovedUser } from '../auth-middleware.js';
 import type { AuthenticatedRequest } from '../auth-middleware.js';
 
 export const recorderRoutes = Router();
+
+/**
+ * Extract a cookie by name from cookie header string
+ */
+function getCookieValue(cookieHeader: string | undefined, name: string): string | null {
+  if (!cookieHeader) return null;
+  const match = cookieHeader.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+  return match && match[1] ? decodeURIComponent(match[1]) : null;
+}
 
 /**
  * Validate that a URL string is a valid HTTP/HTTPS URL
@@ -49,9 +58,77 @@ function sanitizeHtmlForIframe(html: string): string {
 }
 
 /**
+ * Middleware: Intercept sub-resource requests (Next.js chunks, OutSystems assets, scripts, CSS)
+ * when a user is interacting with an active proxy recording session.
+ */
+export async function proxyAssetMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
+  if (
+    req.path.startsWith('/api/') ||
+    req.path === '/' ||
+    req.path === '/admin' ||
+    req.path.startsWith('/css/') ||
+    req.path.startsWith('/js/')
+  ) {
+    next();
+    return;
+  }
+
+  const proxyOrigin = getCookieValue(req.headers.cookie, '__tl_proxy_origin');
+  if (!proxyOrigin || !proxyOrigin.startsWith('http')) {
+    next();
+    return;
+  }
+
+  try {
+    const upstreamAssetUrl = `${proxyOrigin.replace(/\/$/, '')}${req.originalUrl}`;
+    const upstreamResponse = await fetch(upstreamAssetUrl, {
+      method: req.method,
+      headers: {
+        'User-Agent': req.headers['user-agent'] || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept': req.headers['accept'] || '*/*',
+        'Accept-Language': (req.headers['accept-language'] as string) || 'en-US,en;q=0.9'
+      }
+    });
+
+    const contentType = upstreamResponse.headers.get('content-type') || 'application/octet-stream';
+    res.status(upstreamResponse.status);
+    res.removeHeader('X-Frame-Options');
+    res.removeHeader('Content-Security-Policy');
+    res.removeHeader('Cross-Origin-Embedder-Policy');
+    res.removeHeader('Cross-Origin-Opener-Policy');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Content-Type', contentType);
+
+    if (contentType.includes('text/html')) {
+      const rawHtml = await upstreamResponse.text();
+      const sanitizedHtml = sanitizeHtmlForIframe(rawHtml);
+      const baseTag = `<base href="${upstreamAssetUrl}">`;
+      const antiFrameBuster = `<script>try { if (window.top !== window.self) { Object.defineProperty(window, 'top', { get: function() { return window.self; } }); } } catch(e) {}</script>`;
+      const injectedScript = getInlinedRecorderScript();
+      const injectionBlock = `${baseTag}\n${antiFrameBuster}\n${injectedScript}`;
+
+      let injectedHtml = sanitizedHtml;
+      if (injectedHtml.includes('<head>')) {
+        injectedHtml = injectedHtml.replace('<head>', `<head>\n  ${injectionBlock}`);
+      } else if (injectedHtml.includes('<html>')) {
+        injectedHtml = injectedHtml.replace('<html>', `<html>\n<head>${injectionBlock}</head>`);
+      } else {
+        injectedHtml = `${injectionBlock}\n${injectedHtml}`;
+      }
+      res.send(injectedHtml);
+      return;
+    }
+
+    const arrayBuffer = await upstreamResponse.arrayBuffer();
+    res.send(Buffer.from(arrayBuffer));
+  } catch {
+    next();
+  }
+}
+
+/**
  * GET /api/v1/recorder/proxy
- * Reverse-proxy endpoint to embed target websites inside the Recorder iframe.
- * Strips frame-blocking security headers and meta tags, and inlines the recorder client script.
+ * Reverse-proxy endpoint to embed target websites inside the Recorder.
  */
 recorderRoutes.get('/proxy', authenticateJWT, requireApprovedUser, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const targetUrl = req.query.url as string | undefined;
@@ -77,9 +154,13 @@ recorderRoutes.get('/proxy', authenticateJWT, requireApprovedUser, async (req: A
 
     const contentType = upstreamResponse.headers.get('content-type') || '';
     const finalUrl = upstreamResponse.url || targetUrl;
+    const origin = new URL(finalUrl).origin;
 
     // Forward status code
     res.status(upstreamResponse.status);
+
+    // Set cookie so sub-resources (e.g. Next.js chunks, OutSystems assets) are routed properly
+    res.setHeader('Set-Cookie', `__tl_proxy_origin=${encodeURIComponent(origin)}; Path=/; SameSite=Lax`);
 
     // Strip all frame-blocking security response headers
     res.removeHeader('X-Frame-Options');
