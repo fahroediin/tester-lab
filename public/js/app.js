@@ -640,7 +640,47 @@
       const statusBadgeContainer = document.getElementById('statusBadgeContainer');
       const consoleTitle = document.getElementById('consoleTitle');
 
-      // 0. FRONTEND STEP VALIDATION
+      // 0. FRONTEND SUITE NAME & TARGET URL VALIDATION
+      const testSuiteInput = document.getElementById('testSuite');
+      const testSuite = testSuiteInput ? testSuiteInput.value.trim() : '';
+      if (!testSuite) {
+        showSnackbar({
+          type: 'warning',
+          title: 'Test Suite Name Required',
+          message: 'Please enter a Test Suite Name before generating the script.'
+        });
+        if (testSuiteInput) {
+          testSuiteInput.focus();
+          testSuiteInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        return;
+      }
+
+      const targetUrlInput = document.getElementById('targetUrl');
+      const targetUrl = targetUrlInput ? targetUrlInput.value.trim() : '';
+      if (!targetUrl) {
+        showSnackbar({
+          type: 'warning',
+          title: 'Target URL Required',
+          message: 'Please enter a Target Web Application URL before generating the script.'
+        });
+        if (targetUrlInput) {
+          targetUrlInput.focus();
+          targetUrlInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        return;
+      }
+
+      if (steps.length === 0) {
+        showSnackbar({
+          type: 'warning',
+          title: 'Execution Steps Required',
+          message: 'Please add at least one execution step before generating the script.'
+        });
+        return;
+      }
+
+      // 1. FRONTEND STEP VALIDATION
       let isValid = true;
       let firstInvalidIndex = -1;
       document.querySelectorAll('.step-error-msg').forEach(el => el.remove());
