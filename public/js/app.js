@@ -2080,6 +2080,141 @@
       });
     }
 
+    // --- INTERACTIVE STEP RECORDER LOGIC ---
+    let recordedStepsBuffer = [];
+
+    function openRecorderModal() {
+      const targetUrlInput = document.getElementById('targetUrl');
+      const targetUrl = targetUrlInput ? targetUrlInput.value.trim() : '';
+
+      if (!targetUrl) {
+        showSnackbar({
+          type: 'warning',
+          title: 'Target URL Required',
+          message: 'Please enter a Target Web Application URL before starting the recorder.'
+        });
+        if (targetUrlInput) targetUrlInput.focus();
+        return;
+      }
+
+      try {
+        const parsed = new URL(targetUrl);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+          throw new Error('Invalid protocol');
+        }
+      } catch {
+        showSnackbar({
+          type: 'warning',
+          title: 'Invalid URL Format',
+          message: 'Please enter a valid HTTP or HTTPS URL (e.g. https://example.com).'
+        });
+        return;
+      }
+
+      recordedStepsBuffer = [];
+      updateRecorderStatsUI();
+
+      const latestEl = document.getElementById('recorderLatestStepText');
+      if (latestEl) {
+        latestEl.textContent = 'Ready. Interact with the target page below to capture test steps automatically.';
+      }
+
+      const token = localStorage.getItem('tester_lab_token') || '';
+      const iframe = document.getElementById('recorderIframe');
+      if (iframe) {
+        iframe.src = `/api/v1/recorder/proxy?url=${encodeURIComponent(targetUrl)}&token=${encodeURIComponent(token)}`;
+      }
+
+      const modal = document.getElementById('recorderModal');
+      if (modal) {
+        modal.style.display = 'flex';
+      }
+    }
+
+    function closeRecorderModal() {
+      const modal = document.getElementById('recorderModal');
+      if (modal) {
+        modal.style.display = 'none';
+      }
+      const iframe = document.getElementById('recorderIframe');
+      if (iframe) {
+        iframe.src = 'about:blank';
+      }
+    }
+
+    function clearRecordedSteps() {
+      recordedStepsBuffer = [];
+      updateRecorderStatsUI();
+      const latestEl = document.getElementById('recorderLatestStepText');
+      if (latestEl) {
+        latestEl.textContent = 'Cleared. Interact with the target page below to capture test steps automatically.';
+      }
+    }
+
+    function updateRecorderStatsUI() {
+      const countEl = document.getElementById('recorderLiveStepCount');
+      if (countEl) {
+        countEl.textContent = `${recordedStepsBuffer.length} step${recordedStepsBuffer.length === 1 ? '' : 's'} recorded`;
+      }
+    }
+
+    function applyRecordedSteps() {
+      if (recordedStepsBuffer.length === 0) {
+        showSnackbar({
+          type: 'warning',
+          title: 'No Steps Recorded',
+          message: 'No actions have been captured yet. Interact with the target page first.'
+        });
+        return;
+      }
+
+      const startingIndex = steps.length;
+      recordedStepsBuffer.forEach((recStep, idx) => {
+        steps.push({
+          step: startingIndex + idx + 1,
+          action: recStep.action,
+          targetLabel: recStep.targetLabel,
+          value: recStep.value || '',
+          description: recStep.description || `${recStep.action.toUpperCase()} on ${recStep.targetLabel}`
+        });
+      });
+
+      renderSteps();
+      closeRecorderModal();
+
+      showSnackbar({
+        type: 'success',
+        title: 'Steps Applied',
+        message: `Successfully added ${recordedStepsBuffer.length} recorded step(s) to Execution Steps.`
+      });
+    }
+
+    // Global listener for postMessage events from the injected recorder-agent.js
+    window.addEventListener('message', (event) => {
+      if (!event.data || typeof event.data !== 'object') return;
+
+      if (event.data.type === 'TESTER_LAB_RECORD_STEP') {
+        const payload = event.data.payload;
+        if (!payload || !payload.action) return;
+
+        const newStep = {
+          step: recordedStepsBuffer.length + 1,
+          action: payload.action,
+          targetLabel: payload.targetLabel || 'Element',
+          value: payload.value || '',
+          description: payload.description || `${payload.action.toUpperCase()} on ${payload.targetLabel}`
+        };
+
+        recordedStepsBuffer.push(newStep);
+        updateRecorderStatsUI();
+
+        const latestEl = document.getElementById('recorderLatestStepText');
+        if (latestEl) {
+          latestEl.textContent = `Captured: ${newStep.description}`;
+        }
+      }
+    });
+
     // --- THEME SWITCHER LOGIC ---
     function initTheme() {
       const savedTheme = localStorage.getItem('tester_lab_theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');

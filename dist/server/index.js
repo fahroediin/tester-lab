@@ -13,6 +13,7 @@ const test_routes_js_1 = require("./routes/test-routes.js");
 const history_routes_js_1 = require("./routes/history-routes.js");
 const config_routes_js_1 = require("./routes/config-routes.js");
 const api_key_routes_js_1 = require("./routes/api-key-routes.js");
+const recorder_routes_js_1 = require("./routes/recorder-routes.js");
 const auth_store_js_1 = require("./auth-store.js");
 const supabase_client_js_1 = require("./supabase-client.js");
 const app = (0, express_1.default)();
@@ -72,6 +73,7 @@ app.use('/api/v1/api-keys', api_key_routes_js_1.apiKeyRoutes);
 app.use('/api/v1/feedback', feedback_routes_js_1.feedbackRoutes);
 app.use('/api/v1/history', history_routes_js_1.historyRoutes);
 app.use('/api/v1/config', config_routes_js_1.configRoutes);
+app.use('/api/v1/recorder', recorder_routes_js_1.recorderRoutes);
 app.use('/api/v1', test_routes_js_1.testRoutes); // testRoutes has endpoints like /generate-script, /inspect-dom, /run-test directly under /api/v1
 // Global Error Handler to ensure JSON responses for API errors (e.g. malformed JSON in body-parser)
 app.use((err, req, res, next) => {

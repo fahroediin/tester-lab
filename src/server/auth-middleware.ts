@@ -86,6 +86,23 @@ export async function authenticateJWT(req: AuthenticatedRequest, res: Response, 
     }
   }
 
+  // 3. Check for Token in Query Parameter (for iframe embedding / media streaming)
+  const queryToken = req.query?.token as string | undefined;
+  if (queryToken) {
+    try {
+      const decoded = jwt.verify(queryToken, JWT_SECRET) as { userId: string };
+      const user = await findUserByIdAsync(decoded.userId);
+      if (user) {
+        req.user = user;
+        req.authMethod = 'jwt';
+        next();
+        return;
+      }
+    } catch {
+      // Fall through to 401
+    }
+  }
+
   res.status(401).json({ 
     success: false, 
     error: 'Access denied. Please provide a valid Bearer JWT token or X-API-Key header.' 
