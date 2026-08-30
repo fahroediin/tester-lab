@@ -591,6 +591,22 @@
         </div>
       </div>
 
+      <!-- Direct Bookmarklet Bar for Strict Domains / OutSystems / SSO -->
+      <div style="background: var(--surface-2); border: 1px solid var(--hairline); border-radius: 6px; padding: 10px 14px; margin-bottom: 10px; font-size: 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+        <div>
+          <span style="font-weight: 600; color: var(--ink);">Strict Domain / SSO:</span>
+          <span style="color: var(--body-muted); margin-left: 6px;">If your website blocks proxies, open it directly in a new tab, then click this bookmarklet:</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <a id="recorderBookmarkletLink" href="javascript:void(0);" class="btn-pill-outline" style="font-size: 11px; padding: 5px 12px; text-decoration: none; cursor: grab;" title="Drag this to your Bookmarks bar">
+            Tester Lab Recorder
+          </a>
+          <button type="button" onclick="copyBookmarkletSnippet()" class="btn-pill-outline" style="font-size: 11px; padding: 5px 10px;">
+            Copy Snippet
+          </button>
+        </div>
+      </div>
+
       <!-- Live Recorded Steps Feed Preview Bar -->
       <div id="recorderLiveFeed" style="background: var(--surface-2); border: 1px solid var(--hairline); border-radius: 6px; padding: 8px 12px; margin-bottom: 10px; font-family: var(--font-mono); font-size: 11px; color: var(--body-muted); display: flex; align-items: center; justify-content: space-between; overflow-x: auto;">
         <span id="recorderLatestStepText">Ready. Interact with the target page below to capture test steps automatically.</span>

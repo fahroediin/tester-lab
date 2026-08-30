@@ -2083,6 +2083,30 @@
     // --- INTERACTIVE STEP RECORDER LOGIC ---
     let recordedStepsBuffer = [];
     let currentRecorderWindow = null;
+    let currentRecorderSessionId = '';
+    let recorderPollingInterval = null;
+
+    function generateBookmarkletSnippet(sessionId) {
+      const apiOrigin = window.location.origin;
+      return `javascript:(function(){var s=document.createElement('script');s.src='${apiOrigin}/js/recorder-agent.js?session=${sessionId}&api=${encodeURIComponent(apiOrigin)}';document.head.appendChild(s);})();`;
+    }
+
+    function copyBookmarkletSnippet() {
+      if (!currentRecorderSessionId) {
+        currentRecorderSessionId = 'rec_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+      }
+      const snippet = generateBookmarkletSnippet(currentRecorderSessionId);
+      navigator.clipboard.writeText(snippet).then(() => {
+        showSnackbar({
+          type: 'success',
+          title: 'Snippet Copied',
+          message: 'Paste and run this snippet in your target website browser console or as a bookmarklet URL.'
+        });
+      }).catch(() => {
+        prompt('Copy this Bookmarklet snippet:', snippet);
+      });
+    }
+    window.copyBookmarkletSnippet = copyBookmarkletSnippet;
 
     function openDedicatedRecorderWindow() {
       const targetUrlInput = document.getElementById('targetUrl');
@@ -2133,12 +2157,19 @@
         return;
       }
 
+      currentRecorderSessionId = 'rec_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
       recordedStepsBuffer = [];
       updateRecorderStatsUI();
 
+      // Configure bookmarklet link with active session ID
+      const bmLink = document.getElementById('recorderBookmarkletLink');
+      if (bmLink) {
+        bmLink.href = generateBookmarkletSnippet(currentRecorderSessionId);
+      }
+
       const latestEl = document.getElementById('recorderLatestStepText');
       if (latestEl) {
-        latestEl.textContent = 'Ready. Interact with the target page below or in the dedicated window to capture test steps automatically.';
+        latestEl.textContent = 'Ready. Interact with the target page below, in the dedicated window, or via the Bookmarklet.';
       }
 
       const token = localStorage.getItem('tester_jwt_token') || (typeof authToken !== 'undefined' ? authToken : '') || localStorage.getItem('token') || '';
@@ -2148,6 +2179,21 @@
         iframe.src = proxyUrl;
       }
 
+      // Start background polling for steps ingested via HTTP from external tabs/bookmarklet
+      if (recorderPollingInterval) clearInterval(recorderPollingInterval);
+      recorderPollingInterval = setInterval(async () => {
+        if (!currentRecorderSessionId) return;
+        try {
+          const res = await fetch(`/api/v1/recorder/session/${currentRecorderSessionId}/steps`, {
+            headers: getAuthHeaders()
+          });
+          const data = await res.json();
+          if (data.success && Array.isArray(data.steps) && data.steps.length > 0) {
+            data.steps.forEach(st => handleIncomingRecordedStep(st));
+          }
+        } catch {}
+      }, 1000);
+
       const modal = document.getElementById('recorderModal');
       if (modal) {
         modal.style.display = 'flex';
@@ -2155,6 +2201,10 @@
     }
 
     function closeRecorderModal() {
+      if (recorderPollingInterval) {
+        clearInterval(recorderPollingInterval);
+        recorderPollingInterval = null;
+      }
       const modal = document.getElementById('recorderModal');
       if (modal) {
         modal.style.display = 'none';

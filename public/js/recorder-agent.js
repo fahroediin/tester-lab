@@ -1,6 +1,6 @@
 /**
  * Tester Lab: In-Browser Event Recorder Agent
- * Injected automatically into target applications (iframe or popup window) to capture live user actions.
+ * Injected automatically into target applications (iframe, popup window, or bookmarklet) to capture live user actions.
  */
 (function() {
   if (window.__TESTER_LAB_RECORDER_ACTIVE__) return;
@@ -8,6 +8,28 @@
 
   const inputTimers = new Map();
   let localStepCount = 0;
+
+  // Extract session ID and backend API origin
+  let currentSessionId = '';
+  let apiBaseUrl = window.location.origin;
+
+  try {
+    const currentScript = document.currentScript || document.querySelector('script[src*="recorder-agent.js"]');
+    if (currentScript && currentScript.src) {
+      const scriptUrl = new URL(currentScript.src, window.location.href);
+      currentSessionId = scriptUrl.searchParams.get('session') || '';
+      apiBaseUrl = scriptUrl.searchParams.get('api') || scriptUrl.origin;
+    }
+  } catch {}
+
+  if (!currentSessionId) {
+    try {
+      const pageUrl = new URL(window.location.href);
+      currentSessionId = pageUrl.searchParams.get('session') || '';
+    } catch {}
+  }
+
+  const broadcast = (typeof BroadcastChannel !== 'undefined') ? new BroadcastChannel('tester_lab_recorder_channel') : null;
 
   /**
    * Helper to extract the most descriptive human-readable label for any DOM element
@@ -71,26 +93,47 @@
         badge.textContent = `Tester Lab Recording: ${localStepCount} step(s) captured`;
       }
     } catch {
-      // Ignore DOM sandbox restrictions
+      // Ignore DOM restrictions
     }
   }
 
   /**
-   * Send recorded action payload to the Tester Lab parent/opener window
+   * Send recorded action payload to Tester Lab
    */
   function emitStep(action, targetLabel, value, description) {
-    const parentWin = (window.opener && window.opener !== window) ? window.opener : (window.parent && window.parent !== window ? window.parent : null);
-    if (!parentWin) return;
+    const payload = {
+      action: action,
+      targetLabel: targetLabel,
+      value: value || '',
+      description: description || `${action.toUpperCase()} on ${targetLabel}`
+    };
 
-    parentWin.postMessage({
-      type: 'TESTER_LAB_RECORD_STEP',
-      payload: {
-        action: action,
-        targetLabel: targetLabel,
-        value: value || '',
-        description: description || `${action.toUpperCase()} on ${targetLabel}`
-      }
-    }, '*');
+    // 1. Send via HTTP Ingest API
+    if (currentSessionId && apiBaseUrl) {
+      try {
+        fetch(`${apiBaseUrl.replace(/\/$/, '')}/api/v1/recorder/ingest`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId: currentSessionId, step: payload }),
+          mode: 'cors'
+        }).catch(() => {});
+      } catch {}
+    }
+
+    // 2. Send via BroadcastChannel
+    if (broadcast) {
+      try {
+        broadcast.postMessage({ type: 'TESTER_LAB_RECORD_STEP', payload: payload });
+      } catch {}
+    }
+
+    // 3. Send via postMessage to parent/opener
+    const parentWin = (window.opener && window.opener !== window) ? window.opener : (window.parent && window.parent !== window ? window.parent : null);
+    if (parentWin) {
+      try {
+        parentWin.postMessage({ type: 'TESTER_LAB_RECORD_STEP', payload: payload }, '*');
+      } catch {}
+    }
 
     updateFloatingBadge(description);
   }
@@ -201,6 +244,6 @@
   // Ready signal
   const parentWin = (window.opener && window.opener !== window) ? window.opener : (window.parent && window.parent !== window ? window.parent : null);
   if (parentWin) {
-    parentWin.postMessage({ type: 'TESTER_LAB_RECORDER_READY' }, '*');
+    try { parentWin.postMessage({ type: 'TESTER_LAB_RECORDER_READY' }, '*'); } catch {}
   }
 })();

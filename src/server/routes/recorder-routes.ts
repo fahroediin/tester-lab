@@ -6,6 +6,23 @@ import type { AuthenticatedRequest } from '../auth-middleware.js';
 
 export const recorderRoutes = Router();
 
+export interface RecordedStepPayload {
+  action: string;
+  targetLabel: string;
+  value?: string;
+  description?: string;
+}
+
+// In-memory buffer of recorded steps keyed by sessionId
+const recordingSessions = new Map<string, RecordedStepPayload[]>();
+
+// Cleanup stale sessions older than 2 hours periodically
+setInterval(() => {
+  if (recordingSessions.size > 200) {
+    recordingSessions.clear();
+  }
+}, 7200000);
+
 /**
  * Extract a cookie by name from cookie header string
  */
@@ -58,8 +75,67 @@ function sanitizeHtmlForIframe(html: string): string {
 }
 
 /**
+ * POST /api/v1/recorder/ingest
+ * Cross-origin ingestion endpoint used by recorder agent (bookmarklet or injected script)
+ */
+recorderRoutes.options('/ingest', (req: Request, res: Response) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.sendStatus(200);
+});
+
+recorderRoutes.post('/ingest', (req: Request, res: Response) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  const { sessionId, step } = req.body as { sessionId?: string; step?: RecordedStepPayload };
+
+  if (!sessionId || !step || !step.action) {
+    res.status(400).json({ success: false, error: 'Invalid step payload or missing sessionId' });
+    return;
+  }
+
+  if (!recordingSessions.has(sessionId)) {
+    recordingSessions.set(sessionId, []);
+  }
+
+  const sessionSteps = recordingSessions.get(sessionId)!;
+
+  // Merge consecutive fill steps on the same field
+  const lastStep = sessionSteps[sessionSteps.length - 1];
+  if (lastStep && lastStep.action === 'fill' && step.action === 'fill' && lastStep.targetLabel === step.targetLabel) {
+    lastStep.value = step.value || '';
+    lastStep.description = step.description || `Type ${lastStep.value} into ${lastStep.targetLabel}`;
+  } else {
+    sessionSteps.push(step);
+  }
+
+  res.json({ success: true, count: sessionSteps.length });
+});
+
+/**
+ * GET /api/v1/recorder/session/:sessionId/steps
+ * Poll captured steps for an active recording session
+ */
+recorderRoutes.get('/session/:sessionId/steps', authenticateJWT, requireApprovedUser, (req: AuthenticatedRequest, res: Response) => {
+  const sessionId = req.params.sessionId;
+  if (!sessionId) {
+    res.status(400).json({ success: false, error: 'Session ID required' });
+    return;
+  }
+  const steps = recordingSessions.get(sessionId) || [];
+  res.json({ success: true, steps });
+});
+
+recorderRoutes.delete('/session/:sessionId', authenticateJWT, requireApprovedUser, (req: AuthenticatedRequest, res: Response) => {
+  const sessionId = req.params.sessionId;
+  if (sessionId) {
+    recordingSessions.delete(sessionId);
+  }
+  res.json({ success: true });
+});
+
+/**
  * Middleware: Intercept sub-resource requests (Next.js chunks, OutSystems assets, scripts, CSS)
- * when a user is interacting with an active proxy recording session.
  */
 export async function proxyAssetMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
   if (
@@ -159,7 +235,7 @@ recorderRoutes.get('/proxy', authenticateJWT, requireApprovedUser, async (req: A
     // Forward status code
     res.status(upstreamResponse.status);
 
-    // Set cookie so sub-resources (e.g. Next.js chunks, OutSystems assets) are routed properly
+    // Set cookie so sub-resources are routed properly
     res.setHeader('Set-Cookie', `__tl_proxy_origin=${encodeURIComponent(origin)}; Path=/; SameSite=Lax`);
 
     // Strip all frame-blocking security response headers
