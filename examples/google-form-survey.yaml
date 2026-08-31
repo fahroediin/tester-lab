@@ -1,0 +1,56 @@
+testSuite: "Google Form Career Survey Automation"
+targetUrl: "https://forms.gle/FhgY1fVmjEvBXJzG7"
+framework: "playwright"
+language: "typescript"
+steps:
+  - step: 1
+    action: "click"
+    targetLabel: "Software Engineering (Web, Mobile, Fullstack)"
+    description: "Pilih bidang minat Software Engineering"
+
+  - step: 2
+    action: "click"
+    targetLabel: "Memimpin tim kecil / naik level menjadi Tech Lead atau Senior"
+    description: "Pilih fokus karir Tech Lead / Senior"
+
+  - step: 3
+    action: "click"
+    targetLabel: "Startup berkembang cepat dengan dinamika tinggi & kebebasan eksplorasi"
+    description: "Pilih lingkungan kerja Startup"
+
+  - step: 4
+    action: "click"
+    targetLabel: "Mengurai kode & debugging hingga aplikasi berjalan efisien"
+    description: "Pilih pendekatan problem solving debugging & efisiensi"
+
+  - step: 5
+    action: "click"
+    targetLabel: "Quality Analyst / Tester (fokus pada validasi, detail, & kualitas)"
+    description: "Pilih peran tim Quality Analyst / Tester"
+
+  - step: 6
+    action: "click"
+    targetLabel: "Cloud & DevOps (AWS, GCP, Docker, Kubernetes, CI/CD)"
+    description: "Pilih keterampilan Cloud & DevOps"
+
+  - step: 7
+    action: "click"
+    targetLabel: "Praktik langsung / Build Real Projects (Hands-on)"
+    description: "Pilih metode pembelajaran hands-on"
+
+  - step: 8
+    action: "fill"
+    targetLabel: "Deskripsikan proyek IT ideal"
+    value: "Membangun automated test generation & validation tool untuk web dan mobile apps."
+    description: "Isi deskripsi proyek IT impian"
+
+  - step: 9
+    action: "fill"
+    targetLabel: "Sebutkan 1 keahlian teknis"
+    value: "Hard skill: Playwright & Node.js, Soft skill: Critical Thinking & Team Leadership"
+    description: "Isi keahlian teknis dan interpersonal"
+
+  - step: 10
+    action: "assert_visible"
+    targetLabel: "Kirim"
+    description: "Pastikan tombol Kirim terlihat"

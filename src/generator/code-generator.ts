@@ -9,6 +9,12 @@ Handlebars.registerHelper('eq', function (a: unknown, b: unknown) {
   return a === b;
 });
 
+// Register Handlebars helper for escaping regex special characters inside string literals
+Handlebars.registerHelper('escapeRegex', function (str: unknown) {
+  if (typeof str !== 'string') return '';
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\\\$&').replace(/'/g, "\\'");
+});
+
 export class CodeGenerator {
   /**
    * Transpile resolved steps & DSL config into formatted test script code

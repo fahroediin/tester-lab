@@ -10,9 +10,12 @@ const execFileAsync = promisify(execFile);
 
 async function runPlaywrightTest(testFilePath: string, configFilePath: string): Promise<{ stdout: string; stderr: string }> {
   const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-  const args = ['playwright', 'test', testFilePath, `--config=${configFilePath}`];
+  const normalizedTestPath = testFilePath.replace(/\\/g, '/');
+  const normalizedConfigPath = configFilePath.replace(/\\/g, '/');
+  const args = ['playwright', 'test', normalizedTestPath, `--config=${normalizedConfigPath}`];
   return execFileAsync(npxCmd, args, {
     cwd: process.cwd(),
+    shell: process.platform === 'win32',
     env: {
       ...getSanitizedEnv(),
       NODE_PATH: path.join(process.cwd(), 'node_modules')
@@ -70,7 +73,7 @@ export class DryRunEngine {
 import { defineConfig } from '@playwright/test';
 export default defineConfig({
   testDir: '${tempDir.replace(/\\/g, '/')}',
-  timeout: 10000,
+  timeout: 60000,
   use: {
     headless: true,
     viewport: { width: 1280, height: 720 },

@@ -77,6 +77,7 @@ export default defineConfig({
   try {
     const { stdout, stderr } = await execFileAsync(execCommand, execArgs, {
       cwd: process.cwd(),
+      shell: process.platform === 'win32',
       env: {
         ...getSanitizedEnv(),
         NODE_PATH: path.join(process.cwd(), 'node_modules')

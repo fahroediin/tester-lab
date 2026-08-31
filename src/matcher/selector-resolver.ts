@@ -15,12 +15,22 @@ export function determineSelector(
     };
   }
 
-  // Only use getByLabel when there's a real HTML label association (label[for] or wrapping label).
-  // Playwright getByLabel does NOT work with positional/sibling labels.
-  if (cand.labelText && cand.hasDirectLabel) {
+  // For interactive ARIA roles (radio, checkbox, button, link, option, tab), getByRole is the most robust and standard
+  if (cand.role && ['radio', 'checkbox', 'button', 'link', 'combobox', 'option', 'tab'].includes(cand.role) && (cand.ariaLabel || cand.labelText || cand.innerText)) {
+    const raw = cand.ariaLabel || cand.labelText || cand.innerText;
+    const cleanName = raw.replace(/[\uE000-\uF8FF\u2000-\u206F]/g, '').trim();
+    return {
+      selectorType: 'getByRole',
+      selectorValue: cand.role,
+      roleName: cleanName || target
+    };
+  }
+
+  // Use getByLabel when there's a label association (label[for], wrapping label, or ariaLabel on inputs)
+  if ((cand.labelText || cand.ariaLabel) && (cand.hasDirectLabel || ['input', 'select', 'textarea'].includes(cand.tagName))) {
     return {
       selectorType: 'getByLabel',
-      selectorValue: cand.labelText.trim()
+      selectorValue: (cand.labelText || cand.ariaLabel).trim()
     };
   }
 

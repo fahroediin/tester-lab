@@ -45,6 +45,12 @@ const prettier = __importStar(require("prettier"));
 handlebars_1.default.registerHelper('eq', function (a, b) {
     return a === b;
 });
+// Register Handlebars helper for escaping regex special characters inside string literals
+handlebars_1.default.registerHelper('escapeRegex', function (str) {
+    if (typeof str !== 'string')
+        return '';
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\\\$&').replace(/'/g, "\\'");
+});
 class CodeGenerator {
     /**
      * Transpile resolved steps & DSL config into formatted test script code

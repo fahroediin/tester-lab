@@ -27,6 +27,13 @@ async function extractCandidatesFromPage(page, iframeSelector) {
             const style = window.getComputedStyle(htmlEl);
             const isVisible = rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none';
             const tagName = htmlEl.tagName.toLowerCase();
+            const type = (htmlEl.getAttribute('type') || '').toLowerCase();
+            if (tagName === 'input' && type === 'hidden') {
+                continue;
+            }
+            if (htmlEl.hasAttribute('hidden') || htmlEl.getAttribute('aria-hidden') === 'true') {
+                continue;
+            }
             const id = htmlEl.id || '';
             const name = htmlEl.getAttribute('name') || '';
             const testId = htmlEl.getAttribute('data-testid') ||
@@ -35,7 +42,18 @@ async function extractCandidatesFromPage(page, iframeSelector) {
                 htmlEl.getAttribute('data-cy') ||
                 htmlEl.getAttribute('data-testing') || '';
             const placeholder = htmlEl.getAttribute('placeholder') || '';
-            const ariaLabel = htmlEl.getAttribute('aria-label') || htmlEl.getAttribute('aria-labelledby') || '';
+            let ariaLabel = htmlEl.getAttribute('aria-label') || '';
+            const ariaLabelledby = htmlEl.getAttribute('aria-labelledby') || '';
+            if (!ariaLabel && ariaLabelledby) {
+                const ids = ariaLabelledby.split(/\s+/).filter(Boolean);
+                const referencedTexts = ids.map(refId => {
+                    const refEl = doc.getElementById(refId);
+                    return refEl ? (refEl.textContent || '').trim() : '';
+                }).filter(Boolean);
+                if (referencedTexts.length > 0) {
+                    ariaLabel = referencedTexts.join(' ').replace(/\s+/g, ' ');
+                }
+            }
             const innerText = (htmlEl.innerText || htmlEl.textContent || '').trim().replace(/\s+/g, ' ');
             let role = htmlEl.getAttribute('role') || '';
             if (!role) {
@@ -84,9 +102,26 @@ async function extractCandidatesFromPage(page, iframeSelector) {
                 if (!labelText && htmlEl.parentElement && htmlEl.parentElement.parentElement && htmlEl.parentElement.parentElement.previousElementSibling && htmlEl.parentElement.parentElement.previousElementSibling.tagName.toLowerCase() === 'label') {
                     labelText = (htmlEl.parentElement.parentElement.previousElementSibling.textContent || '').trim();
                 }
+                // Question container / Google Forms / Survey pattern
+                if (!labelText && !ariaLabel) {
+                    const itemContainer = htmlEl.closest('[role="listitem"], .form-group, .field, [role="group"], div');
+                    if (itemContainer) {
+                        const heading = itemContainer.querySelector('[role="heading"], label, h1, h2, h3, h4, h5, h6, [data-params]');
+                        if (heading) {
+                            labelText = (heading.textContent || '').trim();
+                        }
+                    }
+                }
+                if (!labelText && ariaLabel) {
+                    labelText = ariaLabel;
+                    hasDirectLabel = true;
+                }
                 // Clean up asterisks usually used for required fields
                 if (labelText) {
                     labelText = labelText.replace(/\*/g, '').trim();
+                }
+                if (ariaLabel) {
+                    ariaLabel = ariaLabel.replace(/\*/g, '').trim();
                 }
                 if (!labelText) {
                     const parentContainer = htmlEl.closest('.form-group, .field, .input-group, .mb-3, .form-item, div');
@@ -101,7 +136,7 @@ async function extractCandidatesFromPage(page, iframeSelector) {
                     }
                 }
             }
-            const type = htmlEl.getAttribute('type') || '';
+            const inputType = type || (htmlEl.getAttribute('type') || '');
             const href = htmlEl.getAttribute('href') || undefined;
             const value = htmlEl.value || undefined;
             const isInteractive = ['input', 'button', 'a', 'select', 'textarea'].includes(tagName) ||
@@ -123,7 +158,7 @@ async function extractCandidatesFromPage(page, iframeSelector) {
                 labelText,
                 hasDirectLabel,
                 role,
-                type,
+                type: inputType,
                 href,
                 value,
                 isVisible,

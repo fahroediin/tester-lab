@@ -12,9 +12,14 @@ export function calculateScore(
   let score = 0;
   const reasons: string[] = [];
 
+  // Elements that are hidden or input[type="hidden"] should never be interacted with
+  if ((cand.type === 'hidden' || !cand.isVisible) && ['click', 'fill', 'select', 'check', 'uncheck', 'upload'].includes(action)) {
+    return { score: 0, reason: 'Incompatible: Element is hidden or not visible' };
+  }
+
   // Tag suitability check based on action
   const isTextFillableInput = 
-    (['input', 'textarea', 'select'].includes(cand.tagName) && !['checkbox', 'radio', 'button', 'submit', 'reset', 'image', 'file'].includes(cand.type || '')) || 
+    (['input', 'textarea', 'select'].includes(cand.tagName) && !['checkbox', 'radio', 'button', 'submit', 'reset', 'image', 'file', 'hidden'].includes(cand.type || '')) || 
     ['textbox', 'combobox', 'searchbox', 'spinbutton'].includes(cand.role);
   const isClickableType = ['button', 'a', 'input'].includes(cand.tagName) || ['button', 'link', 'checkbox', 'radio', 'menuitem', 'tab'].includes(cand.role);
 
@@ -56,9 +61,12 @@ export function calculateScore(
     if (labelText === target) {
       if (90 > primaryScore) { primaryScore = 90; primaryReason = 'Exact Associated Label Match'; }
     } else if ((labelText.includes(target) || target.includes(labelText)) && labelText.length > 3 && target.length > 3) {
-      // Prevent tiny strings from falsely matching huge strings
       const ratio = Math.min(labelText.length, target.length) / Math.max(labelText.length, target.length);
-      if (ratio > 0.4 && 75 > primaryScore) { primaryScore = 75; primaryReason = 'Partial Associated Label Match'; }
+      const isSignificantMatch = target.length >= 8 || ratio > 0.3 || labelText.startsWith(target) || target.startsWith(labelText);
+      if (isSignificantMatch && 75 > primaryScore) { 
+        primaryScore = 75; 
+        primaryReason = 'Partial Associated Label Match'; 
+      }
     }
   }
 
@@ -69,7 +77,11 @@ export function calculateScore(
       if (88 > primaryScore) { primaryScore = 88; primaryReason = `Exact ARIA Role (${cand.role}) & Name Match`; }
     } else if ((accName.includes(target) || target.includes(accName)) && accName.length > 3 && target.length > 3) {
       const ratio = Math.min(accName.length, target.length) / Math.max(accName.length, target.length);
-      if (ratio > 0.4 && 70 > primaryScore) { primaryScore = 70; primaryReason = `Partial ARIA Role (${cand.role}) & Name Match`; }
+      const isSignificantMatch = target.length >= 8 || ratio > 0.3 || accName.startsWith(target) || target.startsWith(accName);
+      if (isSignificantMatch && 70 > primaryScore) { 
+        primaryScore = 70; 
+        primaryReason = `Partial ARIA Role (${cand.role}) & Name Match`; 
+      }
     }
   }
 
@@ -77,9 +89,13 @@ export function calculateScore(
   if (innerText) {
     if (innerText === target) {
       if (85 > primaryScore) { primaryScore = 85; primaryReason = 'Exact InnerText Match'; }
-    } else if (innerText.includes(target) && innerText.length > 3 && target.length > 3) {
+    } else if ((innerText.includes(target) || target.includes(innerText)) && innerText.length > 3 && target.length > 3) {
       const ratio = Math.min(innerText.length, target.length) / Math.max(innerText.length, target.length);
-      if (ratio > 0.3 && 60 > primaryScore) { primaryScore = 60; primaryReason = 'Partial InnerText Match'; }
+      const isSignificantMatch = target.length >= 8 || ratio > 0.3 || innerText.startsWith(target) || target.startsWith(innerText);
+      if (isSignificantMatch && 60 > primaryScore) { 
+        primaryScore = 60; 
+        primaryReason = 'Partial InnerText Match'; 
+      }
     }
   }
 
@@ -87,17 +103,25 @@ export function calculateScore(
   if (placeholder) {
     if (placeholder === target) {
       if (80 > primaryScore) { primaryScore = 80; primaryReason = 'Exact Placeholder Match'; }
-    } else if (placeholder.includes(target) && placeholder.length > 3 && target.length > 3) {
+    } else if ((placeholder.includes(target) || target.includes(placeholder)) && placeholder.length > 3 && target.length > 3) {
       const ratio = Math.min(placeholder.length, target.length) / Math.max(placeholder.length, target.length);
-      if (ratio > 0.4 && 65 > primaryScore) { primaryScore = 65; primaryReason = 'Partial Placeholder Match'; }
+      const isSignificantMatch = target.length >= 8 || ratio > 0.3 || placeholder.startsWith(target) || target.startsWith(placeholder);
+      if (isSignificantMatch && 65 > primaryScore) { 
+        primaryScore = 65; 
+        primaryReason = 'Partial Placeholder Match'; 
+      }
     }
   }
   if (ariaLabel) {
     if (ariaLabel === target) {
       if (80 > primaryScore) { primaryScore = 80; primaryReason = 'Exact Aria-Label Match'; }
-    } else if (ariaLabel.includes(target) && ariaLabel.length > 3 && target.length > 3) {
+    } else if ((ariaLabel.includes(target) || target.includes(ariaLabel)) && ariaLabel.length > 3 && target.length > 3) {
       const ratio = Math.min(ariaLabel.length, target.length) / Math.max(ariaLabel.length, target.length);
-      if (ratio > 0.4 && 65 > primaryScore) { primaryScore = 65; primaryReason = 'Partial Aria-Label Match'; }
+      const isSignificantMatch = target.length >= 8 || ratio > 0.3 || ariaLabel.startsWith(target) || target.startsWith(ariaLabel);
+      if (isSignificantMatch && 65 > primaryScore) { 
+        primaryScore = 65; 
+        primaryReason = 'Partial Aria-Label Match'; 
+      }
     }
   }
 

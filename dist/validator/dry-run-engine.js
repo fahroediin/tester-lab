@@ -13,9 +13,12 @@ const code_generator_js_1 = require("../generator/code-generator.js");
 const execFileAsync = (0, util_1.promisify)(child_process_1.execFile);
 async function runPlaywrightTest(testFilePath, configFilePath) {
     const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-    const args = ['playwright', 'test', testFilePath, `--config=${configFilePath}`];
+    const normalizedTestPath = testFilePath.replace(/\\/g, '/');
+    const normalizedConfigPath = configFilePath.replace(/\\/g, '/');
+    const args = ['playwright', 'test', normalizedTestPath, `--config=${normalizedConfigPath}`];
     return execFileAsync(npxCmd, args, {
         cwd: process.cwd(),
+        shell: process.platform === 'win32',
         env: {
             ...getSanitizedEnv(),
             NODE_PATH: path_1.default.join(process.cwd(), 'node_modules')
@@ -64,7 +67,7 @@ class DryRunEngine {
 import { defineConfig } from '@playwright/test';
 export default defineConfig({
   testDir: '${tempDir.replace(/\\/g, '/')}',
-  timeout: 10000,
+  timeout: 60000,
   use: {
     headless: true,
     viewport: { width: 1280, height: 720 },
