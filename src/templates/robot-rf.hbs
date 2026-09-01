@@ -1,9 +1,9 @@
 *** Settings ***
-Documentation     Automated Test Suite: {{{testSuite}}}
+Documentation     Automated Test Suite: {{rfText testSuite}}
 Library           SeleniumLibrary
 
 *** Variables ***
-${TARGET_URL}     {{{targetUrl}}}
+${TARGET_URL}     {{rfText targetUrl}}
 ${BROWSER}        chrome
 
 *** Test Cases ***
@@ -13,55 +13,55 @@ Execute Business Scenario
     Set Selenium Implicit Wait    10s
 
     {{#each resolvedSteps}}
-    # Step {{step}}: {{{description}}}
+    # Step {{step}}: {{rfText description}}
     {{#if warning}}
-    # [WARNING]: {{{warning}}}
+    # [WARNING]: {{rfText warning}}
     {{/if}}
     {{#if (eq action "fill")}}
     {{#if (eq selectorType "getByTestId")}}
-    Input Text    xpath=//*[@data-testid='{{{selectorValue}}}']    {{{value}}}
+    Input Text    xpath=//*[@data-testid='{{rfText selectorValue}}']    {{rfText value}}
     {{else if (eq selectorType "getByLabel")}}
-    Input Text    xpath=//label[contains(., '{{{selectorValue}}}')]/following::input[1]    {{{value}}}
+    Input Text    xpath=//label[contains(., '{{rfText selectorValue}}')]/following::input[1]    {{rfText value}}
     {{else if (eq selectorType "getByPlaceholder")}}
-    Input Text    xpath=//input[@placeholder='{{{selectorValue}}}']    {{{value}}}
+    Input Text    xpath=//input[@placeholder='{{rfText selectorValue}}']    {{rfText value}}
     {{else}}
-    Input Text    css={{{selectorValue}}}    {{{value}}}
+    Input Text    css={{rfText selectorValue}}    {{rfText value}}
     {{/if}}
     {{/if}}
     {{#if (eq action "click")}}
     {{#if (eq selectorType "getByRole")}}
-    Click Element    xpath=//button[contains(., '{{{roleName}}}')] | //a[contains(., '{{{roleName}}}')]
+    Click Element    xpath=//button[contains(., '{{rfText roleName}}')] | //a[contains(., '{{rfText roleName}}')]
     {{else if (eq selectorType "getByText")}}
-    Click Element    xpath=//*[contains(text(), '{{{selectorValue}}}')]
+    Click Element    xpath=//*[contains(text(), '{{rfText selectorValue}}')]
     {{else if (eq selectorType "getByTestId")}}
-    Click Element    xpath=//*[@data-testid='{{{selectorValue}}}']
+    Click Element    xpath=//*[@data-testid='{{rfText selectorValue}}']
     {{else}}
-    Click Element    css={{{selectorValue}}}
+    Click Element    css={{rfText selectorValue}}
     {{/if}}
     {{/if}}
     {{#if (eq action "select")}}
-    Select From List By Label    css={{{selectorValue}}}    {{{value}}}
+    Select From List By Label    css={{rfText selectorValue}}    {{rfText value}}
     {{/if}}
     {{#if (eq action "check")}}
-    Select Checkbox    css={{{selectorValue}}}
+    Select Checkbox    css={{rfText selectorValue}}
     {{/if}}
     {{#if (eq action "uncheck")}}
-    Unselect Checkbox    css={{{selectorValue}}}
+    Unselect Checkbox    css={{rfText selectorValue}}
     {{/if}}
     {{#if (eq action "upload")}}
-    Choose File    css={{{selectorValue}}}    {{{value}}}
+    Choose File    css={{rfText selectorValue}}    {{rfText value}}
     {{/if}}
     {{#if (eq action "assert_url")}}
-    Location Should Contain    {{{selectorValue}}}
+    Location Should Contain    {{rfText selectorValue}}
     {{/if}}
     {{#if (eq action "assert_text")}}
-    Page Should Contain    {{{expected}}}
+    Page Should Contain    {{rfText expected}}
     {{/if}}
     {{#if (eq action "assert_visible")}}
-    Element Should Be Visible    css={{{selectorValue}}}
+    Element Should Be Visible    css={{rfText selectorValue}}
     {{/if}}
     {{#if (eq action "wait")}}
-    Sleep    {{{selectorValue}}}ms
+    Sleep    {{rfText selectorValue}}ms
     {{/if}}
     {{/each}}
 

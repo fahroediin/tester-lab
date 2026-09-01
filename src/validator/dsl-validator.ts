@@ -46,7 +46,17 @@ export const DSLStepSchema = z.object({
 
 export const DSLConfigSchema = z.object({
   testSuite: z.string().min(1, "testSuite must not be empty"),
-  targetUrl: z.string().min(1, "targetUrl must not be empty"),
+  targetUrl: z
+    .string()
+    .min(1, "targetUrl must not be empty")
+    .refine((v) => {
+      try {
+        const u = new URL(v);
+        return u.protocol === 'http:' || u.protocol === 'https:';
+      } catch {
+        return false;
+      }
+    }, "targetUrl must be a valid http(s) URL"),
   framework: z.enum(['playwright', 'cypress', 'selenium', 'robotframework']).default('playwright').optional(),
   language: z.enum(['typescript', 'javascript', 'python', 'robot']).default('typescript').optional(),
   viewport: z.object({

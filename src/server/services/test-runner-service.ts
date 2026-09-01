@@ -4,6 +4,7 @@ import path from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { getSanitizedEnv, findVideoFile } from '../lib/sanitized-env.js';
+import { signVideoUrl } from '../lib/storage-url.js';
 import { supabase } from '../supabase-client.js';
 
 const execFileAsync = promisify(execFile);
@@ -18,7 +19,10 @@ export interface ExecuteTestOptions {
 export interface ExecuteTestResult {
   success: boolean;
   logs: string;
+  /** Short-lived signed URL for immediate playback in the client. */
   videoUrl?: string;
+  /** Durable bucket object path to persist in history (re-signed on read). */
+  videoStoragePath?: string;
   durationMs: number;
 }
 
@@ -73,6 +77,7 @@ export default defineConfig({
   let logs = '';
   let success = false;
   let videoUrl: string | undefined;
+  let videoStoragePath: string | undefined;
 
   try {
     const { stdout, stderr } = await execFileAsync(execCommand, execArgs, {
@@ -110,10 +115,9 @@ export default defineConfig({
       if (uploadError) {
         console.error('Failed to upload video recording to Supabase Storage:', uploadError);
       } else {
-        const { data: urlData } = supabase.storage
-          .from('test-videos')
-          .getPublicUrl(storagePath);
-        videoUrl = urlData?.publicUrl;
+        // Persist the durable object path; hand the client a short-lived signed URL.
+        videoStoragePath = storagePath;
+        videoUrl = (await signVideoUrl(storagePath)) || undefined;
       }
     }
   } catch (videoErr: unknown) {
@@ -130,6 +134,7 @@ export default defineConfig({
     success,
     logs: logs.trim(),
     videoUrl,
+    videoStoragePath,
     durationMs
   };
 }

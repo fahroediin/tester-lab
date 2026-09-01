@@ -51,6 +51,44 @@ handlebars_1.default.registerHelper('escapeRegex', function (str) {
         return '';
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\\\$&').replace(/'/g, "\\'");
 });
+// Coerce any templated value to a plain string (avoids [object Object]/undefined leaks)
+function toStr(v) {
+    if (v === undefined || v === null)
+        return '';
+    return typeof v === 'string' ? v : String(v);
+}
+// Escape a value for safe embedding inside a single-quoted JavaScript/TypeScript string literal.
+// Prevents string-literal breakout (code injection) in generated Playwright/Cypress scripts.
+handlebars_1.default.registerHelper('jsLit', function (str) {
+    const escaped = toStr(str)
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'")
+        .replace(/\r/g, '\\r')
+        .replace(/\n/g, '\\n')
+        .replace(/\u2028/g, '\\u2028')
+        .replace(/\u2029/g, '\\u2029');
+    return new handlebars_1.default.SafeString(escaped);
+});
+// Escape a value for safe embedding inside a Python string literal (single or double quoted).
+handlebars_1.default.registerHelper('pyLit', function (str) {
+    const escaped = toStr(str)
+        .replace(/\\/g, '\\\\')
+        .replace(/"/g, '\\"')
+        .replace(/'/g, "\\'")
+        .replace(/\r/g, '\\r')
+        .replace(/\n/g, '\\n');
+    return new handlebars_1.default.SafeString(escaped);
+});
+// Sanitize a value for a Robot Framework cell: strip line breaks and collapse the
+// 2+ space separator so injected text cannot spill into extra keywords/arguments.
+handlebars_1.default.registerHelper('rfText', function (str) {
+    const cleaned = toStr(str)
+        .replace(/[\r\n]+/g, ' ')
+        .replace(/\t/g, ' ')
+        .replace(/ {2,}/g, ' ')
+        .trim();
+    return new handlebars_1.default.SafeString(cleaned);
+});
 class CodeGenerator {
     /**
      * Transpile resolved steps & DSL config into formatted test script code
@@ -88,23 +126,23 @@ class CodeGenerator {
             // Fallback inline Playwright TS template
             templateSource = `import { test, expect } from '@playwright/test';
 
-test('{{testSuite}}', async ({ page }) => {
-  await page.goto('{{{targetUrl}}}');
+test('{{jsLit testSuite}}', async ({ page }) => {
+  await page.goto('{{jsLit targetUrl}}');
   await page.waitForLoadState('networkidle');
 
   {{#each resolvedSteps}}
   // Step {{step}}: {{description}}
   {{#if (eq action "fill")}}
-  await page.{{selectorType}}('{{{selectorValue}}}').fill('{{{value}}}');
+  await page.{{selectorType}}('{{jsLit selectorValue}}').fill('{{jsLit value}}');
   {{/if}}
   {{#if (eq action "click")}}
-  await page.{{selectorType}}('{{{selectorValue}}}').click();
+  await page.{{selectorType}}('{{jsLit selectorValue}}').click();
   {{/if}}
   {{#if (eq action "assert_url")}}
-  await expect(page).toHaveURL(/.*{{{selectorValue}}}/);
+  await expect(page).toHaveURL(new RegExp('{{escapeRegex selectorValue}}'));
   {{/if}}
   {{#if (eq action "assert_text")}}
-  await expect(page.{{selectorType}}('{{{selectorValue}}}')).toContainText('{{{expected}}}');
+  await expect(page.{{selectorType}}('{{jsLit selectorValue}}')).toContainText('{{jsLit expected}}');
   {{/if}}
   {{/each}}
 });`;

@@ -14,6 +14,7 @@ const history_routes_js_1 = require("./routes/history-routes.js");
 const config_routes_js_1 = require("./routes/config-routes.js");
 const api_key_routes_js_1 = require("./routes/api-key-routes.js");
 const recorder_routes_js_1 = require("./routes/recorder-routes.js");
+const auth_middleware_js_1 = require("./auth-middleware.js");
 const auth_store_js_1 = require("./auth-store.js");
 const supabase_client_js_1 = require("./supabase-client.js");
 const app = (0, express_1.default)();
@@ -39,7 +40,7 @@ app.get('/admin', (req, res) => {
 /**
  * Direct Attachment Access Handler: Redirect to Supabase Storage Signed/Public URL
  */
-app.get('/feedbacks/attachments/:filename', async (req, res) => {
+app.get('/feedbacks/attachments/:filename', auth_middleware_js_1.authenticateJWT, auth_middleware_js_1.requireAdmin, async (req, res) => {
     try {
         const filename = req.params.filename;
         if (!filename) {

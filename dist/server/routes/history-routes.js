@@ -4,6 +4,7 @@ exports.historyRoutes = void 0;
 const express_1 = require("express");
 const auth_middleware_js_1 = require("../auth-middleware.js");
 const flow_history_store_js_1 = require("../flow-history-store.js");
+const storage_url_js_1 = require("../lib/storage-url.js");
 exports.historyRoutes = (0, express_1.Router)();
 /**
  * GET /api/v1/history
@@ -47,7 +48,11 @@ exports.historyRoutes.get('/:id', auth_middleware_js_1.authenticateJWT, auth_mid
             res.status(403).json({ success: false, error: 'Unauthorized to view this record' });
             return;
         }
-        res.json({ success: true, data: record });
+        // Re-sign the durable video path into a short-lived playback URL for the client
+        const responseRecord = record.videoUrl
+            ? { ...record, videoUrl: (await (0, storage_url_js_1.signVideoUrl)(record.videoUrl)) || undefined }
+            : record;
+        res.json({ success: true, data: responseRecord });
     }
     catch (err) {
         const error = err;

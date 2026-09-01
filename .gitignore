@@ -7,3 +7,5 @@ test-output.ts
 .env
 tests/
 scratch/
+
+temp_out.ts

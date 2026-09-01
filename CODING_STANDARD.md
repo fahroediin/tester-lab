@@ -156,9 +156,9 @@ Scoring must strictly follow the deterministic 6-tier matrix:
 - Supported targets:
   - Playwright TypeScript (`playwright-ts.hbs`)
   - Playwright JavaScript (`playwright-js.hbs`)
-  - Cypress (`cypress.hbs`)
+  - Cypress (`cypress-js.hbs`)
   - Selenium Python (`selenium-py.hbs`)
-  - Robot Framework (`robotframework.hbs`)
+  - Robot Framework (`robot-rf.hbs`)
 - All generated JavaScript/TypeScript code must be formatted through `prettier.format()` with single quotes and trailing commas disabled.
 
 ---
@@ -242,11 +242,19 @@ CREATE POLICY "Service role full access on api_keys"
 
 ### 6.5 Code Sanitizer & AST Guard
 
-Prior to executing test scripts on the server (in dry-run or test execution), scripts must be validated via `sanitizeCode(code)` in [`src/server/code-sanitizer.ts`](src/server/code-sanitizer.ts) to block:
+Prior to executing test scripts on the server, scripts **must** be validated via `sanitizeCode(code)` in [`src/server/code-sanitizer.ts`](src/server/code-sanitizer.ts). This runs on **both** the `/run-test` execution path (`src/server/routes/test-routes.ts`) **and** the dry-run/self-healing path (`src/server/validator/dry-run-engine.ts`). In addition, all user-supplied DSL values are context-escaped when embedded into generated code via the `jsLit` / `pyLit` / `rfText` Handlebars helpers. The sanitizer blocks:
 - Access to `process.env` (prevents secret exfiltration).
 - Imports or access to `child_process`, `fs`, `net`, `http`, `cluster`, `worker_threads`.
 - Dangerous runtime calls (`eval`, `Function(`, `vm.runInContext`).
-- Loading unauthorized third-party libraries (only `@playwright` imports permitted).
+- Loading unauthorized third-party libraries (only `@playwright` imports permitted), including bracket-notation (`process['env']`), dynamic `import()`, `globalThis`, and `.constructor` access.
+
+### 6.6 Outbound Request (SSRF) Guard
+
+The recorder reverse-proxy ([`src/server/services/recorder-proxy-service.ts`](src/server/services/recorder-proxy-service.ts)) must validate every outbound target and resolved origin through `assertSafeProxyUrl()` in [`src/server/lib/url-guard.ts`](src/server/lib/url-guard.ts), rejecting non-http(s) URLs, internal hostnames, and private/reserved IP ranges (including cloud metadata `169.254.169.254`), pre- and post-redirect.
+
+### 6.7 Private Storage Buckets
+
+Supabase Storage buckets (`feedback-attachments`, `test-videos`) are **private**. Assets are served only via short-lived signed URLs (re-signed on read); no public URLs are persisted. Direct attachment access endpoints require an authenticated admin session.
 
 ---
 
@@ -307,7 +315,9 @@ tester-lab/
 │   │   └── selector-resolver.ts # Playwright selector strategy mapping
 │   ├── server/
 │   │   ├── lib/
-│   │   │   └── sanitized-env.ts # Environment sanitizer for subprocesses
+│   │   │   ├── sanitized-env.ts # Environment sanitizer for subprocesses
+│   │   │   ├── url-guard.ts     # SSRF guard for recorder proxy targets
+│   │   │   └── storage-url.ts   # Signed-URL helpers for private video bucket
 │   │   ├── routes/              # Express REST API Route Handlers (<250 lines each)
 │   │   │   ├── admin-routes.ts
 │   │   │   ├── api-key-routes.ts
@@ -315,13 +325,17 @@ tester-lab/
 │   │   │   ├── config-routes.ts
 │   │   │   ├── feedback-routes.ts
 │   │   │   ├── history-routes.ts
+│   │   │   ├── recorder-routes.ts
 │   │   │   └── test-routes.ts
 │   │   ├── services/
-│   │   │   └── test-runner-service.ts # Headless test runner & video handler
+│   │   │   ├── test-runner-service.ts    # Headless test runner & video handler
+│   │   │   ├── recorder-proxy-service.ts # SSRF-guarded recorder reverse-proxy
+│   │   │   └── attachment-service.ts     # Signed-URL resolver for attachments
 │   │   ├── activity-log-store.ts
 │   │   ├── api-key-store.ts     # Secure API Key Store (SHA-256 + masked prefix)
 │   │   ├── api-key-usage-helpers.ts # In-memory buffer & date helpers
 │   │   ├── api-key-usage-store.ts   # Database usage tracking & metrics
+│   │   ├── api-key-admin-store.ts   # Admin aggregate stats & paginated logs
 │   │   ├── auth-middleware.ts   # JWT & API Key dual auth middleware
 │   │   ├── auth-store.ts        # Supabase auth database adapter
 │   │   ├── code-sanitizer.ts    # AST/regex security guard for test scripts
@@ -331,10 +345,10 @@ tester-lab/
 │   │   ├── queue-manager.ts     # Concurrency queue limiter
 │   │   └── supabase-client.ts   # Supabase client singleton
 │   ├── templates/               # Handlebars Test Templates (*.hbs)
-│   │   ├── cypress.hbs
+│   │   ├── cypress-js.hbs
 │   │   ├── playwright-js.hbs
 │   │   ├── playwright-ts.hbs
-│   │   ├── robotframework.hbs
+│   │   ├── robot-rf.hbs
 │   │   └── selenium-py.hbs
 │   ├── types/
 │   │   └── index.ts             # Shared Domain Types & Interfaces

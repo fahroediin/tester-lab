@@ -205,7 +205,7 @@ exports.testRoutes.post('/run-test', auth_middleware_js_1.authenticateJWT, auth_
                     status: execResult.success ? 'SUCCESS' : 'FAILED',
                     durationMs: execResult.durationMs,
                     runLogs: execResult.logs.trim(),
-                    ...(execResult.videoUrl ? { videoUrl: execResult.videoUrl } : {})
+                    ...(execResult.videoStoragePath ? { videoUrl: execResult.videoStoragePath } : {})
                 });
             }
             return execResult;

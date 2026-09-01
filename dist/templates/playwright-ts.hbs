@@ -1,6 +1,6 @@
 import { test, expect, type Locator } from '@playwright/test';
 
-test('{{testSuite}}', async ({ page }) => {
+test('{{jsLit testSuite}}', async ({ page }) => {
   // Set explicit timeout for long E2E flows
   test.setTimeout({{testTimeout}});
 
@@ -10,7 +10,7 @@ test('{{testSuite}}', async ({ page }) => {
   {{/if}}
 
   // Navigate to target URL
-  await page.goto('{{{targetUrl}}}');
+  await page.goto('{{jsLit targetUrl}}');
   await page.waitForLoadState('networkidle');
 
   // Maestro-like Auto-Wait and Scroll-Until-Visible Engine
@@ -63,102 +63,102 @@ test('{{testSuite}}', async ({ page }) => {
 
   {{#each resolvedSteps}}
   console.log('__STEP_START__ {{step}}');
-  // Step {{step}}: {{#if description}}{{{description}}}{{else}}{{action}} -> {{{targetLabel}}}{{/if}}
+  // Step {{step}}: {{#if description}}{{jsLit description}}{{else}}{{action}} -> {{jsLit targetLabel}}{{/if}}
   {{#if warning}}
-  // [WARNING]: {{{warning}}}
+  // [WARNING]: {{jsLit warning}}
   {{/if}}
   
   {{#if (eq action "fill")}}
     {{#if (eq selectorType "getByTestId")}}
-  await maestro.interact(page.getByTestId('{{{selectorValue}}}'), 'fill', '{{{value}}}');
+  await maestro.interact(page.getByTestId('{{jsLit selectorValue}}'), 'fill', '{{jsLit value}}');
     {{else if (eq selectorType "getByLabel")}}
-  await maestro.interact(page.getByLabel(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'fill', '{{{value}}}');
+  await maestro.interact(page.getByLabel(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'fill', '{{jsLit value}}');
     {{else if (eq selectorType "getByRole")}}
-  await maestro.interact(page.getByRole('{{{selectorValue}}}', { name: new RegExp('{{{escapeRegex roleName}}}', 'i') }), 'fill', '{{{value}}}');
+  await maestro.interact(page.getByRole('{{jsLit selectorValue}}', { name: new RegExp('{{{escapeRegex roleName}}}', 'i') }), 'fill', '{{jsLit value}}');
     {{else if (eq selectorType "getByPlaceholder")}}
-  await maestro.interact(page.getByPlaceholder(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'fill', '{{{value}}}');
+  await maestro.interact(page.getByPlaceholder(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'fill', '{{jsLit value}}');
     {{else if (eq selectorType "getByText")}}
-  await maestro.interact(page.getByText(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'fill', '{{{value}}}');
+  await maestro.interact(page.getByText(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'fill', '{{jsLit value}}');
     {{else}}
       {{#if ../needsRobustHelper}}
         {{#if targetLabel}}
-  await legacyAction('fill', '{{{targetLabel}}}', '{{{value}}}');
+  await legacyAction('fill', '{{jsLit targetLabel}}', '{{jsLit value}}');
         {{else}}
-  await maestro.interact(page.locator('{{{selectorValue}}}'), 'fill', '{{{value}}}');
+  await maestro.interact(page.locator('{{jsLit selectorValue}}'), 'fill', '{{jsLit value}}');
         {{/if}}
       {{else}}
-  await maestro.interact(page.locator('{{{selectorValue}}}'), 'fill', '{{{value}}}');
+  await maestro.interact(page.locator('{{jsLit selectorValue}}'), 'fill', '{{jsLit value}}');
       {{/if}}
     {{/if}}
   {{/if}}
 
   {{#if (eq action "click")}}
     {{#if (eq selectorType "getByTestId")}}
-  await maestro.interact(page.getByTestId('{{{selectorValue}}}'), 'click');
+  await maestro.interact(page.getByTestId('{{jsLit selectorValue}}'), 'click');
     {{else if (eq selectorType "getByLabel")}}
   await maestro.interact(page.getByLabel(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'click');
     {{else if (eq selectorType "getByRole")}}
-  await maestro.interact(page.getByRole('{{{selectorValue}}}', { name: new RegExp('{{{escapeRegex roleName}}}', 'i') }), 'click');
+  await maestro.interact(page.getByRole('{{jsLit selectorValue}}', { name: new RegExp('{{{escapeRegex roleName}}}', 'i') }), 'click');
     {{else if (eq selectorType "getByPlaceholder")}}
   await maestro.interact(page.getByPlaceholder(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'click');
     {{else if (eq selectorType "getByText")}}
   await maestro.interact(page.getByText(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'click');
     {{else}}
-  await maestro.interact(page.locator('{{{selectorValue}}}'), 'click');
+  await maestro.interact(page.locator('{{jsLit selectorValue}}'), 'click');
     {{/if}}
   {{/if}}
 
   {{#if (eq action "select")}}
     {{#if (eq selectorType "getByTestId")}}
-  await maestro.interact(page.getByTestId('{{{selectorValue}}}'), 'select', '{{{value}}}');
+  await maestro.interact(page.getByTestId('{{jsLit selectorValue}}'), 'select', '{{jsLit value}}');
     {{else if (eq selectorType "getByLabel")}}
-  await maestro.interact(page.getByLabel(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'select', '{{{value}}}');
+  await maestro.interact(page.getByLabel(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'select', '{{jsLit value}}');
     {{else}}
       {{#if ../needsRobustHelper}}
         {{#if targetLabel}}
-  await legacyAction('select', '{{{targetLabel}}}', '{{{value}}}');
+  await legacyAction('select', '{{jsLit targetLabel}}', '{{jsLit value}}');
         {{else}}
-  await maestro.interact(page.locator('{{{selectorValue}}}'), 'select', '{{{value}}}');
+  await maestro.interact(page.locator('{{jsLit selectorValue}}'), 'select', '{{jsLit value}}');
         {{/if}}
       {{else}}
-  await maestro.interact(page.locator('{{{selectorValue}}}'), 'select', '{{{value}}}');
+  await maestro.interact(page.locator('{{jsLit selectorValue}}'), 'select', '{{jsLit value}}');
       {{/if}}
     {{/if}}
   {{/if}}
 
   {{#if (eq action "check")}}
     {{#if (eq selectorType "getByTestId")}}
-  await maestro.interact(page.getByTestId('{{{selectorValue}}}'), 'check');
+  await maestro.interact(page.getByTestId('{{jsLit selectorValue}}'), 'check');
     {{else if (eq selectorType "getByLabel")}}
   await maestro.interact(page.getByLabel(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'check');
     {{else if (eq selectorType "getByRole")}}
-  await maestro.interact(page.getByRole('{{{selectorValue}}}', { name: new RegExp('{{{escapeRegex roleName}}}', 'i') }), 'check');
+  await maestro.interact(page.getByRole('{{jsLit selectorValue}}', { name: new RegExp('{{{escapeRegex roleName}}}', 'i') }), 'check');
     {{else}}
-  await maestro.interact(page.locator('{{{selectorValue}}}'), 'check');
+  await maestro.interact(page.locator('{{jsLit selectorValue}}'), 'check');
     {{/if}}
   {{/if}}
 
   {{#if (eq action "uncheck")}}
     {{#if (eq selectorType "getByTestId")}}
-  await maestro.interact(page.getByTestId('{{{selectorValue}}}'), 'uncheck');
+  await maestro.interact(page.getByTestId('{{jsLit selectorValue}}'), 'uncheck');
     {{else if (eq selectorType "getByLabel")}}
   await maestro.interact(page.getByLabel(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'uncheck');
     {{else}}
-  await maestro.interact(page.locator('{{{selectorValue}}}'), 'uncheck');
+  await maestro.interact(page.locator('{{jsLit selectorValue}}'), 'uncheck');
     {{/if}}
   {{/if}}
 
   {{#if (eq action "upload")}}
     {{#if (eq selectorType "getByTestId")}}
-  await maestro.interact(page.getByTestId('{{{selectorValue}}}'), 'upload', '{{{value}}}');
+  await maestro.interact(page.getByTestId('{{jsLit selectorValue}}'), 'upload', '{{jsLit value}}');
     {{else if (eq selectorType "getByLabel")}}
-  await maestro.interact(page.getByLabel(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'upload', '{{{value}}}');
+  await maestro.interact(page.getByLabel(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'upload', '{{jsLit value}}');
     {{else if (eq selectorType "getByRole")}}
-  await maestro.interact(page.getByRole('{{{selectorValue}}}', { name: new RegExp('{{{escapeRegex roleName}}}', 'i') }), 'upload', '{{{value}}}');
+  await maestro.interact(page.getByRole('{{jsLit selectorValue}}', { name: new RegExp('{{{escapeRegex roleName}}}', 'i') }), 'upload', '{{jsLit value}}');
     {{else if (eq selectorType "getByPlaceholder")}}
-  await maestro.interact(page.getByPlaceholder(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'upload', '{{{value}}}');
+  await maestro.interact(page.getByPlaceholder(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'upload', '{{jsLit value}}');
     {{else}}
-  await maestro.interact(page.locator('{{{selectorValue}}}'), 'upload', '{{{value}}}');
+  await maestro.interact(page.locator('{{jsLit selectorValue}}'), 'upload', '{{jsLit value}}');
     {{/if}}
   {{/if}}
 
@@ -168,33 +168,33 @@ test('{{testSuite}}', async ({ page }) => {
 
   {{#if (eq action "assert_text")}}
     {{#if (eq selectorType "getByTestId")}}
-  await maestro.interact(page.getByTestId('{{{selectorValue}}}'), 'assert_text', undefined, '{{{expected}}}');
+  await maestro.interact(page.getByTestId('{{jsLit selectorValue}}'), 'assert_text', undefined, '{{jsLit expected}}');
     {{else if (eq selectorType "getByLabel")}}
-  await maestro.interact(page.getByLabel(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'assert_text', undefined, '{{{expected}}}');
+  await maestro.interact(page.getByLabel(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'assert_text', undefined, '{{jsLit expected}}');
     {{else if (eq selectorType "getByRole")}}
-  await maestro.interact(page.getByRole('{{{selectorValue}}}', { name: new RegExp('{{{escapeRegex roleName}}}', 'i') }), 'assert_text', undefined, '{{{expected}}}');
+  await maestro.interact(page.getByRole('{{jsLit selectorValue}}', { name: new RegExp('{{{escapeRegex roleName}}}', 'i') }), 'assert_text', undefined, '{{jsLit expected}}');
     {{else if (eq selectorType "getByPlaceholder")}}
-  await maestro.interact(page.getByPlaceholder(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'assert_text', undefined, '{{{expected}}}');
+  await maestro.interact(page.getByPlaceholder(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'assert_text', undefined, '{{jsLit expected}}');
     {{else if (eq selectorType "getByText")}}
-  await maestro.interact(page.getByText(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'assert_text', undefined, '{{{expected}}}');
+  await maestro.interact(page.getByText(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'assert_text', undefined, '{{jsLit expected}}');
     {{else}}
-  await maestro.interact(page.locator('{{{selectorValue}}}'), 'assert_text', undefined, '{{{expected}}}');
+  await maestro.interact(page.locator('{{jsLit selectorValue}}'), 'assert_text', undefined, '{{jsLit expected}}');
     {{/if}}
   {{/if}}
 
   {{#if (eq action "assert_visible")}}
     {{#if (eq selectorType "getByTestId")}}
-  await maestro.interact(page.getByTestId('{{{selectorValue}}}'), 'assert_visible');
+  await maestro.interact(page.getByTestId('{{jsLit selectorValue}}'), 'assert_visible');
     {{else if (eq selectorType "getByLabel")}}
   await maestro.interact(page.getByLabel(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'assert_visible');
     {{else if (eq selectorType "getByRole")}}
-  await maestro.interact(page.getByRole('{{{selectorValue}}}', { name: new RegExp('{{{escapeRegex roleName}}}', 'i') }), 'assert_visible');
+  await maestro.interact(page.getByRole('{{jsLit selectorValue}}', { name: new RegExp('{{{escapeRegex roleName}}}', 'i') }), 'assert_visible');
     {{else if (eq selectorType "getByPlaceholder")}}
   await maestro.interact(page.getByPlaceholder(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'assert_visible');
     {{else if (eq selectorType "getByText")}}
   await maestro.interact(page.getByText(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'assert_visible');
     {{else}}
-  await maestro.interact(page.locator('{{{selectorValue}}}'), 'assert_visible');
+  await maestro.interact(page.locator('{{jsLit selectorValue}}'), 'assert_visible');
     {{/if}}
   {{/if}}
 

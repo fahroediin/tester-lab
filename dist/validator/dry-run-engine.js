@@ -10,6 +10,8 @@ const os_1 = __importDefault(require("os"));
 const child_process_1 = require("child_process");
 const util_1 = require("util");
 const code_generator_js_1 = require("../generator/code-generator.js");
+const sanitized_env_js_1 = require("../server/lib/sanitized-env.js");
+const code_sanitizer_js_1 = require("../server/code-sanitizer.js");
 const execFileAsync = (0, util_1.promisify)(child_process_1.execFile);
 async function runPlaywrightTest(testFilePath, configFilePath) {
     const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
@@ -20,37 +22,10 @@ async function runPlaywrightTest(testFilePath, configFilePath) {
         cwd: process.cwd(),
         shell: process.platform === 'win32',
         env: {
-            ...getSanitizedEnv(),
+            ...(0, sanitized_env_js_1.getSanitizedEnv)(),
             NODE_PATH: path_1.default.join(process.cwd(), 'node_modules')
         }
     });
-}
-/**
- * Build a sanitized environment object for child processes.
- * Only includes variables required for Playwright to function.
- * ALL secrets (JWT_SECRET, ADMIN_PASSWORD, etc.) are stripped.
- */
-function getSanitizedEnv() {
-    const ALLOWED_ENV_KEYS = [
-        'PATH', 'HOME', 'USER', 'LANG', 'LC_ALL', 'SHELL',
-        'DISPLAY', 'XAUTHORITY', 'DBUS_SESSION_BUS_ADDRESS',
-        'XDG_RUNTIME_DIR', 'XDG_CONFIG_HOME', 'XDG_DATA_HOME',
-        'TMPDIR', 'TMP', 'TEMP',
-        'PLAYWRIGHT_BROWSERS_PATH',
-        'CHROMIUM_FLAGS', 'CHROME_FLAGS',
-        'PUPPETEER_CHROMIUM_REVISION',
-        'NODE_PATH',
-        'SystemRoot', 'APPDATA', 'LOCALAPPDATA', 'ProgramFiles',
-        'ProgramFiles(x86)', 'CommonProgramFiles', 'USERPROFILE',
-        'HOMEDRIVE', 'HOMEPATH', 'PATHEXT', 'COMSPEC', 'windir',
-    ];
-    const sanitized = {};
-    for (const key of ALLOWED_ENV_KEYS) {
-        if (process.env[key]) {
-            sanitized[key] = process.env[key];
-        }
-    }
-    return sanitized;
 }
 class DryRunEngine {
     generator = new code_generator_js_1.CodeGenerator();
@@ -81,6 +56,16 @@ export default defineConfig({
             }
             catch { }
         };
+        // Defense-in-depth (CODING_STANDARD 6.5): never execute unsanitized code server-side
+        const initialScan = (0, code_sanitizer_js_1.sanitizeCode)(code);
+        if (!initialScan.safe) {
+            cleanupTempDir();
+            return {
+                success: false,
+                error: `Dry-run blocked by code sanitizer: ${initialScan.violations.join('; ')}`,
+                durationMs: Date.now() - startTime
+            };
+        }
         try {
             fs_1.default.writeFileSync(testFilePath, code, 'utf-8');
             fs_1.default.writeFileSync(configFilePath, playwrightConfig, 'utf-8');
@@ -182,6 +167,10 @@ export default defineConfig({
         }
         const patchedResult = await this.generator.generateScript(config, patchedSteps);
         const patchedFilePath = path_1.default.join(tempDir, 'dryrun_healed.spec.ts');
+        // Sanitize the self-healed code as well before executing it
+        if (!(0, code_sanitizer_js_1.sanitizeCode)(patchedResult.code).safe) {
+            return { success: false };
+        }
         try {
             fs_1.default.writeFileSync(patchedFilePath, patchedResult.code, 'utf-8');
             await runPlaywrightTest(patchedFilePath, configFilePath);

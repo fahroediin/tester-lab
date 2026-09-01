@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { authenticateJWT, requireApprovedUser } from '../auth-middleware.js';
 import type { AuthenticatedRequest } from '../auth-middleware.js';
 import { getUserHistory, getHistoryById, deleteHistory } from '../flow-history-store.js';
+import { signVideoUrl } from '../lib/storage-url.js';
 
 export const historyRoutes = Router();
 
@@ -51,8 +52,13 @@ historyRoutes.get('/:id', authenticateJWT, requireApprovedUser, async (req: Auth
       res.status(403).json({ success: false, error: 'Unauthorized to view this record' });
       return;
     }
-    
-    res.json({ success: true, data: record });
+
+    // Re-sign the durable video path into a short-lived playback URL for the client
+    const responseRecord = record.videoUrl
+      ? { ...record, videoUrl: (await signVideoUrl(record.videoUrl)) || undefined }
+      : record;
+
+    res.json({ success: true, data: responseRecord });
   } catch (err: unknown) {
     const error = err as Error;
     res.status(500).json({ success: false, error: error.message || 'Failed to fetch history details' });

@@ -223,7 +223,7 @@ testRoutes.post('/run-test', authenticateJWT, requireApprovedUser, async (req: A
           status: execResult.success ? 'SUCCESS' : 'FAILED',
           durationMs: execResult.durationMs,
           runLogs: execResult.logs.trim(),
-          ...(execResult.videoUrl ? { videoUrl: execResult.videoUrl } : {})
+          ...(execResult.videoStoragePath ? { videoUrl: execResult.videoStoragePath } : {})
         });
       }
 

@@ -13,66 +13,66 @@ class {{{sanitizedTestSuite}}}Test(unittest.TestCase):
 
     def test_run_scenario(self):
         driver = self.driver
-        driver.get("{{{targetUrl}}}")
+        driver.get("{{pyLit targetUrl}}")
 
         {{#each resolvedSteps}}
-        # Step {{step}}: {{{description}}}
+        # Step {{step}}: {{pyLit description}}
         {{#if warning}}
-        # [WARNING]: {{{warning}}}
+        # [WARNING]: {{pyLit warning}}
         {{/if}}
         {{#if (eq action "fill")}}
         {{#if (eq selectorType "getByTestId")}}
-        driver.find_element(By.XPATH, "//*[@data-testid='{{{selectorValue}}}']").clear()
-        driver.find_element(By.XPATH, "//*[@data-testid='{{{selectorValue}}}']").send_keys("{{{value}}}")
+        driver.find_element(By.XPATH, "//*[@data-testid='{{pyLit selectorValue}}']").clear()
+        driver.find_element(By.XPATH, "//*[@data-testid='{{pyLit selectorValue}}']").send_keys("{{pyLit value}}")
         {{else if (eq selectorType "getByLabel")}}
-        driver.find_element(By.XPATH, "//label[contains(., '{{{selectorValue}}}')]/following::input[1]").clear()
-        driver.find_element(By.XPATH, "//label[contains(., '{{{selectorValue}}}')]/following::input[1]").send_keys("{{{value}}}")
+        driver.find_element(By.XPATH, "//label[contains(., '{{pyLit selectorValue}}')]/following::input[1]").clear()
+        driver.find_element(By.XPATH, "//label[contains(., '{{pyLit selectorValue}}')]/following::input[1]").send_keys("{{pyLit value}}")
         {{else if (eq selectorType "getByPlaceholder")}}
-        driver.find_element(By.XPATH, "//input[@placeholder='{{{selectorValue}}}']").clear()
-        driver.find_element(By.XPATH, "//input[@placeholder='{{{selectorValue}}}']").send_keys("{{{value}}}")
+        driver.find_element(By.XPATH, "//input[@placeholder='{{pyLit selectorValue}}']").clear()
+        driver.find_element(By.XPATH, "//input[@placeholder='{{pyLit selectorValue}}']").send_keys("{{pyLit value}}")
         {{else}}
-        driver.find_element(By.CSS_SELECTOR, "{{{selectorValue}}}").clear()
-        driver.find_element(By.CSS_SELECTOR, "{{{selectorValue}}}").send_keys("{{{value}}}")
+        driver.find_element(By.CSS_SELECTOR, "{{pyLit selectorValue}}").clear()
+        driver.find_element(By.CSS_SELECTOR, "{{pyLit selectorValue}}").send_keys("{{pyLit value}}")
         {{/if}}
         {{/if}}
         {{#if (eq action "click")}}
         {{#if (eq selectorType "getByRole")}}
-        driver.find_element(By.XPATH, "//button[contains(., '{{{roleName}}}')] | //a[contains(., '{{{roleName}}}')]").click()
+        driver.find_element(By.XPATH, "//button[contains(., '{{pyLit roleName}}')] | //a[contains(., '{{pyLit roleName}}')]").click()
         {{else if (eq selectorType "getByText")}}
-        driver.find_element(By.XPATH, "//*[contains(text(), '{{{selectorValue}}}')]").click()
+        driver.find_element(By.XPATH, "//*[contains(text(), '{{pyLit selectorValue}}')]").click()
         {{else if (eq selectorType "getByTestId")}}
-        driver.find_element(By.XPATH, "//*[@data-testid='{{{selectorValue}}}']").click()
+        driver.find_element(By.XPATH, "//*[@data-testid='{{pyLit selectorValue}}']").click()
         {{else}}
-        driver.find_element(By.CSS_SELECTOR, "{{{selectorValue}}}").click()
+        driver.find_element(By.CSS_SELECTOR, "{{pyLit selectorValue}}").click()
         {{/if}}
         {{/if}}
         {{#if (eq action "select")}}
-        Select(driver.find_element(By.CSS_SELECTOR, "{{{selectorValue}}}")).select_by_visible_text("{{{value}}}")
+        Select(driver.find_element(By.CSS_SELECTOR, "{{pyLit selectorValue}}")).select_by_visible_text("{{pyLit value}}")
         {{/if}}
         {{#if (eq action "check")}}
-        el = driver.find_element(By.CSS_SELECTOR, "{{{selectorValue}}}")
+        el = driver.find_element(By.CSS_SELECTOR, "{{pyLit selectorValue}}")
         if not el.is_selected():
             el.click()
         {{/if}}
         {{#if (eq action "uncheck")}}
-        el = driver.find_element(By.CSS_SELECTOR, "{{{selectorValue}}}")
+        el = driver.find_element(By.CSS_SELECTOR, "{{pyLit selectorValue}}")
         if el.is_selected():
             el.click()
         {{/if}}
         {{#if (eq action "upload")}}
-        driver.find_element(By.CSS_SELECTOR, "{{{selectorValue}}}").send_keys("{{{value}}}")
+        driver.find_element(By.CSS_SELECTOR, "{{pyLit selectorValue}}").send_keys("{{pyLit value}}")
         {{/if}}
         {{#if (eq action "assert_url")}}
-        self.assertIn("{{{selectorValue}}}", driver.current_url)
+        self.assertIn("{{pyLit selectorValue}}", driver.current_url)
         {{/if}}
         {{#if (eq action "assert_text")}}
-        self.assertIn("{{{expected}}}", driver.page_source)
+        self.assertIn("{{pyLit expected}}", driver.page_source)
         {{/if}}
         {{#if (eq action "assert_visible")}}
-        self.assertTrue(driver.find_element(By.CSS_SELECTOR, "{{{selectorValue}}}").is_displayed())
+        self.assertTrue(driver.find_element(By.CSS_SELECTOR, "{{pyLit selectorValue}}").is_displayed())
         {{/if}}
         {{#if (eq action "wait")}}
-        time.sleep({{{selectorValue}}} / 1000)
+        time.sleep({{pyLit selectorValue}} / 1000)
         {{/if}}
         {{/each}}
 

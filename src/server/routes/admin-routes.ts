@@ -5,6 +5,7 @@ import { loadUsersAsync, updateUserStatus, deleteUser } from '../auth-store.js';
 import { getLogs, addLog } from '../activity-log-store.js';
 import { getAdminApiKeyStats, getAdminApiKeyLogs } from '../api-key-usage-store.js';
 import { supabase } from '../supabase-client.js';
+import { resolveAttachmentUrl } from '../services/attachment-service.js';
 
 export const adminRoutes = Router();
 
@@ -34,21 +35,6 @@ adminRoutes.get('/logs', authenticateJWT, requireAdmin, async (req: Authenticate
   const logs = await getLogs(limit);
   res.json({ success: true, logs });
 });
-
-async function resolveAttachmentUrl(attachment: string): Promise<string | null> {
-  try {
-    const { data, error } = await supabase.storage
-      .from('feedback-attachments')
-      .createSignedUrl(attachment, 3600);
-    if (!error && data?.signedUrl) return data.signedUrl;
-  } catch {
-    // fallback to public url if signed url fails
-  }
-  const { data: urlData } = supabase.storage
-    .from('feedback-attachments')
-    .getPublicUrl(attachment);
-  return urlData?.publicUrl || null;
-}
 
 /**
  * GET /api/v1/admin/feedbacks
@@ -221,10 +207,7 @@ adminRoutes.delete('/users/:id', authenticateJWT, requireAdmin, async (req: Auth
   res.json({ success: true, message: 'User deleted successfully.' });
 });
 
-/**
- * GET /api/v1/admin/api-keys/stats
- * Aggregate hit stats across all API keys
- */
+// GET /api/v1/admin/api-keys/stats — aggregate hit stats across all API keys (Admin only)
 adminRoutes.get('/api-keys/stats', authenticateJWT, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const stats = await getAdminApiKeyStats();
@@ -238,10 +221,7 @@ adminRoutes.get('/api-keys/stats', authenticateJWT, requireAdmin, async (req: Au
   }
 });
 
-/**
- * GET /api/v1/admin/api-keys/logs
- * List all API Key hit / activity logs with pagination
- */
+// GET /api/v1/admin/api-keys/logs — paginated API key activity logs (Admin only)
 adminRoutes.get('/api-keys/logs', authenticateJWT, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const page = parseInt(req.query.page as string, 10) || 1;

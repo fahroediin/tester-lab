@@ -10,6 +10,7 @@ import { historyRoutes } from './routes/history-routes.js';
 import { configRoutes } from './routes/config-routes.js';
 import { apiKeyRoutes } from './routes/api-key-routes.js';
 import { recorderRoutes, proxyAssetMiddleware } from './routes/recorder-routes.js';
+import { authenticateJWT, requireAdmin } from './auth-middleware.js';
 import { ensureAdminUser } from './auth-store.js';
 import { supabase } from './supabase-client.js';
 
@@ -41,7 +42,7 @@ app.get('/admin', (req: Request, res: Response) => {
 /**
  * Direct Attachment Access Handler: Redirect to Supabase Storage Signed/Public URL
  */
-app.get('/feedbacks/attachments/:filename', async (req: Request, res: Response) => {
+app.get('/feedbacks/attachments/:filename', authenticateJWT, requireAdmin, async (req: Request, res: Response) => {
   try {
     const filename = req.params.filename;
     if (!filename) {

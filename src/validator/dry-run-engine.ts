@@ -5,6 +5,8 @@ import { execFile } from 'child_process';
 import { promisify } from 'util';
 import type { DryRunResult, ResolvedStep, DSLConfig, SelectorType } from '../types/index.js';
 import { CodeGenerator } from '../generator/code-generator.js';
+import { getSanitizedEnv } from '../server/lib/sanitized-env.js';
+import { sanitizeCode } from '../server/code-sanitizer.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -23,34 +25,6 @@ async function runPlaywrightTest(testFilePath: string, configFilePath: string): 
   });
 }
 
-/**
- * Build a sanitized environment object for child processes.
- * Only includes variables required for Playwright to function.
- * ALL secrets (JWT_SECRET, ADMIN_PASSWORD, etc.) are stripped.
- */
-function getSanitizedEnv(): Record<string, string> {
-  const ALLOWED_ENV_KEYS = [
-    'PATH', 'HOME', 'USER', 'LANG', 'LC_ALL', 'SHELL',
-    'DISPLAY', 'XAUTHORITY', 'DBUS_SESSION_BUS_ADDRESS',
-    'XDG_RUNTIME_DIR', 'XDG_CONFIG_HOME', 'XDG_DATA_HOME',
-    'TMPDIR', 'TMP', 'TEMP',
-    'PLAYWRIGHT_BROWSERS_PATH',
-    'CHROMIUM_FLAGS', 'CHROME_FLAGS',
-    'PUPPETEER_CHROMIUM_REVISION',
-    'NODE_PATH',
-    'SystemRoot', 'APPDATA', 'LOCALAPPDATA', 'ProgramFiles',
-    'ProgramFiles(x86)', 'CommonProgramFiles', 'USERPROFILE',
-    'HOMEDRIVE', 'HOMEPATH', 'PATHEXT', 'COMSPEC', 'windir',
-  ];
-
-  const sanitized: Record<string, string> = {};
-  for (const key of ALLOWED_ENV_KEYS) {
-    if (process.env[key]) {
-      sanitized[key] = process.env[key]!;
-    }
-  }
-  return sanitized;
-}
 
 export class DryRunEngine {
   private generator = new CodeGenerator();
@@ -87,6 +61,17 @@ export default defineConfig({
         fs.rmSync(tempDir, { recursive: true, force: true });
       } catch {}
     };
+
+    // Defense-in-depth (CODING_STANDARD 6.5): never execute unsanitized code server-side
+    const initialScan = sanitizeCode(code);
+    if (!initialScan.safe) {
+      cleanupTempDir();
+      return {
+        success: false,
+        error: `Dry-run blocked by code sanitizer: ${initialScan.violations.join('; ')}`,
+        durationMs: Date.now() - startTime
+      };
+    }
 
     try {
       fs.writeFileSync(testFilePath, code, 'utf-8');
@@ -206,6 +191,11 @@ export default defineConfig({
 
     const patchedResult = await this.generator.generateScript(config, patchedSteps);
     const patchedFilePath = path.join(tempDir, 'dryrun_healed.spec.ts');
+
+    // Sanitize the self-healed code as well before executing it
+    if (!sanitizeCode(patchedResult.code).safe) {
+      return { success: false };
+    }
 
     try {
       fs.writeFileSync(patchedFilePath, patchedResult.code, 'utf-8');

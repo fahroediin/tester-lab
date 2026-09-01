@@ -7,6 +7,7 @@ const auth_store_js_1 = require("../auth-store.js");
 const activity_log_store_js_1 = require("../activity-log-store.js");
 const api_key_usage_store_js_1 = require("../api-key-usage-store.js");
 const supabase_client_js_1 = require("../supabase-client.js");
+const attachment_service_js_1 = require("../services/attachment-service.js");
 exports.adminRoutes = (0, express_1.Router)();
 /**
  * GET /api/v1/admin/users
@@ -32,22 +33,6 @@ exports.adminRoutes.get('/logs', auth_middleware_js_1.authenticateJWT, auth_midd
     const logs = await (0, activity_log_store_js_1.getLogs)(limit);
     res.json({ success: true, logs });
 });
-async function resolveAttachmentUrl(attachment) {
-    try {
-        const { data, error } = await supabase_client_js_1.supabase.storage
-            .from('feedback-attachments')
-            .createSignedUrl(attachment, 3600);
-        if (!error && data?.signedUrl)
-            return data.signedUrl;
-    }
-    catch {
-        // fallback to public url if signed url fails
-    }
-    const { data: urlData } = supabase_client_js_1.supabase.storage
-        .from('feedback-attachments')
-        .getPublicUrl(attachment);
-    return urlData?.publicUrl || null;
-}
 /**
  * GET /api/v1/admin/feedbacks
  * List all user feedbacks (Admin only)
@@ -71,7 +56,7 @@ exports.adminRoutes.get('/feedbacks', auth_middleware_js_1.authenticateJWT, auth
         }
         const mappedFeedbacks = await Promise.all((feedbacks || []).map(async (f) => ({
             ...f,
-            attachmentUrl: typeof f.attachment === 'string' ? await resolveAttachmentUrl(f.attachment) : null
+            attachmentUrl: typeof f.attachment === 'string' ? await (0, attachment_service_js_1.resolveAttachmentUrl)(f.attachment) : null
         })));
         res.json({
             success: true,
@@ -193,10 +178,7 @@ exports.adminRoutes.delete('/users/:id', auth_middleware_js_1.authenticateJWT, a
     });
     res.json({ success: true, message: 'User deleted successfully.' });
 });
-/**
- * GET /api/v1/admin/api-keys/stats
- * Aggregate hit stats across all API keys
- */
+// GET /api/v1/admin/api-keys/stats — aggregate hit stats across all API keys (Admin only)
 exports.adminRoutes.get('/api-keys/stats', auth_middleware_js_1.authenticateJWT, auth_middleware_js_1.requireAdmin, async (req, res) => {
     try {
         const stats = await (0, api_key_usage_store_js_1.getAdminApiKeyStats)();
@@ -210,10 +192,7 @@ exports.adminRoutes.get('/api-keys/stats', auth_middleware_js_1.authenticateJWT,
         });
     }
 });
-/**
- * GET /api/v1/admin/api-keys/logs
- * List all API Key hit / activity logs with pagination
- */
+// GET /api/v1/admin/api-keys/logs — paginated API key activity logs (Admin only)
 exports.adminRoutes.get('/api-keys/logs', auth_middleware_js_1.authenticateJWT, auth_middleware_js_1.requireAdmin, async (req, res) => {
     try {
         const page = parseInt(req.query.page, 10) || 1;

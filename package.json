@@ -12,7 +12,9 @@
     "cli": "ts-node src/cli/index.ts",
     "demo": "ts-node examples/demo-server.ts",
     "generate": "ts-node src/cli/index.ts generate",
-    "gen-yaml": "ts-node scripts/generate-yaml.ts"
+    "gen-yaml": "ts-node scripts/generate-yaml.ts",
+    "test": "npm run build && node scripts/security-checks.js",
+    "test:security": "node scripts/security-checks.js"
   },
   "keywords": [
     "testing",

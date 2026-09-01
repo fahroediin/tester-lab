@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { supabase } from './supabase-client.js';
+import { toVideoStoragePath } from './lib/storage-url.js';
 import type { ResolvedStep, DSLConfig } from '../types/index.js';
 
 export interface FlowHistory {
@@ -132,16 +133,15 @@ export async function deleteHistory(id: string): Promise<boolean> {
   const record = await getHistoryById(id);
   if (!record) return false;
 
-  // Clean up associated video if exists (Supabase Storage or legacy local file)
+  // Clean up associated video if exists (Supabase Storage object and/or legacy local file)
   if (record.videoUrl) {
     try {
-      if (record.videoUrl.includes('/test-videos/')) {
-        const parts = record.videoUrl.split('/test-videos/');
-        const storageFilePath = parts[1]?.split('?')[0];
-        if (storageFilePath) {
-          await supabase.storage.from('test-videos').remove([decodeURIComponent(storageFilePath)]);
-        }
-      } else {
+      const objectPath = toVideoStoragePath(record.videoUrl);
+      if (objectPath) {
+        await supabase.storage.from('test-videos').remove([objectPath]);
+      }
+      // Legacy local-file fallback (older records stored a public-relative path)
+      if (!record.videoUrl.includes('/test-videos/') && !record.videoUrl.startsWith('http')) {
         const videoPath = path.join(process.cwd(), 'public', record.videoUrl);
         if (fs.existsSync(videoPath)) {
           fs.unlinkSync(videoPath);

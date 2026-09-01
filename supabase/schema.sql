@@ -174,12 +174,12 @@ CREATE POLICY "Service role full access on api_key_usage_logs"
 
 -- 1. Feedback Attachments Bucket (Private / Protected)
 INSERT INTO storage.buckets (id, name, public)
-VALUES ('feedback-attachments', 'feedback-attachments', true)
+VALUES ('feedback-attachments', 'feedback-attachments', false)
 ON CONFLICT (id) DO UPDATE SET public = EXCLUDED.public;
 
 -- 2. Test Execution Videos Bucket (Private / Protected)
 INSERT INTO storage.buckets (id, name, public)
-VALUES ('test-videos', 'test-videos', true)
+VALUES ('test-videos', 'test-videos', false)
 ON CONFLICT (id) DO UPDATE SET public = EXCLUDED.public;
 
 -- Service role has full unrestricted access on all storage objects

@@ -11,6 +11,7 @@ exports.deleteHistory = deleteHistory;
 const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
 const supabase_client_js_1 = require("./supabase-client.js");
+const storage_url_js_1 = require("./lib/storage-url.js");
 function rowToFlowHistory(row) {
     return {
         id: row.id,
@@ -101,17 +102,15 @@ async function deleteHistory(id) {
     const record = await getHistoryById(id);
     if (!record)
         return false;
-    // Clean up associated video if exists (Supabase Storage or legacy local file)
+    // Clean up associated video if exists (Supabase Storage object and/or legacy local file)
     if (record.videoUrl) {
         try {
-            if (record.videoUrl.includes('/test-videos/')) {
-                const parts = record.videoUrl.split('/test-videos/');
-                const storageFilePath = parts[1]?.split('?')[0];
-                if (storageFilePath) {
-                    await supabase_client_js_1.supabase.storage.from('test-videos').remove([decodeURIComponent(storageFilePath)]);
-                }
+            const objectPath = (0, storage_url_js_1.toVideoStoragePath)(record.videoUrl);
+            if (objectPath) {
+                await supabase_client_js_1.supabase.storage.from('test-videos').remove([objectPath]);
             }
-            else {
+            // Legacy local-file fallback (older records stored a public-relative path)
+            if (!record.videoUrl.includes('/test-videos/') && !record.videoUrl.startsWith('http')) {
                 const videoPath = path_1.default.join(process.cwd(), 'public', record.videoUrl);
                 if (fs_1.default.existsSync(videoPath)) {
                     fs_1.default.unlinkSync(videoPath);
