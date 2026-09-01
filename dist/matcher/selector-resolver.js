@@ -21,11 +21,15 @@ function determineSelector(cand, target, action) {
             roleName: cleanName || target
         };
     }
-    // Use getByLabel when there's a label association (label[for], wrapping label, or ariaLabel on inputs)
-    if ((cand.labelText || cand.ariaLabel) && (cand.hasDirectLabel || ['input', 'select', 'textarea'].includes(cand.tagName))) {
+    // Use getByLabel ONLY when the label is genuinely associated (label[for], wrapping label,
+    // aria-label, or aria-labelledby). A merely nearby/sibling <label> without a `for` attribute
+    // is NOT matched by Playwright's getByLabel, so fall through to placeholder/name/role for those
+    // (prevents e.g. a placeholder-only login field being resolved to a non-matching getByLabel).
+    if ((cand.hasDirectLabel && cand.labelText) || cand.ariaLabel) {
+        const labelValue = (cand.hasDirectLabel && cand.labelText) ? cand.labelText : cand.ariaLabel;
         return {
             selectorType: 'getByLabel',
-            selectorValue: (cand.labelText || cand.ariaLabel).trim()
+            selectorValue: labelValue.trim()
         };
     }
     if (cand.placeholder) {
