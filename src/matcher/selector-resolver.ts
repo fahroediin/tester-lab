@@ -16,8 +16,12 @@ export function determineSelector(
   }
 
   // For interactive ARIA roles (radio, checkbox, button, link, option, tab), getByRole is the most robust and standard
-  if (cand.role && ['radio', 'checkbox', 'button', 'link', 'combobox', 'option', 'tab'].includes(cand.role) && (cand.ariaLabel || cand.labelText || cand.innerText)) {
-    const raw = cand.ariaLabel || cand.labelText || cand.innerText;
+  const isEligibleRole = cand.role && (
+    ['radio', 'checkbox', 'button', 'link', 'option', 'tab'].includes(cand.role) ||
+    (cand.role === 'combobox' && cand.tagName !== 'select' && (cand.ariaLabel || cand.hasDirectLabel))
+  );
+  if (isEligibleRole && (cand.ariaLabel || cand.labelText || cand.innerText)) {
+    const raw = (cand.hasDirectLabel && cand.labelText) ? cand.labelText : (cand.ariaLabel || cand.innerText);
     const cleanName = raw.replace(/[\uE000-\uF8FF\u2000-\u206F]/g, '').trim();
     return {
       selectorType: 'getByRole',

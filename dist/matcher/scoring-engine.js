@@ -57,7 +57,8 @@ function calculateScore(cand, target, action) {
         }
         else if ((labelText.includes(target) || target.includes(labelText)) && labelText.length > 3 && target.length > 3) {
             const ratio = Math.min(labelText.length, target.length) / Math.max(labelText.length, target.length);
-            const isSignificantMatch = target.length >= 8 || ratio > 0.3 || labelText.startsWith(target) || target.startsWith(labelText);
+            const isPrefixMatch = (target.startsWith(labelText) || labelText.startsWith(target)) && Math.min(labelText.length, target.length) >= 4;
+            const isSignificantMatch = isPrefixMatch || ratio >= 0.35;
             if (isSignificantMatch && 75 > primaryScore) {
                 primaryScore = 75;
                 primaryReason = 'Partial Associated Label Match';
@@ -75,7 +76,8 @@ function calculateScore(cand, target, action) {
         }
         else if ((accName.includes(target) || target.includes(accName)) && accName.length > 3 && target.length > 3) {
             const ratio = Math.min(accName.length, target.length) / Math.max(accName.length, target.length);
-            const isSignificantMatch = target.length >= 8 || ratio > 0.3 || accName.startsWith(target) || target.startsWith(accName);
+            const isPrefixMatch = (target.startsWith(accName) || accName.startsWith(target)) && Math.min(accName.length, target.length) >= 4;
+            const isSignificantMatch = isPrefixMatch || ratio >= 0.35;
             if (isSignificantMatch && 70 > primaryScore) {
                 primaryScore = 70;
                 primaryReason = `Partial ARIA Role (${cand.role}) & Name Match`;
@@ -92,7 +94,8 @@ function calculateScore(cand, target, action) {
         }
         else if ((innerText.includes(target) || target.includes(innerText)) && innerText.length > 3 && target.length > 3) {
             const ratio = Math.min(innerText.length, target.length) / Math.max(innerText.length, target.length);
-            const isSignificantMatch = target.length >= 8 || ratio > 0.3 || innerText.startsWith(target) || target.startsWith(innerText);
+            const isPrefixMatch = (target.startsWith(innerText) || innerText.startsWith(target)) && Math.min(innerText.length, target.length) >= 4;
+            const isSignificantMatch = isPrefixMatch || ratio >= 0.35;
             if (isSignificantMatch && 60 > primaryScore) {
                 primaryScore = 60;
                 primaryReason = 'Partial InnerText Match';
@@ -109,7 +112,8 @@ function calculateScore(cand, target, action) {
         }
         else if ((placeholder.includes(target) || target.includes(placeholder)) && placeholder.length > 3 && target.length > 3) {
             const ratio = Math.min(placeholder.length, target.length) / Math.max(placeholder.length, target.length);
-            const isSignificantMatch = target.length >= 8 || ratio > 0.3 || placeholder.startsWith(target) || target.startsWith(placeholder);
+            const isPrefixMatch = (target.startsWith(placeholder) || placeholder.startsWith(target)) && Math.min(placeholder.length, target.length) >= 4;
+            const isSignificantMatch = isPrefixMatch || ratio >= 0.35;
             if (isSignificantMatch && 65 > primaryScore) {
                 primaryScore = 65;
                 primaryReason = 'Partial Placeholder Match';
@@ -125,7 +129,8 @@ function calculateScore(cand, target, action) {
         }
         else if ((ariaLabel.includes(target) || target.includes(ariaLabel)) && ariaLabel.length > 3 && target.length > 3) {
             const ratio = Math.min(ariaLabel.length, target.length) / Math.max(ariaLabel.length, target.length);
-            const isSignificantMatch = target.length >= 8 || ratio > 0.3 || ariaLabel.startsWith(target) || target.startsWith(ariaLabel);
+            const isPrefixMatch = (target.startsWith(ariaLabel) || ariaLabel.startsWith(target)) && Math.min(ariaLabel.length, target.length) >= 4;
+            const isSignificantMatch = isPrefixMatch || ratio >= 0.35;
             if (isSignificantMatch && 65 > primaryScore) {
                 primaryScore = 65;
                 primaryReason = 'Partial Aria-Label Match';
