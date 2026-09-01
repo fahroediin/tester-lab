@@ -33,7 +33,8 @@ export const DSLStepSchema = z.object({
   if (['fill', 'select', 'upload'].includes(data.action) && !data.value) {
     return false;
   }
-  if (data.action === 'assert_url' && !data.expected) {
+  // assert_url accepts the URL fragment via `expected` OR `value` (engine reads `expected || value`)
+  if (data.action === 'assert_url' && !data.expected && !data.value) {
     return false;
   }
   if (['assert_text', 'assert_visible'].includes(data.action) && !data.expected && !data.targetLabel) {

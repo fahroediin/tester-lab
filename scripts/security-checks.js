@@ -77,6 +77,8 @@ function ok(name, cond) {
   ok('rejects non-URL targetUrl', validateDSL({ testSuite: 'T', targetUrl: "'); danger();", steps: [{ step: 1, action: 'click', targetLabel: 'x' }] }).valid === false);
   ok('rejects javascript: targetUrl', validateDSL({ testSuite: 'T', targetUrl: 'javascript:alert(1)', steps: [{ step: 1, action: 'click', targetLabel: 'x' }] }).valid === false);
   ok('accepts valid http URL', validateDSL({ testSuite: 'T', targetUrl: 'https://example.com', steps: [{ step: 1, action: 'click', targetLabel: 'x' }] }).valid === true);
+  ok('assert_url accepts value (engine reads expected||value)', validateDSL({ testSuite: 'T', targetUrl: 'https://example.com', steps: [{ step: 1, action: 'assert_url', targetLabel: '', value: '/dashboard' }] }).valid === true);
+  ok('assert_url still rejected without value AND expected', validateDSL({ testSuite: 'T', targetUrl: 'https://example.com', steps: [{ step: 1, action: 'assert_url', targetLabel: '' }] }).valid === false);
 
   console.log('\n[6] video storage path normalization');
   ok('new path passthrough', toVideoStoragePath('user123/run_9.webm') === 'user123/run_9.webm');
