@@ -24,11 +24,14 @@
 - **Deterministic 6-Tier Scoring Matrix:** Pencocokan label ke elemen DOM interaktif dengan bobot prioritas teruji (*Test ID -> Associated Label -> ARIA Role & Accessible Name -> InnerText -> Placeholder/Aria-Label -> Fuzzy Levenshtein*).
 - **Multi-Framework Code Transpiler:** Transpilasi otomatis ke **Playwright (TS/JS)**, **Cypress**, **Selenium Python**, dan **Robot Framework** terformat rapi via Prettier AST.
 - **Dry-Run & Self-Healing Engine:** Validasi headless langsung pasca-generasi dengan kemampuan *auto-healing* ke kandidat Rank-2 jika selector pertama gagal.
-- **Web Workspace & Interactive Admin Portal:** UI modern responsif dengan Scenario Builder, Flow History + video playback, Feedback Reporting, API Key Management, dan Admin Control Center.
+- **Interaction Recorder (Point-and-Click DSL Capture):** Rekam interaksi langsung pada situs target yang dimuat melalui *reverse-proxy* ber-guard SSRF. Agen perekam yang diinjeksi menangkap aksi `click`/`fill` pengguna, menggabungkan langkah `fill` beruntun pada field yang sama, dan mengubahnya menjadi step DSL siap-generate — tanpa perlu menulis skenario manual.
+- **Web Workspace & Interactive Admin Portal:** UI modern responsif dengan Scenario Builder, Interaction Recorder, Flow History + video playback, Feedback Reporting, API Key Management, dan Admin Control Center.
 - **Enterprise-Grade Security:**
   - **API Key Masking & SHA-256 Hashing:** Penyimpanan hash kriptografis aman, raw key hanya ditampilkan sekali saat pembuatan, dan prefix di-mask (`tl_live_xxxx...yyyy`).
   - **Dual Authentication Middleware:** Mendukung JWT Bearer Token dan `X-API-Key` dengan Role-Based Access Control (Admin / User) & User Status Approval (`pending`, `approved`, `rejected`).
-  - **AST/Regex Code Sanitizer:** Memblokir eksekusi kode berbahaya (`fs`, `child_process`, `eval`, `process.env`) sebelum dieksekusi.
+  - **AST/Regex Code Sanitizer:** Memblokir eksekusi kode berbahaya (`fs`, `child_process`, `eval`, `process.env`) sebelum dieksekusi — berlaku pada jalur `/run-test` maupun dry-run.
+  - **SSRF Outbound Guard:** Setiap target *reverse-proxy* recorder divalidasi via `assertSafeProxyUrl()` yang menolak URL non-http(s), hostname internal, serta rentang IP privat/reserved (termasuk metadata cloud `169.254.169.254`), sebelum & sesudah redirect.
+  - **Private Storage Buckets & Signed URL:** Bucket Supabase Storage (`test-videos`, `feedback-attachments`) bersifat *private*; aset hanya disajikan lewat *signed URL* berumur pendek yang di-*re-sign* saat dibaca — tidak ada URL publik yang dipersistkan.
   - **PostgreSQL Row Level Security (RLS):** Seluruh tabel database diamankan dan diisolasi dengan hak akses `TO service_role`.
 - **Resource Concurrency Control:** In-memory queue manager untuk membatasi eksekusi paralel Playwright dan browser crawler guna mencegah *resource exhaustion*.
 - **Flexible DSL Support:** Mendukung format file konfigurasi skenario **JSON** dan **YAML** dengan normalisasi otomatis.
@@ -37,8 +40,14 @@
 
 ## Arsitektur & Pipeline Sistem
 
+Skenario DSL dapat ditulis manual (JSON/YAML) **atau** dihasilkan otomatis oleh
+**Interaction Recorder** — pengguna merekam klik & isian pada situs target yang
+dimuat lewat *reverse-proxy* ber-guard SSRF, dan aksinya dikonversi menjadi step
+DSL. Setelah DSL terbentuk, pipeline deterministik berikut yang berjalan:
+
 ```
-[ Business Rule DSL (JSON / YAML) ]
+[ DSL Manual (JSON / YAML)  ─┐
+[ Interaction Recorder ]  ───┴──► [ Business Rule DSL ]
                │
                ▼
     1. Zod DSL Validator & Normalizer (src/validator/dsl-validator.ts)
@@ -240,7 +249,8 @@ npm run start
 Buka browser di `http://localhost:3000` untuk mengakses Web Workspace & Admin Console.
 
 ### Fitur Antarmuka Web:
-- **Scenario Builder:** Pembuat skenario visual, import JSON/YAML, dan eksekusi generasi script satu klik.
+- **Scenario Builder:** Pembuat skenario visual, import JSON/YAML, edit kode hasil generate secara inline, dan eksekusi generasi script satu klik.
+- **Interaction Recorder:** Muat situs target di dalam workspace via *reverse-proxy* ber-guard SSRF, lalu rekam klik & isian pengguna menjadi step DSL otomatis.
 - **Execution History:** Riwayat lengkap skenario yang digenerasi beserta log eksekusi dan pemutar rekaman video Playwright.
 - **API Key Management:** Pembuatan dan pencabutan API key dengan ringkasan status hit (`generated`, `success`, `failed`).
 - **Admin Control Panel:**
@@ -261,15 +271,31 @@ Buka browser di `http://localhost:3000` untuk mengakses Web Workspace & Admin Co
 | `/api/v1/generate-script` | `POST` | JWT / API Key | Mengekstraksi DOM dan menghasilkan script testing. |
 | `/api/v1/inspect-dom` | `POST` | JWT / API Key | Mengambil daftar elemen kandidat interaktif dari URL target. |
 | `/api/v1/run-test` | `POST` | JWT / API Key | Mengeksekusi script Playwright dan mengunggah artifact video. |
+| `/api/v1/history` | `GET` | JWT / API Key | Mengambil riwayat pengujian pengguna. |
+| `/api/v1/history/:id` | `GET` | JWT / API Key | Mengambil satu record riwayat beserta kode & log. |
+| `/api/v1/history/:id` | `DELETE` | JWT / API Key | Menghapus record riwayat (beserta video terkait). |
 | `/api/v1/api-keys` | `GET` | JWT Only | Mengambil daftar API Key pengguna beserta statistik hit. |
 | `/api/v1/api-keys` | `POST` | JWT Only | Membuat API Key baru (mengembalikan raw key sekali saja). |
 | `/api/v1/api-keys/:id` | `DELETE` | JWT Only | Mencabut (*revoke*) status aktif API Key. |
-| `/api/v1/history` | `GET` | JWT / API Key | Mengambil riwayat pengujian pengguna. |
-| `/api/v1/feedback` | `POST` | JWT / API Key | Mengirim feedback dan lampiran file. |
+| `/api/v1/api-keys/:id/delete` | `DELETE` | JWT Only | Menghapus permanen record API Key. |
+| `/api/v1/feedback` | `POST` | Public | Mengirim feedback dan lampiran file. |
+| `/api/v1/config` | `GET` | JWT / API Key | Mengambil konfigurasi & sample scenario sistem. |
+| `/api/v1/config` | `POST` | Admin Only | Memperbarui konfigurasi sistem. |
+| `/api/v1/recorder/ingest` | `POST` | Public* | Ingestion step dari agen perekam (dijalankan di dalam halaman ter-proxy; validasi & rate-limit ketat). |
+| `/api/v1/recorder/session/:sessionId/steps` | `GET` | JWT / API Key | Polling step yang tertangkap untuk sesi perekaman. |
+| `/api/v1/recorder/session/:sessionId` | `DELETE` | JWT / API Key | Mengakhiri & membersihkan sesi perekaman. |
+| `/api/v1/recorder/proxy` | `GET` | JWT / API Key | *Reverse-proxy* ber-guard SSRF untuk memuat situs target di dalam recorder. |
 | `/api/v1/admin/users` | `GET` | Admin Only | Mengambil daftar seluruh pengguna dan status approval. |
 | `/api/v1/admin/users/:id/approve` | `POST` | Admin Only | Menyetujui akun pendaftaran pengguna. |
+| `/api/v1/admin/users/:id/reject` | `POST` | Admin Only | Menolak akun pendaftaran pengguna. |
+| `/api/v1/admin/users/:id` | `DELETE` | Admin Only | Menghapus akun pengguna. |
+| `/api/v1/admin/logs` | `GET` | Admin Only | Audit log aktivitas sistem (paginasi). |
+| `/api/v1/admin/feedbacks` | `GET` | Admin Only | Daftar feedback pengguna beserta lampiran. |
+| `/api/v1/admin/feedbacks/:id` | `DELETE` | Admin Only | Menghapus record feedback. |
 | `/api/v1/admin/api-keys/stats` | `GET` | Admin Only | Statistik agregat request & hit seluruh API Key. |
 | `/api/v1/admin/api-keys/logs` | `GET` | Admin Only | Log paginasi hit API Key di seluruh sistem. |
+
+> \* `POST /recorder/ingest` sengaja tidak terautentikasi karena dipanggil dari dalam halaman pihak ketiga yang di-*proxy*. Endpoint ini divalidasi ketat (pola `sessionId`, batas ukuran field, batas step & sesi) dan hanya menulis ke buffer perekaman in-memory.
 
 ---
 
@@ -280,6 +306,8 @@ tester-lab/
 ├── public/                     # Frontend Web Portal (HTML, CSS, Vanilla JS)
 │   ├── css/style.css           # Modern Glassmorphic Design System
 │   ├── js/app.js               # Web UI Logic & REST API Client
+│   ├── js/recorder-agent.js    # Injected recorder agent (capture click/fill)
+│   ├── admin.html              # Admin Control Center (standalone page)
 │   └── index.html              # Workspace Single Page Application
 ├── src/
 │   ├── cli/
@@ -293,9 +321,13 @@ tester-lab/
 │   │   ├── heuristic-matcher.ts # Orchestrator pencocokan multi-step
 │   │   ├── scoring-engine.ts    # 6-Tier Deterministic Scoring Engine
 │   │   └── selector-resolver.ts # Playwright locator strategy mapping
+│   ├── security/
+│   │   ├── code-sanitizer.ts    # AST/Regex sanitizer untuk kode hasil generate
+│   │   ├── sanitized-env.ts     # Env allowlist untuk eksekusi subprocess
+│   │   └── url-guard.ts         # Validasi & proteksi URL target (anti-SSRF)
 │   ├── server/
 │   │   ├── lib/
-│   │   │   └── sanitized-env.ts # Subprocess environment sanitizer
+│   │   │   └── storage-url.ts   # Signed-URL helper untuk private video bucket
 │   │   ├── routes/              # Express REST API Route Handlers (< 250 baris)
 │   │   │   ├── admin-routes.ts
 │   │   │   ├── api-key-routes.ts
@@ -303,36 +335,35 @@ tester-lab/
 │   │   │   ├── config-routes.ts
 │   │   │   ├── feedback-routes.ts
 │   │   │   ├── history-routes.ts
-│   │   └── test-routes.ts
+│   │   │   ├── recorder-routes.ts
+│   │   │   └── test-routes.ts
 │   │   ├── services/
-│   │   │   └── test-runner-service.ts # Playwright test execution & video handler
+│   │   │   ├── test-runner-service.ts     # Playwright test execution & video handler
+│   │   │   ├── recorder-proxy-service.ts  # SSRF-guarded recorder reverse-proxy
+│   │   │   └── attachment-service.ts      # Signed-URL resolver untuk lampiran
 │   │   ├── activity-log-store.ts
 │   │   ├── api-key-store.ts     # API Key Store (SHA-256 hash & masked prefix)
 │   │   ├── api-key-usage-helpers.ts # In-memory buffer fallback & helper
 │   │   ├── api-key-usage-store.ts   # Database API Key usage metrics
+│   │   ├── api-key-admin-store.ts   # Admin aggregate stats & paginated logs
 │   │   ├── auth-middleware.ts   # Dual JWT & API Key authentication
 │   │   ├── auth-store.ts        # Database user store adapter
-│   │   ├── code-sanitizer.ts    # AST/Regex test script security guard
 │   │   ├── config-store.ts
 │   │   ├── flow-history-store.ts
 │   │   ├── index.ts             # Express Server Bootstrap
 │   │   ├── queue-manager.ts     # Concurrency queue limiter
 │   │   └── supabase-client.ts   # Supabase client singleton
 │   ├── templates/               # Handlebars Code Generation Templates
-│   │   ├── cypress.hbs
+│   │   ├── cypress-js.hbs
 │   │   ├── playwright-js.hbs
 │   │   ├── playwright-ts.hbs
-│   │   ├── robotframework.hbs
+│   │   ├── robot-rf.hbs
 │   │   └── selenium-py.hbs
 │   ├── types/
 │   │   └── index.ts             # Shared Domain Types & Interfaces
 │   ├── validator/
 │   │   ├── dry-run-engine.ts    # Headless test verification & self-healing
 │   │   └── dsl-validator.ts     # Zod DSL validation & normalizer
-│   ├── security/
-│   │   ├── code-sanitizer.ts    # AST/Regex sanitizer untuk kode hasil generate
-│   │   ├── sanitized-env.ts     # Env allowlist untuk eksekusi subprocess
-│   │   └── url-guard.ts         # Validasi & proteksi URL target (anti-SSRF)
 │   └── index.ts                 # Library programmatic API export
 ├── supabase/
 │   └── schema.sql               # Database schema, table definitions, & RLS
