@@ -188,7 +188,9 @@ testRoutes.post('/run-test', authenticateJWT, requireApprovedUser, async (req: A
     }
 
     if (historyId) {
-      await updateHistory(historyId, { status: 'RUNNING' });
+      // Persist the exact code being run so history stays consistent with edits
+      // made in the editable code box before running (Option B).
+      await updateHistory(historyId, { status: 'RUNNING', generatedCode: code });
     }
 
     // Enqueue task into Concurrency Manager

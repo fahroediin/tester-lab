@@ -108,6 +108,7 @@ export async function getHistoryById(id: string): Promise<FlowHistory | undefine
 export async function updateHistory(id: string, updates: Partial<FlowHistory>): Promise<FlowHistory | null> {
   const updatePayload: Record<string, unknown> = {};
   if (updates.status !== undefined) updatePayload.status = updates.status;
+  if (updates.generatedCode !== undefined) updatePayload.generated_code = updates.generatedCode;
   if (updates.rawDsl !== undefined) updatePayload.raw_dsl = updates.rawDsl;
   if (updates.videoUrl !== undefined) updatePayload.video_url = updates.videoUrl;
   if (updates.runLogs !== undefined) updatePayload.run_logs = updates.runLogs;

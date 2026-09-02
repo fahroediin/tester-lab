@@ -537,6 +537,44 @@ textarea:focus {
   width: 100%;
 }
 
+/* Editable generated-code box (Option B: edit value/URL before Run) */
+.code-preview[contenteditable="true"] {
+  cursor: text;
+  outline: none;
+  caret-color: #58a6ff;
+}
+
+.code-preview[contenteditable="true"]:focus {
+  box-shadow: inset 0 0 0 2px rgba(88, 166, 255, 0.55);
+}
+
+.code-edit-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 20px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--body-muted);
+  background-color: rgba(88, 166, 255, 0.06);
+  border-top: 1px solid var(--hairline);
+}
+
+.code-edit-hint strong {
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+.code-edit-dot {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #34d399;
+  box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.18);
+}
+
 /* Research Table */
 .summary-table {
   width: 100%;

@@ -92,6 +92,32 @@
     let currentViewedHistory = null;
     let appConfig = null;
 
+    /**
+     * Option B: allow user to edit the generated code inline (change value / targetUrl)
+     * and run it directly, without regenerating from the DSL.
+     * When enabled=true the #codeOutput box becomes contenteditable and the hint is shown.
+     */
+    function setCodeEditable(enabled) {
+      const codeOutput = document.getElementById('codeOutput');
+      const codeEditHint = document.getElementById('codeEditHint');
+      if (codeOutput) {
+        codeOutput.setAttribute('contenteditable', enabled ? 'true' : 'false');
+        codeOutput.setAttribute('data-editable', enabled ? 'true' : 'false');
+      }
+      if (codeEditHint) codeEditHint.style.display = enabled ? 'flex' : 'none';
+    }
+
+    /**
+     * Returns the code currently shown in the editable box (user edits included).
+     * Falls back to the last generated snapshot if the box is empty.
+     */
+    function getEditableCode() {
+      const codeOutput = document.getElementById('codeOutput');
+      const boxCode = codeOutput ? codeOutput.textContent : '';
+      if (boxCode && boxCode.trim()) return boxCode;
+      return latestGeneratedCode;
+    }
+
     function toggleSummaryTable() {
       const container = document.getElementById('summaryTableContainer');
       const btn = document.getElementById('btnToggleTable');
@@ -334,6 +360,7 @@
             latestGeneratedCode = content;
             const codeOutput = document.getElementById('codeOutput');
             if (codeOutput) codeOutput.textContent = content;
+            setCodeEditable(true);
 
             // Attempt to parse back the UI steps
             const parsedSteps = parseSpecToSteps(content);
@@ -415,6 +442,7 @@
       
       if (generatedCodeCard) generatedCodeCard.style.display = 'none';
       if (codeOutput) codeOutput.textContent = '';
+      setCodeEditable(false);
       if (summarySection) summarySection.style.display = 'none';
       if (statusBadgeContainer) statusBadgeContainer.innerHTML = '';
       
@@ -864,6 +892,7 @@
         latestGeneratedCode = data.code;
         currentHistoryId = data.historyId;
         codeOutput.textContent = data.code;
+        setCodeEditable(true);
 
         // UX Improvements: auto-scroll to Generated Code after success
         if (generatedCodeCard) {
@@ -1041,7 +1070,10 @@
         return;
       }
 
-      const code = latestGeneratedCode;
+      // Option B: run whatever is currently in the (editable) code box, including user edits.
+      const code = getEditableCode();
+      // Keep the in-memory snapshot consistent with what we are about to run.
+      latestGeneratedCode = code;
 
       if (!code || !code.trim() || code.startsWith('//') || code.includes('[1/4] INITIALIZING')) {
         showSnackbar({
@@ -1813,7 +1845,8 @@
       
       const codeOutput = document.getElementById('codeOutput');
       if (codeOutput) codeOutput.textContent = h.generatedCode || '// No code available';
-      
+      setCodeEditable(!!h.generatedCode);
+
       const generatedCodeCard = document.getElementById('generatedCodeCard');
       if (generatedCodeCard) generatedCodeCard.style.display = 'flex';
       
