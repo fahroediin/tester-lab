@@ -616,6 +616,20 @@ textarea:focus {
   letter-spacing: 0.28px;
 }
 
+/* Cap the matching table so many steps scroll inside the card instead of
+   stretching the whole page. Keep the header row visible while scrolling. */
+#summaryTableContainer {
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+#summaryTableContainer .summary-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background-color: var(--card-bg);
+}
+
 /* Glowing Status Badges */
 .status-badge-pill {
   display: inline-flex;
