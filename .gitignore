@@ -9,3 +9,6 @@ tests/
 scratch/
 
 temp_out.ts
+
+# Release notes are published on GitHub Releases, not tracked in the repo
+RELEASE_NOTES*
