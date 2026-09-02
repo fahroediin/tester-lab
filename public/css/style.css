@@ -616,6 +616,13 @@ textarea:focus {
   letter-spacing: 0.28px;
 }
 
+/* Keep the Step column on one line so "Step 24" doesn't wrap to two rows
+   like a single-digit step; the selector column may still wrap if long. */
+.summary-table th:first-child,
+.summary-table td:first-child {
+  white-space: nowrap;
+}
+
 /* Cap the matching table so many steps scroll inside the card instead of
    stretching the whole page. Keep the header row visible while scrolling. */
 #summaryTableContainer {
