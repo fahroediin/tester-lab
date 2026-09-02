@@ -630,7 +630,8 @@ textarea:focus {
   overflow-y: auto;
 }
 
-#summaryTableContainer .summary-table th {
+#summaryTableContainer .summary-table th,
+#histStepsContainer .summary-table th {
   position: sticky;
   top: 0;
   z-index: 1;
