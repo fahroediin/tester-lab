@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import type { Request, Response, NextFunction } from 'express';
-import { assertSafeProxyUrl, isValidHttpUrl } from '../lib/url-guard.js';
+import { assertSafeProxyUrl, isValidHttpUrl } from '../../security/url-guard.js';
 
 /** Extract a cookie by name from a raw cookie header string. */
 function getCookieValue(cookieHeader: string | undefined, name: string): string | null {

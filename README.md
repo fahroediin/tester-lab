@@ -1,5 +1,9 @@
 # Tester Lab: Non-LLM Automated Test Script Generator
 
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
+![Node](https://img.shields.io/badge/Node-18%2B-brightgreen.svg)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6.svg)
+
 **Sistem Generator Script Testing Otomatis Berbasis Rule & Heuristic DOM Matching (Deterministik, Tanpa LLM)**
 
 `tester-lab` adalah engine otomatisasi pengujian *end-to-end* yang menghasilkan script test secara otomatis berdasarkan file skenario aturan bisnis (**JSON / YAML DSL**), tanpa bergantung pada Large Language Model (LLM). Engine ini secara bawaan mendukung berbagai framework industri terkemuka: **Playwright (TypeScript & JavaScript), Cypress, Selenium (Python), dan Robot Framework**.
@@ -325,6 +329,10 @@ tester-lab/
 │   ├── validator/
 │   │   ├── dry-run-engine.ts    # Headless test verification & self-healing
 │   │   └── dsl-validator.ts     # Zod DSL validation & normalizer
+│   ├── security/
+│   │   ├── code-sanitizer.ts    # AST/Regex sanitizer untuk kode hasil generate
+│   │   ├── sanitized-env.ts     # Env allowlist untuk eksekusi subprocess
+│   │   └── url-guard.ts         # Validasi & proteksi URL target (anti-SSRF)
 │   └── index.ts                 # Library programmatic API export
 ├── supabase/
 │   └── schema.sql               # Database schema, table definitions, & RLS
@@ -337,8 +345,32 @@ tester-lab/
 
 ## Lisensi
 
-ISC License.
+**GNU Affero General Public License v3.0 (AGPL-3.0-only)** — lihat [LICENSE](LICENSE).
+
+Anda bebas menggunakan, mempelajari, memodifikasi, dan men-self-host `tester-lab`,
+termasuk untuk keperluan internal perusahaan. Ketentuan utama AGPL: jika Anda
+menjalankan versi yang telah dimodifikasi sebagai layanan yang diakses melalui
+jaringan, Anda wajib menyediakan source code modifikasi tersebut kepada
+penggunanya.
+
+### Lisensi komersial
+
+Bagi organisasi yang ingin memakai `tester-lab` di dalam produk atau layanan
+tanpa terikat kewajiban copyleft AGPL, tersedia opsi lisensi komersial terpisah.
+Hubungi imam.fahrudin.work@gmail.com.
+
+### Cakupan repositori ini
+
+Repositori ini berisi **engine** `tester-lab`: DSL validator, DOM extractor,
+heuristic matcher, selector resolver, multi-framework code generator, dry-run &
+self-healing engine, modul keamanan, dan CLI. Seluruhnya berlisensi AGPL-3.0 dan
+cukup untuk menjalankan pipeline generasi script secara penuh, baik lewat CLI
+maupun sebagai library.
+
+Lapisan layanan terkelola (multi-tenant API key management, kuota & metering,
+dashboard web, dan orkestrasi eksekusi terdistribusi) dikembangkan secara
+terpisah dan tidak termasuk dalam repositori ini.
 
 ---
 
-**Tester Lab Team** — *Crafted for reliable, deterministic, and blazing-fast test automation.*
+Copyright (c) 2026 Imam Fahrudin — *Crafted for reliable, deterministic, and blazing-fast test automation.*

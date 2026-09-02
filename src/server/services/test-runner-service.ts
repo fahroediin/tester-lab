@@ -3,7 +3,7 @@ import os from 'os';
 import path from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
-import { getSanitizedEnv, findVideoFile } from '../lib/sanitized-env.js';
+import { getSanitizedEnv, findVideoFile } from '../../security/sanitized-env.js';
 import { signVideoUrl } from '../lib/storage-url.js';
 import { supabase } from '../supabase-client.js';
 

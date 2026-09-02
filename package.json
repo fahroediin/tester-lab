@@ -24,8 +24,8 @@
     "non-llm",
     "automation"
   ],
-  "author": "",
-  "license": "ISC",
+  "author": "Imam Fahrudin <imam.fahrudin.work@gmail.com>",
+  "license": "AGPL-3.0-only",
   "dependencies": {
     "@playwright/test": "^1.45.0",
     "@supabase/supabase-js": "2.45.0",

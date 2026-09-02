@@ -1,4 +1,12 @@
 #!/usr/bin/env node
+/*
+ * tester-lab - Non-LLM Automated Test Script Generator
+ * Copyright (c) 2026 Imam Fahrudin
+ *
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Licensed under the GNU Affero General Public License v3.0.
+ * See the LICENSE file in the project root for full license text.
+ */
 import fs from 'fs';
 import path from 'path';
 import yaml from 'js-yaml';
