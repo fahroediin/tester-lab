@@ -537,6 +537,14 @@ textarea:focus {
   width: 100%;
 }
 
+/* Keep the generated-code box from growing the whole page on long scripts:
+   cap its height and scroll inside the box instead (terminal keeps its own
+   inline max-height and is unaffected). */
+#codeOutput {
+  max-height: 480px;
+  overflow-y: auto;
+}
+
 /* Editable generated-code box (Option B: edit value/URL before Run) */
 .code-preview[contenteditable="true"] {
   cursor: text;
