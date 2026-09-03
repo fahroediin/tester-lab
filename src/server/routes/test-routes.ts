@@ -149,7 +149,8 @@ testRoutes.post('/inspect-dom', authenticateJWT, requireApprovedUser, async (req
  */
 testRoutes.post('/run-test', authenticateJWT, requireApprovedUser, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { code, mode = 'headless', language = 'typescript', historyId } = req.body;
+    const { code, mode = 'headless', language = 'typescript', saveAsNewHistory, testSuite, targetUrl, rawDsl, resolvedSteps } = req.body;
+    let { historyId } = req.body;
     const userId = req.user!.id;
 
     if (!code || typeof code !== 'string') {
@@ -187,7 +188,21 @@ testRoutes.post('/run-test', authenticateJWT, requireApprovedUser, async (req: A
       return;
     }
 
-    if (historyId) {
+    // Repeated work: when a scenario is re-run from Flow History, save it as a
+    // NEW history record instead of overwriting the loaded one.
+    if (saveAsNewHistory) {
+      const newRecord = await addHistory({
+        userId: req.user!.id,
+        username: req.user!.username,
+        testSuite: (typeof testSuite === 'string' && testSuite) || 'Automated Test Suite',
+        targetUrl: (typeof targetUrl === 'string' && targetUrl) || (rawDsl && rawDsl.targetUrl) || '',
+        status: 'RUNNING',
+        generatedCode: code,
+        resolvedSteps: Array.isArray(resolvedSteps) ? resolvedSteps : [],
+        rawDsl: rawDsl || undefined
+      });
+      historyId = newRecord.id;
+    } else if (historyId) {
       // Persist the exact code being run so history stays consistent with edits
       // made in the editable code box before running (Option B).
       await updateHistory(historyId, { status: 'RUNNING', generatedCode: code });
@@ -232,7 +247,9 @@ testRoutes.post('/run-test', authenticateJWT, requireApprovedUser, async (req: A
       return execResult;
     });
 
-    res.json(runResult);
+    // Expose the history record id so the client can adopt a newly-created
+    // record (repeated-run case) for subsequent runs.
+    res.json({ ...runResult, historyId });
   } catch (err: unknown) {
     const error = err as Error;
     res.status(500).json({

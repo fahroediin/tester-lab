@@ -91,6 +91,43 @@
     let currentHistoryId = null;
     let currentViewedHistory = null;
     let appConfig = null;
+    // True when the current builder state was loaded from a Flow History record.
+    // A run in this state is treated as repeated work and saved as a NEW history
+    // record instead of overwriting the loaded one.
+    let isHistoryReplay = false;
+    // Resolved steps carried over from the loaded history record, so the new
+    // replay record keeps the original matching scores for display.
+    let replaySourceResolvedSteps = [];
+
+    /**
+     * Build the DSL payload from the current Scenario Builder state.
+     * Shared by Generate Script and by the "run from history" path so both
+     * produce an identical DSL shape.
+     */
+    function buildDslPayload() {
+      return {
+        testSuite: document.getElementById('testSuite').value || 'Automated Test Suite',
+        targetUrl: document.getElementById('targetUrl').value,
+        framework: document.getElementById('framework').value,
+        language: document.getElementById('language').value,
+        steps: steps.map((s, i) => {
+          const stepObj = {
+            step: i + 1,
+            action: s.action,
+            description: s.description
+          };
+          if (s.targetLabel) stepObj.targetLabel = s.targetLabel;
+          if (s.action === 'fill' || s.action === 'select' || s.action === 'upload') stepObj.value = s.value;
+          if (s.action === 'assert_url') stepObj.expected = s.value;
+          if (s.action === 'assert_text') {
+            stepObj.expected = s.value;
+            stepObj.targetLabel = s.targetLabel;
+          }
+          if (s.action === 'wait') stepObj.value = s.value;
+          return stepObj;
+        })
+      };
+    }
 
     /**
      * Option B: allow user to edit the generated code inline (change value / targetUrl)
@@ -766,28 +803,7 @@
       statusBadgeContainer.innerHTML = '<span class="status-chip" style="background: var(--soft-stone); color: var(--slate); border: 1px solid var(--hairline);">Processing...</span>';
       resetTerminalOutput();
 
-      const dslPayload = {
-        testSuite: document.getElementById('testSuite').value || 'Automated Test Suite',
-        targetUrl: document.getElementById('targetUrl').value,
-        framework: document.getElementById('framework').value,
-        language: document.getElementById('language').value,
-        steps: steps.map((s, i) => {
-          const stepObj = {
-            step: i + 1,
-            action: s.action,
-            description: s.description
-          };
-          if (s.targetLabel) stepObj.targetLabel = s.targetLabel;
-          if (s.action === 'fill' || s.action === 'select' || s.action === 'upload') stepObj.value = s.value;
-          if (s.action === 'assert_url') stepObj.expected = s.value;
-          if (s.action === 'assert_text') {
-            stepObj.expected = s.value;
-            stepObj.targetLabel = s.targetLabel;
-          }
-          if (s.action === 'wait') stepObj.value = s.value;
-          return stepObj;
-        })
-      };
+      const dslPayload = buildDslPayload();
 
       if (!authToken) {
         checkAuthSession();
@@ -891,6 +907,7 @@
 
         latestGeneratedCode = data.code;
         currentHistoryId = data.historyId;
+        isHistoryReplay = false; // fresh generate owns its own history record
         codeOutput.textContent = data.code;
         setCodeEditable(true);
 
@@ -1108,19 +1125,39 @@
       if (videoContainer) videoContainer.style.display = 'none';
       if (videoPlayer) videoPlayer.src = '';
 
+      // When running a scenario loaded from Flow History, treat it as repeated
+      // work: ask the backend to save a NEW history record instead of
+      // overwriting the loaded one.
+      const runPayload = {
+        code,
+        mode,
+        language,
+        historyId: currentHistoryId
+      };
+      if (isHistoryReplay) {
+        const dsl = buildDslPayload();
+        runPayload.saveAsNewHistory = true;
+        runPayload.testSuite = dsl.testSuite;
+        runPayload.targetUrl = dsl.targetUrl;
+        runPayload.rawDsl = dsl;
+        runPayload.resolvedSteps = replaySourceResolvedSteps;
+      }
+
       try {
         const response = await fetch('/api/v1/run-test', {
           method: 'POST',
           headers: getAuthHeaders(),
-          body: JSON.stringify({
-            code,
-            mode,
-            language,
-            historyId: currentHistoryId
-          })
+          body: JSON.stringify(runPayload)
         });
 
         const data = await response.json();
+
+        // If a new history record was created for this replay run, adopt its id
+        // so subsequent runs update that new record rather than the old one.
+        if (data.historyId) {
+          currentHistoryId = data.historyId;
+          isHistoryReplay = false;
+        }
 
         if (data.success) {
           terminalTitle.textContent = `CLI Terminal Output [PASS - ${data.durationMs}ms]`;
@@ -1842,6 +1879,8 @@
       // Populate Code output
       latestGeneratedCode = h.generatedCode;
       currentHistoryId = h.id;
+      isHistoryReplay = true; // running this replay creates a new history record
+      replaySourceResolvedSteps = Array.isArray(h.resolvedSteps) ? h.resolvedSteps : [];
       
       const codeOutput = document.getElementById('codeOutput');
       if (codeOutput) codeOutput.textContent = h.generatedCode || '// No code available';
