@@ -1,0 +1,30 @@
+# nginx server block for the staging/dev subdomain.
+#
+# Save as /etc/nginx/sites-available/tester-lab-dev, then:
+#   ln -s /etc/nginx/sites-available/tester-lab-dev /etc/nginx/sites-enabled/
+#   nginx -t && systemctl reload nginx
+#   certbot --nginx -d dev.tester-lab.mibot.my.id     # issue SSL
+#
+# Adjust the upstream port to match PORT in the staging .env (e.g. 3001).
+
+server {
+    listen 80;
+    server_name dev.tester-lab.mibot.my.id;
+
+    # Recorder reverse-proxy streams target pages; allow larger bodies and
+    # disable buffering so responses flow through promptly.
+    client_max_body_size 10m;
+
+    location / {
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_buffering off;
+        proxy_read_timeout 300s;
+    }
+}
