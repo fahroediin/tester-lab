@@ -20,8 +20,10 @@ tmp_file="$msg_file.strip.tmp"
 #   Co-Authored-By: Claude ...
 #   Co-Authored-By: ... noreply@anthropic.com
 #   [🤖 ]Generated with [Claude Code] ...
+#   Claude-Session: https://claude.ai/code/...
+#   any trailer line ending in a claude.ai URL
 grep -v -i -E \
-  '^[[:space:]]*Co-Authored-By:[[:space:]]*Claude|^[[:space:]]*Co-Authored-By:.*(noreply@anthropic\.com|anthropic\.com>)|^[[:space:]]*(🤖[[:space:]]*)?Generated with (\[Claude Code\]|Claude Code)' \
+  '^[[:space:]]*Co-Authored-By:[[:space:]]*Claude|^[[:space:]]*Co-Authored-By:.*(noreply@anthropic\.com|anthropic\.com>)|^[[:space:]]*(🤖[[:space:]]*)?Generated with (\[Claude Code\]|Claude Code)|^[[:space:]]*Claude-Session:|^[[:space:]]*[A-Za-z-]+:[[:space:]]*https?://[^[:space:]]*claude\.ai' \
   "$msg_file" > "$tmp_file" || true
 
 # Trim trailing blank lines left behind after removal.
