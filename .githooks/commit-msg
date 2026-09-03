@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+#
+# commit-msg hook: strip AI co-author / generated-by trailers from every commit.
+#
+# Runs automatically on `git commit`. Removes any line attributing the commit
+# to Claude (or Claude Code) so such trailers can never be committed, no matter
+# what produced the message. The rest of the message is untouched.
+#
+# Enable once per clone:
+#   git config core.hooksPath .githooks
+#
+set -euo pipefail
+
+msg_file="$1"
+tmp_file="$msg_file.strip.tmp"
+
+# Drop attribution lines. Anchored to the start of the line (after optional
+# leading whitespace or a robot emoji) so prose that merely mentions these
+# phrases is not removed -- only real trailers are.
+#   Co-Authored-By: Claude ...
+#   Co-Authored-By: ... noreply@anthropic.com
+#   [🤖 ]Generated with [Claude Code] ...
+grep -v -i -E \
+  '^[[:space:]]*Co-Authored-By:[[:space:]]*Claude|^[[:space:]]*Co-Authored-By:.*(noreply@anthropic\.com|anthropic\.com>)|^[[:space:]]*(🤖[[:space:]]*)?Generated with (\[Claude Code\]|Claude Code)' \
+  "$msg_file" > "$tmp_file" || true
+
+# Trim trailing blank lines left behind after removal.
+sed -e :a -e '/^\n*$/{$d;N;ba}' "$tmp_file" > "$msg_file"
+rm -f "$tmp_file"
+
+exit 0

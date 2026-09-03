@@ -59,3 +59,14 @@ npx playwright install chromium
 npm run build
 npm run start
 ```
+
+## Git hooks
+
+Repo menyertakan hook di `.githooks/`. Aktifkan sekali per clone:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+`commit-msg` otomatis membuang baris atribusi AI (mis. `Co-Authored-By: Claude`,
+`Generated with Claude Code`) dari setiap pesan commit.
