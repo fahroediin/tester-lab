@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tester Lab</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/jpeg" href="/favicon.jpg">
+<script>
+  // Landing hanya untuk pengunjung yang belum login.
+  // Jika sudah ada token, langsung arahkan ke aplikasi.
+  try {
+    if (localStorage.getItem('tester_jwt_token')) {
+      location.replace('/app');
+    }
+  } catch (e) {}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  /* Day mode only, Tester Lab light palette. */
+  :root{
+    --bg:#ffffff; --bg-alt:#f8fafc; --surface:#ffffff; --ink:#17171c; --ink-soft:#454b57; --slate:#75758a;
+    --hairline:#eceff3; --line:#e1e6ec; --blue:#1863dc; --blue-soft:#eef4fe; --blue-ink:#0f3f96;
+    --sans:'Inter',system-ui,sans-serif; --mono:'JetBrains Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); -webkit-font-smoothing:antialiased; line-height:1.55;}
+  .wrap{max-width:960px; margin:0 auto; padding:0 clamp(20px,4vw,36px);}
+  a{color:inherit; text-decoration:none;}
+
+  nav{display:flex; align-items:center; justify-content:space-between; max-width:960px; margin:0 auto; padding:20px clamp(20px,4vw,36px);}
+  .brand{display:flex; align-items:center; gap:10px; font-weight:700; font-size:16px; letter-spacing:-.01em;}
+  .brand img{width:32px; height:32px; border-radius:8px; display:block;}
+  .nav-cta{font-size:13px; color:var(--blue); font-weight:600; border:1px solid var(--line); padding:8px 15px; border-radius:8px;}
+
+  .hero{text-align:center; padding:clamp(40px,6vw,72px) 0 clamp(30px,4vw,44px);}
+  .kicker{display:inline-block; font-family:var(--mono); font-size:11.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--blue); background:var(--blue-soft); padding:6px 13px; border-radius:20px; font-weight:600; margin-bottom:22px;}
+  .hero h1{font-size:clamp(30px,5.5vw,50px); font-weight:800; letter-spacing:-.03em; line-height:1.06; margin:0 auto 16px; max-width:17ch; text-wrap:balance;}
+  .hero h1 .hl{color:var(--blue);}
+  .hero p{font-size:clamp(15px,2vw,18px); color:var(--ink-soft); max-width:56ch; margin:0 auto 26px;}
+  .hero-actions{display:flex; gap:10px; justify-content:center; flex-wrap:wrap;}
+  .btn{display:inline-flex; align-items:center; font-weight:600; font-size:14.5px; padding:12px 22px; border-radius:9px; border:1px solid transparent;}
+  .btn-primary{background:var(--blue); color:#fff;}
+  .btn-ghost{background:#fff; color:var(--ink); border-color:var(--line);}
+
+  .features{padding:clamp(30px,5vw,56px) 0 clamp(48px,6vw,72px);}
+  .fhead{text-align:center; margin-bottom:32px;}
+  .fhead .eye{font-family:var(--mono); font-size:11.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--blue); font-weight:600;}
+  .fhead h2{font-size:clamp(22px,3vw,30px); font-weight:800; letter-spacing:-.02em; margin:9px 0 0;}
+
+  .fgrid{display:grid; grid-template-columns:repeat(3,1fr); gap:12px;}
+  @media (max-width:780px){.fgrid{grid-template-columns:repeat(2,1fr);}}
+  @media (max-width:500px){.fgrid{grid-template-columns:1fr;}}
+  .fcard{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:18px; transition:border-color .12s, transform .12s;}
+  .fcard:hover{border-color:var(--blue); transform:translateY(-2px);}
+  .fcard .ic{width:30px; height:30px; border-radius:8px; background:var(--blue-soft); color:var(--blue); display:grid; place-items:center; margin-bottom:11px;}
+  .fcard h3{font-size:14.5px; font-weight:700; margin:0 0 4px; letter-spacing:-.01em;}
+  .fcard p{font-size:12.5px; color:var(--ink-soft); margin:0; line-height:1.5;}
+
+  .rise{animation:rise .55s cubic-bezier(.2,.7,.3,1) both; animation-delay:var(--d,0ms);}
+  @keyframes rise{from{opacity:0; transform:translateY(22px);} to{opacity:1; transform:none;}}
+  @media (prefers-reduced-motion:reduce){.rise{animation:none;}}
+
+  .cta{text-align:center; padding:0 0 clamp(48px,6vw,72px);}
+  .cta-box{background:var(--blue); border-radius:18px; padding:clamp(30px,5vw,46px); color:#fff;}
+  .cta-box h2{font-size:clamp(22px,3vw,30px); font-weight:800; margin:0 0 10px; letter-spacing:-.02em; color:#fff;}
+  .cta-box p{font-size:15px; color:#dbe8fc; max-width:48ch; margin:0 auto 22px;}
+  .btn-white{background:#fff; color:var(--blue-ink); font-weight:700;}
+
+  footer{border-top:1px solid var(--hairline); padding:26px 0; text-align:center; font-family:var(--mono); font-size:11.5px; color:var(--slate);}
+  .svg{width:18px; height:18px; stroke:currentColor; fill:none; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round;}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="brand"><img src="/favicon.svg" alt="Tester Lab"> Tester Lab</div>
+  <a class="nav-cta" href="/app">Masuk Aplikasi</a>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="kicker rise">Non-LLM &middot; Deterministik</span>
+    <h1 class="rise" style="--d:60ms">Ubah skenario bisnis jadi <span class="hl">test otomatis</span>, tanpa menulis kode</h1>
+    <p class="rise" style="--d:140ms">Deterministik, tanpa AI, hasilnya selalu konsisten dan bisa dibawa keluar ke framework standar.</p>
+    <div class="hero-actions rise" style="--d:220ms">
+      <a class="btn btn-primary" href="/app">Coba Sekarang</a>
+      <a class="btn btn-ghost" href="#fitur">Lihat Fitur</a>
+    </div>
+  </div>
+</header>
+
+<section class="features" id="fitur">
+  <div class="wrap">
+    <div class="fhead">
+      <span class="eye">Fitur</span>
+      <h2>Semua yang Anda butuhkan untuk otomasi test</h2>
+    </div>
+    <div class="fgrid" id="grid">
+      <div class="fcard"><div class="ic"><svg class="svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/></svg></div><h3>6-Tier Scoring deterministik</h3><p>Pencocokan elemen non-LLM: Test ID, Label, ARIA Role, Text, Placeholder, Fuzzy. Hasil selalu konsisten.</p></div>
+      <div class="fcard"><div class="ic"><svg class="svg" viewBox="0 0 24 24"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg></div><h3>Multi-framework</h3><p>Satu skenario jadi Playwright TS/JS, Cypress, Selenium Python, atau Robot Framework.</p></div>
+      <div class="fcard"><div class="ic"><svg class="svg" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></div><h3>10 tipe aksi</h3><p>fill, click, select, check, uncheck, upload, wait, dan tiga jenis assertion.</p></div>
+      <div class="fcard"><div class="ic"><svg class="svg" viewBox="0 0 24 24"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.5 9a9 9 0 0114.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0020.5 15"/></svg></div><h3>Dry-run dan self-healing</h3><p>Validasi headless, auto-healing ke kandidat berikutnya bila selector gagal.</p></div>
+      <div class="fcard"><div class="ic"><svg class="svg" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></div><h3>Scenario Builder</h3><p>Buat skenario visual atau import JSON/YAML, edit kode inline lalu jalankan.</p></div>
+      <div class="fcard"><div class="ic"><svg class="svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg></div><h3>Interaction Recorder</h3><p>Rekam klik dan isian di situs target. Mendukung SSO, OutSystems, Next.js.</p></div>
+      <div class="fcard"><div class="ic"><svg class="svg" viewBox="0 0 24 24"><path d="M3 7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v2M7 21h10a2 2 0 002-2v-5a2 2 0 00-2-2H7a2 2 0 00-2 2v5a2 2 0 002 2z"/></svg></div><h3>Folder tree per proyek</h3><p>Test case dipisah per proyek. Kelompokkan, filter, pindah, dan kelola dari Flow History.</p></div>
+      <div class="fcard"><div class="ic"><svg class="svg" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 9l3 3-3 3M13 15h5"/></svg></div><h3>Terminal Runner dan video</h3><p>Jalankan script langsung, mode headless atau headed dengan perekaman video.</p></div>
+      <div class="fcard"><div class="ic"><svg class="svg" viewBox="0 0 24 24"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"/><path d="M9 12l2 2 4-4"/></svg></div><h3>Keamanan enterprise</h3><p>Dual auth dan RBAC, API key ter-hash, code sanitizer, SSRF guard, storage privat, RLS.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="cta">
+  <div class="wrap">
+    <div class="cta-box">
+      <h2>Pengujian lebih cepat, hasil yang bisa dibuktikan</h2>
+      <p>Buat test tanpa kode, jalankan langsung, simpan riwayatnya. Deterministik dan tanpa vendor lock-in.</p>
+      <a class="btn btn-white" href="/app">Masuk Aplikasi</a>
+    </div>
+  </div>
+</section>
+
+<footer>Tester Lab</footer>
+
+<script>
+  var cards = document.querySelectorAll('#grid .fcard');
+  if (!window.matchMedia || !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    for (var i = 0; i < cards.length; i++) {
+      cards[i].classList.add('rise');
+      cards[i].style.setProperty('--d', (380 + i * 70) + 'ms');
+    }
+  }
+</script>
+</body>
+</html>

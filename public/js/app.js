@@ -91,6 +91,81 @@
     let currentHistoryId = null;
     let currentViewedHistory = null;
     let appConfig = null;
+    let userFolders = [];
+
+    /**
+     * Load the current user's project folders and populate the builder's folder selector.
+     * Keeps the current selection if it still exists.
+     */
+    async function loadFolders() {
+      const select = document.getElementById('folderSelect');
+      if (!select || !authToken) return;
+      const previous = select.value;
+      try {
+        const res = await fetch('/api/v1/folders', { headers: getAuthHeaders() });
+        const data = await res.json();
+        if (!data.success) return;
+        userFolders = data.folders || [];
+        select.innerHTML = '<option value="">Select a folder first...</option>' +
+          userFolders.map(f =>
+            '<option value="' + f.id + '">' + escapeHtml(f.name) + ' (' + f.scenarioCount + ')</option>'
+          ).join('');
+        if (previous && userFolders.some(f => f.id === previous)) {
+          select.value = previous;
+        }
+      } catch (err) {
+        // Non-fatal: leave the selector as-is.
+      }
+    }
+
+    function openCreateFolderModal() {
+      if (!authToken) {
+        showSnackbar({ type: 'warning', title: 'Authentication Required', message: 'Please sign in first.' });
+        return;
+      }
+      const modal = document.getElementById('createFolderModal');
+      document.getElementById('newFolderName').value = '';
+      document.getElementById('newFolderDesc').value = '';
+      if (modal) modal.style.display = 'flex';
+      setTimeout(() => { const n = document.getElementById('newFolderName'); if (n) n.focus(); }, 50);
+    }
+
+    function closeCreateFolderModal() {
+      const modal = document.getElementById('createFolderModal');
+      if (modal) modal.style.display = 'none';
+    }
+
+    async function submitCreateFolder(event) {
+      event.preventDefault();
+      const name = document.getElementById('newFolderName').value.trim();
+      const description = document.getElementById('newFolderDesc').value.trim();
+      if (!name) return;
+      const btn = document.getElementById('btnSubmitFolder');
+      if (btn) btn.disabled = true;
+      try {
+        const res = await fetch('/api/v1/folders', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ name, description })
+        });
+        const data = await res.json();
+        if (data.success && data.folder) {
+          await loadFolders();
+          const select = document.getElementById('folderSelect');
+          if (select) select.value = data.folder.id;
+          resetGeneratedState();
+          closeCreateFolderModal();
+          showSnackbar({ type: 'success', title: 'Folder Created', message: 'Folder "' + data.folder.name + '" is ready.' });
+        } else {
+          showSnackbar({ type: 'error', title: 'Could Not Create Folder', message: data.error || 'Unknown error.' });
+        }
+      } catch (err) {
+        showSnackbar({ type: 'error', title: 'Network Error', message: 'Could not create folder.' });
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
     // True when the current builder state was loaded from a Flow History record.
     // A run in this state is treated as repeated work and saved as a NEW history
     // record instead of overwriting the loaded one.
@@ -811,6 +886,15 @@
         return;
       }
 
+      // Folders are mandatory: user must pick or create one before generating.
+      const selectedFolderId = (document.getElementById('folderSelect') || {}).value || '';
+      if (!selectedFolderId) {
+        showSnackbar({ type: 'warning', title: 'Folder Required', message: 'Select or create a project folder before generating a script.' });
+        const fg = document.getElementById('folderSelectGroup');
+        if (fg) fg.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+
       btn.disabled = true;
       const btnText = btn.querySelector('span:not(.loader)');
       if (btnText) btnText.textContent = 'Generating Script...';
@@ -889,7 +973,8 @@
           headers: getAuthHeaders(),
           body: JSON.stringify({
             dsl: dslPayload,
-            dryRun: isDryRun
+            dryRun: isDryRun,
+            folderId: selectedFolderId
           })
         });
 
@@ -1141,6 +1226,9 @@
         runPayload.targetUrl = dsl.targetUrl;
         runPayload.rawDsl = dsl;
         runPayload.resolvedSteps = replaySourceResolvedSteps;
+        // Keep the re-run in the same folder as the loaded scenario.
+        const fSel = document.getElementById('folderSelect');
+        if (fSel && fSel.value) runPayload.folderId = fSel.value;
       }
 
       try {
@@ -1254,8 +1342,9 @@
           if (appNav) appNav.style.display = 'block';
           if (unauthView) unauthView.style.display = 'none';
           if (mainApp) mainApp.style.display = 'flex';
-          
+
           await loadAppConfig();
+          await loadFolders();
         } else {
           authToken = '';
           localStorage.removeItem('tester_jwt_token');
@@ -1633,6 +1722,9 @@
     let historySortDesc = true;
     let historyCurrentPage = 1;
     const HISTORY_PAGE_SIZE = 10;
+    // Folder filter for the history view: null = all, 'none' = uncategorized, or a folder id.
+    let historyFolderFilter = null;
+    let expandedFolders = {}; // id (or 'none'/'all') -> bool, remembers expand state
 
     async function loadHistory() {
       const tbody = document.getElementById('historyTableBody');
@@ -1651,6 +1743,8 @@
         
         allHistoryData = data.history || [];
         historyCurrentPage = 1;
+        await loadFolders();
+        renderFolderTree();
         renderHistoryTable();
       } catch (err) {
         tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--coral);">Failed to load history</td></tr>';
@@ -1678,14 +1772,214 @@
       renderHistoryTable();
     };
 
+    function countInFolder(folderId) {
+      if (folderId === 'none') return allHistoryData.filter(h => !h.folderId).length;
+      return allHistoryData.filter(h => h.folderId === folderId).length;
+    }
+
+    window.selectHistoryFolder = function(id) {
+      historyFolderFilter = id; // null | 'none' | folderId
+      historyCurrentPage = 1;
+      renderFolderTree();
+      renderHistoryTable();
+    };
+
+    window.toggleFolderExpand = function(id, event) {
+      if (event) event.stopPropagation();
+      expandedFolders[id] = !expandedFolders[id];
+      renderFolderTree();
+    };
+
+    function folderRowHtml(opts) {
+      // opts: { key, name, count, active, expandable, expanded, actions }
+      const active = opts.active ? 'background: var(--accent-soft, rgba(37,99,168,.1));' : '';
+      const caret = opts.expandable
+        ? '<span onclick="toggleFolderExpand(\'' + opts.key + '\', event)" style="cursor:pointer; width:16px; display:inline-block; text-align:center; color: var(--slate);">' + (opts.expanded ? '&#9662;' : '&#9656;') + '</span>'
+        : '<span style="width:16px; display:inline-block;"></span>';
+      return '<div class="folder-row" onclick="selectHistoryFolder(' + (opts.key === 'all' ? 'null' : "'" + opts.key + "'") + ')" ' +
+        'style="display:flex; align-items:center; gap:8px; padding:9px 14px; cursor:pointer; border-bottom:1px solid var(--hairline); ' + active + '">' +
+        caret +
+        '<span style="flex:1; font-size:13.5px; font-weight:500; color: var(--ink);">' + opts.name + '</span>' +
+        '<span style="font-size:11px; font-family:var(--font-mono); color: var(--slate); background: var(--surface-2); padding:1px 8px; border-radius:20px;">' + opts.count + '</span>' +
+        (opts.actions || '') +
+        '</div>';
+    }
+
+    function renderFolderTree() {
+      const tree = document.getElementById('folderTree');
+      if (!tree) return;
+      const total = allHistoryData.length;
+      let html = '';
+
+      // "All scenarios" root
+      html += folderRowHtml({
+        key: 'all',
+        name: 'All scenarios',
+        count: total,
+        active: historyFolderFilter === null,
+        expandable: false
+      });
+
+      // Each folder
+      userFolders.forEach(f => {
+        const count = countInFolder(f.id);
+        const isExpanded = !!expandedFolders[f.id];
+        const actions =
+          '<button class="btn-pill-outline" onclick="renameFolderPrompt(\'' + f.id + '\', event)" style="padding:2px 8px; font-size:10px; min-height:unset; height:auto;">Rename</button>' +
+          '<button class="btn-pill-outline" onclick="deleteFolderPrompt(\'' + f.id + '\', event)" style="padding:2px 8px; font-size:10px; min-height:unset; height:auto; color:var(--coral); border-color:var(--coral);">Delete</button>';
+        html += folderRowHtml({
+          key: f.id,
+          name: escapeHtml(f.name),
+          count: count,
+          active: historyFolderFilter === f.id,
+          expandable: count > 0,
+          expanded: isExpanded,
+          actions: actions
+        });
+        if (isExpanded) {
+          const scenarios = allHistoryData.filter(h => h.folderId === f.id);
+          html += scenarios.map(scenarioRowHtml).join('');
+        }
+      });
+
+      // Uncategorized (old scenarios without a folder)
+      const uncatCount = countInFolder('none');
+      if (uncatCount > 0) {
+        const isExpanded = !!expandedFolders['none'];
+        html += folderRowHtml({
+          key: 'none',
+          name: '<span style="color: var(--slate); font-style: italic;">Uncategorized</span>',
+          count: uncatCount,
+          active: historyFolderFilter === 'none',
+          expandable: true,
+          expanded: isExpanded
+        });
+        if (isExpanded) {
+          const scenarios = allHistoryData.filter(h => !h.folderId);
+          html += scenarios.map(scenarioRowHtml).join('');
+        }
+      }
+
+      tree.innerHTML = html;
+    }
+
+    function scenarioRowHtml(h) {
+      const moveOptions = ['<option value="">Move to...</option>']
+        .concat(userFolders.map(f => '<option value="' + f.id + '"' + (f.id === h.folderId ? ' disabled' : '') + '>' + escapeHtml(f.name) + '</option>'))
+        .concat(h.folderId ? ['<option value="none">Uncategorized</option>'] : [])
+        .join('');
+      return '<div style="display:flex; align-items:center; gap:8px; padding:7px 14px 7px 38px; border-bottom:1px solid var(--hairline); background: var(--surface-2);">' +
+        '<span style="flex:1; font-size:12.5px; color: var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + escapeHtml(h.testSuite || 'Untitled') + '</span>' +
+        '<span style="font-size:10px; font-family:var(--font-mono); color: var(--slate);">' + new Date(h.timestamp).toLocaleDateString() + '</span>' +
+        '<select onchange="moveScenarioToFolder(\'' + h.id + '\', this.value)" style="font-size:11px; padding:2px 6px; max-width:130px;">' + moveOptions + '</select>' +
+        '<button class="btn-pill-outline" onclick="viewHistory(\'' + h.id + '\')" style="padding:2px 8px; font-size:10px; min-height:unset; height:auto;">View</button>' +
+        '</div>';
+    }
+
+    window.moveScenarioToFolder = async function(id, target) {
+      if (target === '') return;
+      const folderId = target === 'none' ? null : target;
+      try {
+        const res = await fetch('/api/v1/history/' + id + '/folder', {
+          method: 'PATCH',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ folderId })
+        });
+        const data = await res.json();
+        if (data.success) {
+          const rec = allHistoryData.find(h => h.id === id);
+          if (rec) rec.folderId = folderId;
+          renderFolderTree();
+          renderHistoryTable();
+          showSnackbar({ type: 'success', title: 'Moved', message: 'Scenario moved.' });
+        } else {
+          showSnackbar({ type: 'error', title: 'Move Failed', message: data.error || 'Unknown error.' });
+        }
+      } catch (err) {
+        showSnackbar({ type: 'error', title: 'Network Error', message: 'Could not move scenario.' });
+      }
+    };
+
+    window.renameFolderPrompt = async function(id, event) {
+      if (event) event.stopPropagation();
+      const folder = userFolders.find(f => f.id === id);
+      if (!folder) return;
+      const result = await Swal.fire({
+        title: 'Rename Folder',
+        input: 'text',
+        inputValue: folder.name,
+        showCancelButton: true,
+        confirmButtonText: 'Rename',
+        confirmButtonColor: '#005bbf',
+        inputValidator: v => (!v || !v.trim()) ? 'Name cannot be empty' : undefined
+      });
+      if (!result.isConfirmed) return;
+      try {
+        const res = await fetch('/api/v1/folders/' + id, {
+          method: 'PATCH',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ name: result.value.trim() })
+        });
+        const data = await res.json();
+        if (data.success) {
+          await loadFolders();
+          renderFolderTree();
+          renderHistoryTable();
+        } else {
+          showSnackbar({ type: 'error', title: 'Rename Failed', message: data.error || 'Unknown error.' });
+        }
+      } catch (err) {
+        showSnackbar({ type: 'error', title: 'Network Error', message: 'Could not rename folder.' });
+      }
+    };
+
+    window.deleteFolderPrompt = async function(id, event) {
+      if (event) event.stopPropagation();
+      const folder = userFolders.find(f => f.id === id);
+      if (!folder) return;
+      const count = countInFolder(id);
+      const result = await Swal.fire({
+        icon: 'warning',
+        title: 'Delete Folder?',
+        html: 'Delete <b>' + escapeHtml(folder.name) + '</b>?' + (count > 0 ? '<br>The ' + count + ' scenario(s) inside will become uncategorized, not deleted.' : ''),
+        showCancelButton: true,
+        confirmButtonText: 'Delete',
+        confirmButtonColor: '#dc3545'
+      });
+      if (!result.isConfirmed) return;
+      try {
+        const res = await fetch('/api/v1/folders/' + id, { method: 'DELETE', headers: getAuthHeaders() });
+        const data = await res.json();
+        if (data.success) {
+          if (historyFolderFilter === id) historyFolderFilter = null;
+          // Reflect the move-to-uncategorized locally.
+          allHistoryData.forEach(h => { if (h.folderId === id) h.folderId = null; });
+          await loadFolders();
+          renderFolderTree();
+          renderHistoryTable();
+          showSnackbar({ type: 'success', title: 'Folder Deleted', message: 'Scenarios inside are now uncategorized.' });
+        } else {
+          showSnackbar({ type: 'error', title: 'Delete Failed', message: data.error || 'Unknown error.' });
+        }
+      } catch (err) {
+        showSnackbar({ type: 'error', title: 'Network Error', message: 'Could not delete folder.' });
+      }
+    };
+
     function renderHistoryTable() {
       const tbody = document.getElementById('historyTableBody');
       if (!tbody) return;
 
-      // Filter
+      // Filter by folder first
       let filtered = allHistoryData;
+      if (historyFolderFilter === 'none') {
+        filtered = filtered.filter(h => !h.folderId);
+      } else if (historyFolderFilter) {
+        filtered = filtered.filter(h => h.folderId === historyFolderFilter);
+      }
+      // Then by search query
       if (historySearchQuery) {
-        filtered = filtered.filter(h => 
+        filtered = filtered.filter(h =>
           (h.testSuite || '').toLowerCase().includes(historySearchQuery) ||
           (h.targetUrl || '').toLowerCase().includes(historySearchQuery) ||
           (h.status || '').toLowerCase().includes(historySearchQuery)
@@ -1875,6 +2169,12 @@
       }
       
       renderSteps();
+
+      // Select the folder this scenario belongs to, if it still exists.
+      const folderSelect = document.getElementById('folderSelect');
+      if (folderSelect && h.folderId && userFolders.some(f => f.id === h.folderId)) {
+        folderSelect.value = h.folderId;
+      }
 
       // Populate Code output
       latestGeneratedCode = h.generatedCode;

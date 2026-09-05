@@ -7,6 +7,7 @@ import { adminRoutes } from './routes/admin-routes.js';
 import { feedbackRoutes } from './routes/feedback-routes.js';
 import { testRoutes } from './routes/test-routes.js';
 import { historyRoutes } from './routes/history-routes.js';
+import { folderRoutes } from './routes/folder-routes.js';
 import { configRoutes } from './routes/config-routes.js';
 import { apiKeyRoutes } from './routes/api-key-routes.js';
 import { recorderRoutes, proxyAssetMiddleware } from './routes/recorder-routes.js';
@@ -19,14 +20,26 @@ const port = process.env.PORT || 3000;
 
 app.use(express.json({ limit: '10mb' }));
 
-// Serve static files from public directory
-app.use(express.static(path.join(process.cwd(), 'public')));
-app.use(express.static(path.join(process.cwd(), 'dist', 'public')));
+// Serve static assets from public directory. Disable auto-index so a request
+// to "/" is NOT served index.html by this middleware; the explicit "/" route
+// below serves the landing page instead.
+app.use(express.static(path.join(process.cwd(), 'public'), { index: false }));
+app.use(express.static(path.join(process.cwd(), 'dist', 'public'), { index: false }));
 
 /**
- * Root Route: Serve Interactive HTML Web UI
+ * Root Route: Serve the marketing landing page.
+ * The landing page itself redirects logged-in visitors to /app (client-side,
+ * based on the stored auth token), so returning users skip it.
  */
 app.get('/', (req: Request, res: Response) => {
+  const landingPath = path.join(process.cwd(), 'public', 'landing.html');
+  res.sendFile(landingPath);
+});
+
+/**
+ * App Route: Serve the interactive workspace (the actual application UI).
+ */
+app.get('/app', (req: Request, res: Response) => {
   const indexPath = path.join(process.cwd(), 'public', 'index.html');
   res.sendFile(indexPath);
 });
@@ -80,6 +93,7 @@ app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/api-keys', apiKeyRoutes);
 app.use('/api/v1/feedback', feedbackRoutes);
 app.use('/api/v1/history', historyRoutes);
+app.use('/api/v1/folders', folderRoutes);
 app.use('/api/v1/config', configRoutes);
 app.use('/api/v1/recorder', recorderRoutes);
 app.use('/api/v1', testRoutes); // testRoutes has endpoints like /generate-script, /inspect-dom, /run-test directly under /api/v1

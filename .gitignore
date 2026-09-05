@@ -5,6 +5,8 @@ test-results/
 *.log
 test-output.ts
 .env
+.env.*
+!.env.example
 tests/
 scratch/
 
@@ -12,3 +14,7 @@ temp_out.ts
 
 # Release notes are published on GitHub Releases, not tracked in the repo
 RELEASE_NOTES*
+
+# Runtime data (pre-Supabase JSON store & locally recorded run videos)
+data/
+public/videos/

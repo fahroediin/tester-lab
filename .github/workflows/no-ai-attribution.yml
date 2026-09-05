@@ -1,0 +1,49 @@
+name: No AI attribution
+
+# Menolak PR yang membawa trailer atribusi AI (mis. "Co-Authored-By: Claude")
+# pada pesan commit-nya. Ini menutup celah yang tidak bisa ditangani hook lokal:
+# commit dari fork/kontributor eksternal tidak pernah melewati .githooks mesin kita.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  check-commit-messages:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR commits
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Scan commit messages for AI attribution trailers
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          # Hanya baris trailer "Co-Authored-By:" (atau varian sesi Claude) yang
+          # mengarah ke penyedia AI. Judul/isi yang kebetulan menyebut "Claude"
+          # sebagai teks biasa tidak diblokir.
+          pattern='^[[:space:]]*(Co-Authored-By|Co-authored-by):.*(anthropic|claude)'
+          session_pattern='^[[:space:]]*(Claude-Session|Generated with \[Claude)'
+
+          offenders=""
+          for sha in $(git rev-list "${BASE_SHA}..${HEAD_SHA}"); do
+            body="$(git log -1 --format='%B' "$sha")"
+            if printf '%s\n' "$body" | grep -qiE "$pattern" \
+               || printf '%s\n' "$body" | grep -qiE "$session_pattern"; then
+              short="$(git log -1 --format='%h %s' "$sha")"
+              offenders="${offenders}\n  - ${short}"
+            fi
+          done
+
+          if [ -n "$offenders" ]; then
+            echo "::error::Ada commit dengan trailer atribusi AI. Hapus baris tersebut (mis. rebase/amend atau squash-merge dengan pesan bersih) sebelum merge."
+            printf 'Commit bermasalah:%b\n' "$offenders"
+            exit 1
+          fi
+
+          echo "Bersih: tidak ada trailer atribusi AI pada commit PR ini."

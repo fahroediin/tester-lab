@@ -8,6 +8,7 @@ export interface FlowHistory {
   id: string;
   userId: string;
   username: string;
+  folderId?: string | null;
   timestamp: string;
   testSuite: string;
   targetUrl: string;
@@ -24,6 +25,7 @@ interface FlowHistoryRow {
   id: string;
   user_id: string;
   username: string;
+  folder_id: string | null;
   timestamp: string;
   test_suite: string;
   target_url: string;
@@ -41,6 +43,7 @@ function rowToFlowHistory(row: FlowHistoryRow): FlowHistory {
     id: row.id,
     userId: row.user_id,
     username: row.username,
+    folderId: row.folder_id || undefined,
     timestamp: row.timestamp,
     testSuite: row.test_suite,
     targetUrl: row.target_url,
@@ -60,6 +63,7 @@ export async function addHistory(record: Omit<FlowHistory, 'id' | 'timestamp'>):
     .insert({
       user_id: record.userId,
       username: record.username,
+      folder_id: record.folderId || null,
       test_suite: record.testSuite,
       target_url: record.targetUrl,
       status: record.status,
@@ -108,6 +112,8 @@ export async function getHistoryById(id: string): Promise<FlowHistory | undefine
 export async function updateHistory(id: string, updates: Partial<FlowHistory>): Promise<FlowHistory | null> {
   const updatePayload: Record<string, unknown> = {};
   if (updates.status !== undefined) updatePayload.status = updates.status;
+  // folderId is nullable: pass null explicitly to move a scenario to uncategorized.
+  if ('folderId' in updates) updatePayload.folder_id = updates.folderId ?? null;
   if (updates.generatedCode !== undefined) updatePayload.generated_code = updates.generatedCode;
   if (updates.rawDsl !== undefined) updatePayload.raw_dsl = updates.rawDsl;
   if (updates.videoUrl !== undefined) updatePayload.video_url = updates.videoUrl;

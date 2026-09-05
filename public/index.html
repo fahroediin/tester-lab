@@ -190,6 +190,17 @@
         </div>
       </div>
 
+      <div class="form-group" id="folderSelectGroup">
+        <label for="folderSelect">Project Folder <span style="color: var(--coral);">*</span></label>
+        <div style="display: flex; gap: 8px; align-items: stretch;">
+          <select id="folderSelect" style="flex: 1;" onchange="resetGeneratedState()">
+            <option value="">Select a folder first...</option>
+          </select>
+          <button type="button" class="btn-pill-outline" onclick="openCreateFolderModal()" style="white-space: nowrap;">+ New Folder</button>
+        </div>
+        <p style="font-size: 12px; color: var(--slate); margin: 6px 0 0;">Test cases are organized per project. Pick or create a folder before generating.</p>
+      </div>
+
       <div class="grid-2">
         <div class="form-group">
           <label for="testSuite">Test Suite Name</label>
@@ -377,6 +388,12 @@
             <button class="btn-pill-outline" onclick="loadHistory()">Refresh</button>
           </div>
         </div>
+
+        <!-- Folder Tree -->
+        <div id="folderTree" style="margin-bottom: 16px; border: 1px solid var(--hairline); border-radius: var(--radius); overflow: hidden;">
+          <div style="padding: 20px; text-align: center; color: var(--slate); font-size: 13px;">Loading folders...</div>
+        </div>
+
         <div style="overflow-x: auto;">
           <table class="summary-table" style="width: 100%;">
             <thead>
@@ -603,6 +620,30 @@
         <iframe id="recorderIframe" sandbox="allow-forms allow-modals allow-popups allow-presentation allow-same-origin allow-scripts" style="width: 100%; height: 100%; border: none; display: block;" src="about:blank"></iframe>
       </div>
 
+    </div>
+  </div>
+
+  <!-- Create Folder Modal -->
+  <div class="modal-overlay" id="createFolderModal" style="display: none; z-index: 2100;">
+    <div class="modal-card" style="max-width: 440px; width: 92%;">
+      <div class="modal-header">
+        <h3>New Project Folder</h3>
+        <button class="modal-close" onclick="closeCreateFolderModal()">&times;</button>
+      </div>
+      <form onsubmit="submitCreateFolder(event)" style="margin-top: 16px;">
+        <div class="form-group" style="margin-bottom: 16px;">
+          <label for="newFolderName">Folder Name</label>
+          <input type="text" id="newFolderName" placeholder="e.g. Project Alpha" maxlength="120" required>
+        </div>
+        <div class="form-group" style="margin-bottom: 20px;">
+          <label for="newFolderDesc">Description (optional)</label>
+          <input type="text" id="newFolderDesc" placeholder="Short description" maxlength="500">
+        </div>
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+          <button type="button" class="btn-pill-outline" onclick="closeCreateFolderModal()">Cancel</button>
+          <button type="submit" class="btn-pill-primary" id="btnSubmitFolder">Create Folder</button>
+        </div>
+      </form>
     </div>
   </div>
 

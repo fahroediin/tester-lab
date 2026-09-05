@@ -5,6 +5,7 @@ import { addLog } from '../activity-log-store.js';
 import { sanitizeCode } from '../../security/code-sanitizer.js';
 import { globalTestRunnerQueue, globalTestGeneratorQueue } from '../queue-manager.js';
 import { addHistory, updateHistory } from '../flow-history-store.js';
+import { getFolderById } from '../folder-store.js';
 import { TestScriptGenerator } from '../../index.js';
 import { DOMExtractor } from '../../crawler/dom-extractor.js';
 import { recordApiKeyUsage } from '../api-key-usage-store.js';
@@ -21,12 +22,29 @@ const extractor = new DOMExtractor();
  */
 testRoutes.post('/generate-script', authenticateJWT, requireApprovedUser, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { dsl, dryRun, outPath } = req.body;
+    const { dsl, dryRun, outPath, folderId } = req.body;
 
     if (!dsl) {
       res.status(400).json({
         success: false,
         error: 'Missing required field: dsl'
+      });
+      return;
+    }
+
+    // Folders are mandatory: a scenario must be generated into a folder the user owns.
+    if (!folderId || typeof folderId !== 'string') {
+      res.status(400).json({
+        success: false,
+        error: 'Please select or create a folder before generating a script.'
+      });
+      return;
+    }
+    const folder = await getFolderById(folderId);
+    if (!folder || (folder.userId !== req.user!.id && req.user!.role !== 'admin')) {
+      res.status(400).json({
+        success: false,
+        error: 'Invalid folder. Select one of your own folders.'
       });
       return;
     }
@@ -83,6 +101,7 @@ testRoutes.post('/generate-script', authenticateJWT, requireApprovedUser, async 
     const historyRecord = await addHistory({
       userId: req.user!.id,
       username: req.user!.username,
+      folderId,
       testSuite: dsl.testSuite || 'Unknown Test Suite',
       targetUrl: dsl.targetUrl || '',
       status: 'GENERATED',
@@ -149,7 +168,7 @@ testRoutes.post('/inspect-dom', authenticateJWT, requireApprovedUser, async (req
  */
 testRoutes.post('/run-test', authenticateJWT, requireApprovedUser, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { code, mode = 'headless', language = 'typescript', saveAsNewHistory, testSuite, targetUrl, rawDsl, resolvedSteps } = req.body;
+    const { code, mode = 'headless', language = 'typescript', saveAsNewHistory, testSuite, targetUrl, rawDsl, resolvedSteps, folderId } = req.body;
     let { historyId } = req.body;
     const userId = req.user!.id;
 
@@ -191,9 +210,18 @@ testRoutes.post('/run-test', authenticateJWT, requireApprovedUser, async (req: A
     // Repeated work: when a scenario is re-run from Flow History, save it as a
     // NEW history record instead of overwriting the loaded one.
     if (saveAsNewHistory) {
+      // Preserve the original scenario's folder when it belongs to this user.
+      let keepFolderId: string | undefined;
+      if (folderId && typeof folderId === 'string') {
+        const folder = await getFolderById(folderId);
+        if (folder && (folder.userId === userId || req.user!.role === 'admin')) {
+          keepFolderId = folder.id;
+        }
+      }
       const newRecord = await addHistory({
         userId: req.user!.id,
         username: req.user!.username,
+        folderId: keepFolderId,
         testSuite: (typeof testSuite === 'string' && testSuite) || 'Automated Test Suite',
         targetUrl: (typeof targetUrl === 'string' && targetUrl) || (rawDsl && rawDsl.targetUrl) || '',
         status: 'RUNNING',
