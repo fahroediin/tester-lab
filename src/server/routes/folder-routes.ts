@@ -2,7 +2,7 @@ import { Router, Response } from 'express';
 import { authenticateJWT, requireApprovedUser } from '../auth-middleware.js';
 import type { AuthenticatedRequest } from '../auth-middleware.js';
 import { getUserProjects, getProjectById, createProject, updateProject, deleteProject } from '../folder-store.js';
-import { getUserHistory } from '../flow-history-store.js';
+import { getScenarioCountsByFolder } from '../flow-history-store.js';
 import { addLog } from '../activity-log-store.js';
 
 export const folderRoutes = Router();
@@ -24,16 +24,12 @@ function cleanName(raw: unknown): string | null {
 folderRoutes.get('/', authenticateJWT, requireApprovedUser, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.user!.id;
-    const [projects, history] = await Promise.all([getUserProjects(userId), getUserHistory(userId)]);
+    const [projects, { counts, uncategorized }] = await Promise.all([
+      getUserProjects(userId),
+      getScenarioCountsByFolder(userId)
+    ]);
 
-    const counts = new Map<string, number>();
-    let uncategorized = 0;
-    for (const h of history) {
-      if (h.folderId) counts.set(h.folderId, (counts.get(h.folderId) || 0) + 1);
-      else uncategorized += 1;
-    }
-
-    const withCounts = projects.map(p => ({ ...p, scenarioCount: counts.get(p.id) || 0 }));
+    const withCounts = projects.map(p => ({ ...p, scenarioCount: counts[p.id] || 0 }));
     res.json({
       success: true,
       projects: withCounts,

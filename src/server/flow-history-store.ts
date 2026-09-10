@@ -101,6 +101,112 @@ export async function getUserHistory(userId: string): Promise<FlowHistory[]> {
   return (data || []).map(rowToFlowHistory);
 }
 
+/**
+ * Lightweight summary for the Flow History list view. Selects only the columns
+ * the list needs, omitting the heavy fields (generated_code, raw_dsl,
+ * resolved_steps, run_logs) that can be hundreds of KB per row. Detail views
+ * still use getHistoryById to fetch the full record on demand.
+ */
+export interface FlowHistorySummary {
+  id: string;
+  folderId: string | null;
+  suiteId: string | null;
+  timestamp: string;
+  testSuite: string;
+  targetUrl: string;
+  status: FlowHistory['status'];
+  durationMs: number | null;
+  hasVideo: boolean;
+}
+
+export async function getUserHistorySummaries(userId: string): Promise<FlowHistorySummary[]> {
+  const { data, error } = await supabase
+    .from('flow_history')
+    .select('id, folder_id, suite_id, timestamp, test_suite, target_url, status, duration_ms, video_url')
+    .eq('user_id', userId)
+    .order('timestamp', { ascending: false });
+
+  if (error) {
+    console.error('Failed to fetch history summaries:', error);
+    return [];
+  }
+
+  return (data || []).map((row) => {
+    const r = row as {
+      id: string; folder_id: string | null; suite_id: string | null;
+      timestamp: string; test_suite: string; target_url: string;
+      status: string; duration_ms: number | null; video_url: string | null;
+    };
+    return {
+      id: r.id,
+      folderId: r.folder_id,
+      suiteId: r.suite_id,
+      timestamp: r.timestamp,
+      testSuite: r.test_suite,
+      targetUrl: r.target_url,
+      status: r.status as FlowHistory['status'],
+      durationMs: r.duration_ms,
+      hasVideo: !!r.video_url
+    };
+  });
+}
+
+/**
+ * Scenario counts per project (folder) for a user, plus the count of scenarios
+ * not assigned to any project. One query selecting a single column, instead of
+ * fetching the full history for counting.
+ */
+export async function getScenarioCountsByFolder(
+  userId: string
+): Promise<{ counts: Record<string, number>; uncategorized: number }> {
+  const { data, error } = await supabase
+    .from('flow_history')
+    .select('folder_id')
+    .eq('user_id', userId);
+
+  const counts: Record<string, number> = {};
+  let uncategorized = 0;
+  if (error) {
+    console.error('Failed to count scenarios by folder:', error);
+    return { counts, uncategorized };
+  }
+  for (const row of data || []) {
+    const folderId = (row as { folder_id: string | null }).folder_id;
+    if (folderId) counts[folderId] = (counts[folderId] || 0) + 1;
+    else uncategorized += 1;
+  }
+  return { counts, uncategorized };
+}
+
+/**
+ * Scenario counts per suite within a single project, plus the count of
+ * scenarios in that project that are not assigned to any suite. One query
+ * selecting a single column, scoped to the project.
+ */
+export async function getScenarioCountsBySuite(
+  userId: string,
+  projectId: string
+): Promise<{ counts: Record<string, number>; uncategorized: number }> {
+  const { data, error } = await supabase
+    .from('flow_history')
+    .select('suite_id')
+    .eq('user_id', userId)
+    .eq('folder_id', projectId);
+
+  const counts: Record<string, number> = {};
+  let uncategorized = 0;
+  if (error) {
+    console.error('Failed to count scenarios by suite:', error);
+    return { counts, uncategorized };
+  }
+  for (const row of data || []) {
+    const suiteId = (row as { suite_id: string | null }).suite_id;
+    if (suiteId) counts[suiteId] = (counts[suiteId] || 0) + 1;
+    else uncategorized += 1;
+  }
+  return { counts, uncategorized };
+}
+
 export async function getHistoryById(id: string): Promise<FlowHistory | undefined> {
   const { data, error } = await supabase
     .from('flow_history')

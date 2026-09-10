@@ -1919,17 +1919,21 @@
       tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px; color: var(--slate);">Loading history...</td></tr>';
       
       try {
-        const response = await fetch('/api/v1/history', { headers: getAuthHeaders() });
-        const data = await response.json();
-        
+        // History and folders are independent, so fetch them concurrently.
+        // loadAllProjectSuites still runs after loadFolders because it needs
+        // the loaded project list (userFolders).
+        const [data] = await Promise.all([
+          fetch('/api/v1/history', { headers: getAuthHeaders() }).then(r => r.json()),
+          loadFolders()
+        ]);
+
         if (!data.success) {
           tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--coral);">${data.error}</td></tr>`;
           return;
         }
-        
+
         allHistoryData = data.history || [];
         historyCurrentPage = 1;
-        await loadFolders();
         await loadAllProjectSuites();
         renderFolderTree();
         renderHistoryTable();

@@ -39,6 +39,9 @@ function ok(name, cond) {
   const historyStore = require('../dist/server/flow-history-store.js');
   ok('addHistory is exported', typeof historyStore.addHistory === 'function');
   ok('updateHistory is exported', typeof historyStore.updateHistory === 'function');
+  ok('getUserHistorySummaries is exported (lightweight list)', typeof historyStore.getUserHistorySummaries === 'function');
+  ok('getScenarioCountsByFolder is exported (count query)', typeof historyStore.getScenarioCountsByFolder === 'function');
+  ok('getScenarioCountsBySuite is exported (count query)', typeof historyStore.getScenarioCountsBySuite === 'function');
 
   console.log('\n[4] Route module exports');
   const { folderRoutes } = require('../dist/server/routes/folder-routes.js');

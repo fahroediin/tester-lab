@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import { authenticateJWT, requireApprovedUser } from '../auth-middleware.js';
 import type { AuthenticatedRequest } from '../auth-middleware.js';
-import { getUserHistory, getHistoryById, deleteHistory, updateHistory } from '../flow-history-store.js';
+import { getUserHistorySummaries, getHistoryById, deleteHistory, updateHistory } from '../flow-history-store.js';
 import { getProjectById } from '../folder-store.js';
 import { getSuiteById } from '../suite-store.js';
 import { signVideoUrl } from '../lib/storage-url.js';
@@ -15,7 +15,9 @@ export const historyRoutes = Router();
 historyRoutes.get('/', authenticateJWT, requireApprovedUser, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.user!.id;
-    const history = await getUserHistory(userId);
+    // List view uses a lightweight summary query that omits heavy columns
+    // (generated_code, raw_dsl, resolved_steps, run_logs) to keep loading fast.
+    const history = await getUserHistorySummaries(userId);
 
     // Optional filter by project/folder: ?projectId=<id> or ?folderId=<id>
     const projectFilter = typeof req.query.projectId === 'string'
@@ -35,7 +37,7 @@ historyRoutes.get('/', authenticateJWT, requireApprovedUser, async (req: Authent
       filtered = filtered.filter(h => (suiteFilter === 'none' ? !h.suiteId : h.suiteId === suiteFilter));
     }
 
-    // Map to strip out heavy fields (like generatedCode, resolvedSteps, logs) for the list view
+    // Shape the summary for the client (projectId mirrors folderId for compatibility).
     const summary = filtered.map(h => ({
       id: h.id,
       folderId: h.folderId || null,
@@ -46,7 +48,7 @@ historyRoutes.get('/', authenticateJWT, requireApprovedUser, async (req: Authent
       targetUrl: h.targetUrl,
       status: h.status,
       durationMs: h.durationMs,
-      hasVideo: !!h.videoUrl
+      hasVideo: h.hasVideo
     }));
 
     res.json({ success: true, history: summary });

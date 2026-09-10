@@ -3,7 +3,7 @@ import { authenticateJWT, requireApprovedUser } from '../auth-middleware.js';
 import type { AuthenticatedRequest } from '../auth-middleware.js';
 import { getSuitesByProjectId, getSuiteById, createSuite, updateSuite, deleteSuite } from '../suite-store.js';
 import { getProjectById } from '../folder-store.js';
-import { getUserHistory } from '../flow-history-store.js';
+import { getScenarioCountsBySuite } from '../flow-history-store.js';
 import { addLog } from '../activity-log-store.js';
 
 export const suiteRoutes = Router();
@@ -44,26 +44,13 @@ suiteRoutes.get('/', authenticateJWT, requireApprovedUser, async (req: Authentic
       return;
     }
 
-    const [suites, history] = await Promise.all([
+    const [suites, { counts, uncategorized }] = await Promise.all([
       getSuitesByProjectId(projectId),
-      getUserHistory(userId)
+      getScenarioCountsBySuite(userId, projectId)
     ]);
 
-    const counts = new Map<string, number>();
-    let uncategorizedInProject = 0;
-
-    for (const h of history) {
-      if (h.folderId === projectId) {
-        if (h.suiteId) {
-          counts.set(h.suiteId, (counts.get(h.suiteId) || 0) + 1);
-        } else {
-          uncategorizedInProject += 1;
-        }
-      }
-    }
-
-    const withCounts = suites.map(s => ({ ...s, scenarioCount: counts.get(s.id) || 0 }));
-    res.json({ success: true, suites: withCounts, uncategorizedCount: uncategorizedInProject });
+    const withCounts = suites.map(s => ({ ...s, scenarioCount: counts[s.id] || 0 }));
+    res.json({ success: true, suites: withCounts, uncategorizedCount: uncategorized });
   } catch (err: unknown) {
     const error = err as Error;
     res.status(500).json({ success: false, error: error.message || 'Failed to fetch suites' });
