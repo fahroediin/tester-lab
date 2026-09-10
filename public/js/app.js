@@ -901,7 +901,52 @@
         `;
         if (badge) badge.textContent = 'Robot Engine';
       }
+      updateOutputLabels();
     }
+
+    // File extension for the generated code, keyed by the selected language.
+    // Single source of truth shared by the export label and the download name.
+    function codeExtForLanguage(lang) {
+      const map = {
+        javascript: 'spec.js',
+        typescript: 'spec.ts',
+        python: 'py',
+        java: 'java',
+        robot: 'robot'
+      };
+      return map[lang] || 'spec.ts';
+    }
+
+    // Human-readable framework name for output titles.
+    function frameworkDisplayName(fw) {
+      const map = {
+        playwright: 'Playwright',
+        cypress: 'Cypress',
+        selenium: 'Selenium',
+        robotframework: 'Robot Framework'
+      };
+      return map[fw] || 'Test';
+    }
+
+    // Keep the output-area labels in sync with the chosen framework/language:
+    // the card title, the export dropdown's "Code" option, and the console title.
+    function updateOutputLabels() {
+      const fw = (document.getElementById('framework') || {}).value || 'playwright';
+      const lang = (document.getElementById('language') || {}).value || 'typescript';
+      const fwName = frameworkDisplayName(fw);
+
+      const cardTitle = document.getElementById('generatedCodeTitle');
+      if (cardTitle) cardTitle.textContent = 'Generated ' + fwName + ' Code';
+
+      const codeOption = document.querySelector('#exportFormat option[value="code"]');
+      if (codeOption) codeOption.textContent = 'Code (.' + codeExtForLanguage(lang) + ')';
+
+      const consoleTitle = document.getElementById('consoleTitle');
+      if (consoleTitle && !isGeneratingScript) {
+        consoleTitle.textContent = fwName + ' Code Spec';
+      }
+    }
+    window.updateOutputLabels = updateOutputLabels;
 
     function resetTerminalOutput() {
       const terminalTitle = document.getElementById('terminalTitle');
@@ -1138,7 +1183,7 @@
         clearInterval(progressTimer);
         const data = await response.json();
 
-        if (consoleTitle) consoleTitle.textContent = 'PLAYWRIGHT TEST OUTPUT CONSOLE';
+        if (consoleTitle) consoleTitle.textContent = frameworkDisplayName(document.getElementById('framework').value).toUpperCase() + ' TEST OUTPUT CONSOLE';
 
         if (!data.success) {
           statusBadgeContainer.innerHTML = '<span class="status-chip chip-fail">Generation Failed</span>';
@@ -1193,7 +1238,7 @@
 
       } catch (err) {
         clearInterval(progressTimer);
-        if (consoleTitle) consoleTitle.textContent = 'PLAYWRIGHT TEST OUTPUT CONSOLE';
+        if (consoleTitle) consoleTitle.textContent = frameworkDisplayName(document.getElementById('framework').value).toUpperCase() + ' TEST OUTPUT CONSOLE';
         statusBadgeContainer.innerHTML = '<span class="status-chip chip-fail">Connection Error</span>';
         showSnackbar({ type: 'error', title: 'Connection Error', message: 'Failed to connect to API server: ' + err.message });
       } finally {
@@ -1277,14 +1322,7 @@
         const lang = document.getElementById('language').value;
         // Extension follows the selected language so the downloaded file matches
         // its actual contents (e.g. Selenium Python is .py, Selenium Java is .java).
-        const extByLang = {
-          javascript: 'spec.js',
-          typescript: 'spec.ts',
-          python: 'py',
-          java: 'java',
-          robot: 'robot'
-        };
-        filename = `${baseFilename}.${extByLang[lang] || 'spec.ts'}`;
+        filename = `${baseFilename}.${codeExtForLanguage(lang)}`;
       } else {
          const data = {
            testSuite: document.getElementById('testSuite').value,
@@ -2633,6 +2671,7 @@
         if (h.rawDsl.language) {
           setTimeout(() => {
             document.getElementById('language').value = h.rawDsl.language;
+            updateOutputLabels();
           }, 10);
         }
         
@@ -3163,4 +3202,5 @@
     // Initialize on page load
     initTheme();
     renderSteps();
+    updateOutputLabels();
     checkAuthSession();

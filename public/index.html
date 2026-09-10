@@ -237,7 +237,7 @@
         </div>
         <div class="form-group">
           <label for="language">Language / Syntax Format</label>
-          <select id="language" onchange="resetGeneratedState()">
+          <select id="language" onchange="updateOutputLabels(); resetGeneratedState()">
             <option value="typescript">TypeScript (.spec.ts)</option>
             <option value="javascript">JavaScript (.spec.js)</option>
           </select>
@@ -319,12 +319,12 @@
       <!-- Card 2: Generated Code -->
       <div class="card" id="generatedCodeCard" style="display: none;">
         <div class="card-header">
-          <label
+          <label id="generatedCodeTitle"
             style="font-family: var(--font-mono); font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.2px; color: var(--primary); margin: 0;">Generated
-            Playwright Code</label>
+            Code</label>
           <div class="code-actions" style="display: flex; gap: 8px; align-items: center;">
             <select id="exportFormat" style="padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border); font-size: 13px; font-family: var(--font-sans); background: var(--bg); cursor: pointer; outline: none; color: var(--foreground);">
-              <option value="code">Code (.spec/.js)</option>
+              <option value="code">Code</option>
               <option value="yaml">Flow (.yaml)</option>
               <option value="json">Flow (.json)</option>
             </select>
