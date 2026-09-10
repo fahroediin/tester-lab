@@ -249,6 +249,30 @@ textarea:focus {
   gap: 16px;
 }
 
+/*
+ * A form control (select/input) paired with an action button on its right.
+ * The row wraps when there is not enough width, so the button drops below the
+ * control instead of squeezing it until its text is clipped. The control keeps
+ * a sensible minimum width and can grow to fill the row.
+ */
+.field-with-action {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+
+.field-with-action > select,
+.field-with-action > input {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+
+.field-with-action > .btn-pill-outline {
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
 .steps-header {
   display: flex;
   align-items: center;
