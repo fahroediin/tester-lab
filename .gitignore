@@ -18,3 +18,5 @@ RELEASE_NOTES*
 # Runtime data (pre-Supabase JSON store & locally recorded run videos)
 data/
 public/videos/
+
+doc_ba/

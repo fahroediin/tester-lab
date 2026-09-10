@@ -8,6 +8,7 @@ import { feedbackRoutes } from './routes/feedback-routes.js';
 import { testRoutes } from './routes/test-routes.js';
 import { historyRoutes } from './routes/history-routes.js';
 import { folderRoutes } from './routes/folder-routes.js';
+import { suiteRoutes } from './routes/suite-routes.js';
 import { configRoutes } from './routes/config-routes.js';
 import { apiKeyRoutes } from './routes/api-key-routes.js';
 import { recorderRoutes, proxyAssetMiddleware } from './routes/recorder-routes.js';
@@ -94,6 +95,8 @@ app.use('/api/v1/api-keys', apiKeyRoutes);
 app.use('/api/v1/feedback', feedbackRoutes);
 app.use('/api/v1/history', historyRoutes);
 app.use('/api/v1/folders', folderRoutes);
+app.use('/api/v1/projects', folderRoutes);
+app.use('/api/v1/suites', suiteRoutes);
 app.use('/api/v1/config', configRoutes);
 app.use('/api/v1/recorder', recorderRoutes);
 app.use('/api/v1', testRoutes); // testRoutes has endpoints like /generate-script, /inspect-dom, /run-test directly under /api/v1

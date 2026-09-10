@@ -6,6 +6,7 @@ import { sanitizeCode } from '../../security/code-sanitizer.js';
 import { globalTestRunnerQueue, globalTestGeneratorQueue } from '../queue-manager.js';
 import { addHistory, updateHistory } from '../flow-history-store.js';
 import { getFolderById } from '../folder-store.js';
+import { getSuiteById } from '../suite-store.js';
 import { TestScriptGenerator } from '../../index.js';
 import { DOMExtractor } from '../../crawler/dom-extractor.js';
 import { recordApiKeyUsage } from '../api-key-usage-store.js';
@@ -22,7 +23,8 @@ const extractor = new DOMExtractor();
  */
 testRoutes.post('/generate-script', authenticateJWT, requireApprovedUser, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { dsl, dryRun, outPath, folderId } = req.body;
+    const { dsl, dryRun, outPath, suiteId } = req.body;
+    const folderId = req.body.projectId || req.body.folderId;
 
     if (!dsl) {
       res.status(400).json({
@@ -32,11 +34,11 @@ testRoutes.post('/generate-script', authenticateJWT, requireApprovedUser, async 
       return;
     }
 
-    // Folders are mandatory: a scenario must be generated into a folder the user owns.
+    // Projects and Suites are mandatory: a scenario must be generated into a suite within a project the user owns.
     if (!folderId || typeof folderId !== 'string') {
       res.status(400).json({
         success: false,
-        error: 'Please select or create a folder before generating a script.'
+        error: 'Please select or create a project before generating a script.'
       });
       return;
     }
@@ -44,7 +46,23 @@ testRoutes.post('/generate-script', authenticateJWT, requireApprovedUser, async 
     if (!folder || (folder.userId !== req.user!.id && req.user!.role !== 'admin')) {
       res.status(400).json({
         success: false,
-        error: 'Invalid folder. Select one of your own folders.'
+        error: 'Invalid project. Select one of your own projects.'
+      });
+      return;
+    }
+
+    if (!suiteId || typeof suiteId !== 'string') {
+      res.status(400).json({
+        success: false,
+        error: 'Please select or create a suite before generating a script.'
+      });
+      return;
+    }
+    const suite = await getSuiteById(suiteId);
+    if (!suite || suite.projectId !== folder.id) {
+      res.status(400).json({
+        success: false,
+        error: 'Invalid suite. Select a suite within the chosen project.'
       });
       return;
     }
@@ -101,7 +119,8 @@ testRoutes.post('/generate-script', authenticateJWT, requireApprovedUser, async 
     const historyRecord = await addHistory({
       userId: req.user!.id,
       username: req.user!.username,
-      folderId,
+      folderId: folder.id,
+      suiteId: suite.id,
       testSuite: dsl.testSuite || 'Unknown Test Suite',
       targetUrl: dsl.targetUrl || '',
       status: 'GENERATED',
@@ -168,7 +187,8 @@ testRoutes.post('/inspect-dom', authenticateJWT, requireApprovedUser, async (req
  */
 testRoutes.post('/run-test', authenticateJWT, requireApprovedUser, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { code, mode = 'headless', language = 'typescript', saveAsNewHistory, testSuite, targetUrl, rawDsl, resolvedSteps, folderId } = req.body;
+    const { code, mode = 'headless', language = 'typescript', saveAsNewHistory, testSuite, targetUrl, rawDsl, resolvedSteps, suiteId } = req.body;
+    const folderId = req.body.projectId || req.body.folderId;
     let { historyId } = req.body;
     const userId = req.user!.id;
 
@@ -210,18 +230,26 @@ testRoutes.post('/run-test', authenticateJWT, requireApprovedUser, async (req: A
     // Repeated work: when a scenario is re-run from Flow History, save it as a
     // NEW history record instead of overwriting the loaded one.
     if (saveAsNewHistory) {
-      // Preserve the original scenario's folder when it belongs to this user.
+      // Preserve the original scenario's project/suite when it belongs to this user.
       let keepFolderId: string | undefined;
+      let keepSuiteId: string | undefined;
       if (folderId && typeof folderId === 'string') {
         const folder = await getFolderById(folderId);
         if (folder && (folder.userId === userId || req.user!.role === 'admin')) {
           keepFolderId = folder.id;
         }
       }
+      if (suiteId && typeof suiteId === 'string') {
+        const suite = await getSuiteById(suiteId);
+        if (suite && (!keepFolderId || suite.projectId === keepFolderId)) {
+          keepSuiteId = suite.id;
+        }
+      }
       const newRecord = await addHistory({
         userId: req.user!.id,
         username: req.user!.username,
         folderId: keepFolderId,
+        suiteId: keepSuiteId,
         testSuite: (typeof testSuite === 'string' && testSuite) || 'Automated Test Suite',
         targetUrl: (typeof targetUrl === 'string' && targetUrl) || (rawDsl && rawDsl.targetUrl) || '',
         status: 'RUNNING',

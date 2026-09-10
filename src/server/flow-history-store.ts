@@ -8,7 +8,8 @@ export interface FlowHistory {
   id: string;
   userId: string;
   username: string;
-  folderId?: string | null;
+  folderId?: string | null; // project_id
+  suiteId?: string | null;
   timestamp: string;
   testSuite: string;
   targetUrl: string;
@@ -26,6 +27,7 @@ interface FlowHistoryRow {
   user_id: string;
   username: string;
   folder_id: string | null;
+  suite_id: string | null;
   timestamp: string;
   test_suite: string;
   target_url: string;
@@ -44,6 +46,7 @@ function rowToFlowHistory(row: FlowHistoryRow): FlowHistory {
     userId: row.user_id,
     username: row.username,
     folderId: row.folder_id || undefined,
+    suiteId: row.suite_id || undefined,
     timestamp: row.timestamp,
     testSuite: row.test_suite,
     targetUrl: row.target_url,
@@ -64,6 +67,7 @@ export async function addHistory(record: Omit<FlowHistory, 'id' | 'timestamp'>):
       user_id: record.userId,
       username: record.username,
       folder_id: record.folderId || null,
+      suite_id: record.suiteId || null,
       test_suite: record.testSuite,
       target_url: record.targetUrl,
       status: record.status,
@@ -114,6 +118,8 @@ export async function updateHistory(id: string, updates: Partial<FlowHistory>): 
   if (updates.status !== undefined) updatePayload.status = updates.status;
   // folderId is nullable: pass null explicitly to move a scenario to uncategorized.
   if ('folderId' in updates) updatePayload.folder_id = updates.folderId ?? null;
+  // suiteId is nullable: pass null explicitly to move a scenario out of a suite.
+  if ('suiteId' in updates) updatePayload.suite_id = updates.suiteId ?? null;
   if (updates.generatedCode !== undefined) updatePayload.generated_code = updates.generatedCode;
   if (updates.rawDsl !== undefined) updatePayload.raw_dsl = updates.rawDsl;
   if (updates.videoUrl !== undefined) updatePayload.video_url = updates.videoUrl;

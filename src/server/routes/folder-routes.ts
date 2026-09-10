@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import { authenticateJWT, requireApprovedUser } from '../auth-middleware.js';
 import type { AuthenticatedRequest } from '../auth-middleware.js';
-import { getUserFolders, getFolderById, createFolder, updateFolder, deleteFolder } from '../folder-store.js';
+import { getUserProjects, getProjectById, createProject, updateProject, deleteProject } from '../folder-store.js';
 import { getUserHistory } from '../flow-history-store.js';
 import { addLog } from '../activity-log-store.js';
 
@@ -18,13 +18,13 @@ function cleanName(raw: unknown): string | null {
 }
 
 /**
- * GET /api/v1/folders
- * List the current user's folders, each with a count of scenarios inside.
+ * GET /api/v1/folders or /api/v1/projects
+ * List the current user's projects, each with a count of scenarios inside.
  */
 folderRoutes.get('/', authenticateJWT, requireApprovedUser, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.user!.id;
-    const [folders, history] = await Promise.all([getUserFolders(userId), getUserHistory(userId)]);
+    const [projects, history] = await Promise.all([getUserProjects(userId), getUserHistory(userId)]);
 
     const counts = new Map<string, number>();
     let uncategorized = 0;
@@ -33,55 +33,60 @@ folderRoutes.get('/', authenticateJWT, requireApprovedUser, async (req: Authenti
       else uncategorized += 1;
     }
 
-    const withCounts = folders.map(f => ({ ...f, scenarioCount: counts.get(f.id) || 0 }));
-    res.json({ success: true, folders: withCounts, uncategorizedCount: uncategorized });
+    const withCounts = projects.map(p => ({ ...p, scenarioCount: counts.get(p.id) || 0 }));
+    res.json({
+      success: true,
+      projects: withCounts,
+      folders: withCounts, // Backward compatibility
+      uncategorizedCount: uncategorized
+    });
   } catch (err: unknown) {
     const error = err as Error;
-    res.status(500).json({ success: false, error: error.message || 'Failed to fetch folders' });
+    res.status(500).json({ success: false, error: error.message || 'Failed to fetch projects' });
   }
 });
 
 /**
- * POST /api/v1/folders
- * Create a new folder for the current user.
+ * POST /api/v1/folders or /api/v1/projects
+ * Create a new project for the current user.
  */
 folderRoutes.post('/', authenticateJWT, requireApprovedUser, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.user!.id;
     const name = cleanName(req.body?.name);
     if (!name) {
-      res.status(400).json({ success: false, error: 'Folder name is required (max 120 characters)' });
+      res.status(400).json({ success: false, error: 'Project name is required (max 120 characters)' });
       return;
     }
     const description = typeof req.body?.description === 'string' ? req.body.description.trim().slice(0, MAX_DESC_LEN) : '';
 
-    const folder = await createFolder(userId, name, description);
-    await addLog({ userId, username: req.user!.username, action: 'Create Folder', details: `Created folder: ${name}` });
-    res.json({ success: true, folder });
+    const project = await createProject(userId, name, description);
+    await addLog({ userId, username: req.user!.username, action: 'Create Project', details: `Created project: ${name}` });
+    res.json({ success: true, project, folder: project });
   } catch (err: unknown) {
     const error = err as Error;
-    if (error.message === 'DUPLICATE_FOLDER') {
-      res.status(409).json({ success: false, error: 'A folder with this name already exists' });
+    if (error.message === 'DUPLICATE_PROJECT' || error.message === 'DUPLICATE_FOLDER') {
+      res.status(409).json({ success: false, error: 'A project with this name already exists' });
       return;
     }
-    res.status(500).json({ success: false, error: error.message || 'Failed to create folder' });
+    res.status(500).json({ success: false, error: error.message || 'Failed to create project' });
   }
 });
 
 /**
- * PATCH /api/v1/folders/:id
- * Rename or update a folder the user owns.
+ * PATCH /api/v1/folders/:id or /api/v1/projects/:id
+ * Rename or update a project the user owns.
  */
 folderRoutes.patch('/:id', authenticateJWT, requireApprovedUser, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.user!.id;
-    const folder = await getFolderById(req.params.id || '');
-    if (!folder) {
-      res.status(404).json({ success: false, error: 'Folder not found' });
+    const project = await getProjectById(req.params.id || '');
+    if (!project) {
+      res.status(404).json({ success: false, error: 'Project not found' });
       return;
     }
-    if (folder.userId !== userId && req.user!.role !== 'admin') {
-      res.status(403).json({ success: false, error: 'Unauthorized to modify this folder' });
+    if (project.userId !== userId && req.user!.role !== 'admin') {
+      res.status(403).json({ success: false, error: 'Unauthorized to modify this project' });
       return;
     }
 
@@ -89,7 +94,7 @@ folderRoutes.patch('/:id', authenticateJWT, requireApprovedUser, async (req: Aut
     if (req.body?.name !== undefined) {
       const name = cleanName(req.body.name);
       if (!name) {
-        res.status(400).json({ success: false, error: 'Folder name is invalid (max 120 characters)' });
+        res.status(400).json({ success: false, error: 'Project name is invalid (max 120 characters)' });
         return;
       }
       updates.name = name;
@@ -98,48 +103,48 @@ folderRoutes.patch('/:id', authenticateJWT, requireApprovedUser, async (req: Aut
       updates.description = req.body.description.trim().slice(0, MAX_DESC_LEN);
     }
 
-    const updated = await updateFolder(folder.id, updates);
+    const updated = await updateProject(project.id, updates);
     if (!updated) {
-      res.status(500).json({ success: false, error: 'Failed to update folder' });
+      res.status(500).json({ success: false, error: 'Failed to update project' });
       return;
     }
-    res.json({ success: true, folder: updated });
+    res.json({ success: true, project: updated, folder: updated });
   } catch (err: unknown) {
     const error = err as Error;
-    if (error.message === 'DUPLICATE_FOLDER') {
-      res.status(409).json({ success: false, error: 'A folder with this name already exists' });
+    if (error.message === 'DUPLICATE_PROJECT' || error.message === 'DUPLICATE_FOLDER') {
+      res.status(409).json({ success: false, error: 'A project with this name already exists' });
       return;
     }
-    res.status(500).json({ success: false, error: error.message || 'Failed to update folder' });
+    res.status(500).json({ success: false, error: error.message || 'Failed to update project' });
   }
 });
 
 /**
- * DELETE /api/v1/folders/:id
- * Delete a folder the user owns. Scenarios inside become uncategorized, not deleted.
+ * DELETE /api/v1/folders/:id or /api/v1/projects/:id
+ * Delete a project the user owns. Scenarios inside become uncategorized, not deleted.
  */
 folderRoutes.delete('/:id', authenticateJWT, requireApprovedUser, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.user!.id;
-    const folder = await getFolderById(req.params.id || '');
-    if (!folder) {
-      res.status(404).json({ success: false, error: 'Folder not found' });
+    const project = await getProjectById(req.params.id || '');
+    if (!project) {
+      res.status(404).json({ success: false, error: 'Project not found' });
       return;
     }
-    if (folder.userId !== userId && req.user!.role !== 'admin') {
-      res.status(403).json({ success: false, error: 'Unauthorized to delete this folder' });
+    if (project.userId !== userId && req.user!.role !== 'admin') {
+      res.status(403).json({ success: false, error: 'Unauthorized to delete this project' });
       return;
     }
 
-    const deleted = await deleteFolder(folder.id);
+    const deleted = await deleteProject(project.id);
     if (!deleted) {
-      res.status(500).json({ success: false, error: 'Failed to delete folder' });
+      res.status(500).json({ success: false, error: 'Failed to delete project' });
       return;
     }
-    await addLog({ userId, username: req.user!.username, action: 'Delete Folder', details: `Deleted folder: ${folder.name}` });
-    res.json({ success: true, message: 'Folder deleted. Scenarios inside are now uncategorized.' });
+    await addLog({ userId, username: req.user!.username, action: 'Delete Project', details: `Deleted project: ${project.name}` });
+    res.json({ success: true, message: 'Project deleted. Scenarios inside are now uncategorized.' });
   } catch (err: unknown) {
     const error = err as Error;
-    res.status(500).json({ success: false, error: error.message || 'Failed to delete folder' });
+    res.status(500).json({ success: false, error: error.message || 'Failed to delete project' });
   }
 });

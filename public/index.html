@@ -190,21 +190,34 @@
         </div>
       </div>
 
-      <div class="form-group" id="folderSelectGroup">
-        <label for="folderSelect">Project Folder <span style="color: var(--coral);">*</span></label>
-        <div style="display: flex; gap: 8px; align-items: stretch;">
-          <select id="folderSelect" style="flex: 1;" onchange="resetGeneratedState()">
-            <option value="">Select a folder first...</option>
-          </select>
-          <button type="button" class="btn-pill-outline" onclick="openCreateFolderModal()" style="white-space: nowrap;">+ New Folder</button>
+      <div class="grid-2">
+        <div class="form-group" id="folderSelectGroup">
+          <label for="folderSelect">Project <span style="color: var(--coral);">*</span></label>
+          <div style="display: flex; gap: 8px; align-items: stretch;">
+            <select id="folderSelect" style="flex: 1;" onchange="onProjectChange(); resetGeneratedState();">
+              <option value="">Select a project first...</option>
+            </select>
+            <button type="button" class="btn-pill-outline" onclick="openCreateFolderModal()" style="white-space: nowrap;">+ New Project</button>
+          </div>
+          <p style="font-size: 12px; color: var(--slate); margin: 6px 0 0;">Project that groups your test suites.</p>
         </div>
-        <p style="font-size: 12px; color: var(--slate); margin: 6px 0 0;">Test cases are organized per project. Pick or create a folder before generating.</p>
+
+        <div class="form-group" id="suiteSelectGroup">
+          <label for="suiteSelect">Test Suite <span style="color: var(--coral);">*</span></label>
+          <div style="display: flex; gap: 8px; align-items: stretch;">
+            <select id="suiteSelect" style="flex: 1;" onchange="resetGeneratedState()" disabled>
+              <option value="">Select a project first...</option>
+            </select>
+            <button type="button" class="btn-pill-outline" id="btnNewSuite" onclick="openCreateSuiteModal()" style="white-space: nowrap;" disabled>+ New Suite</button>
+          </div>
+          <p style="font-size: 12px; color: var(--slate); margin: 6px 0 0;">Suite packaging related scenarios together.</p>
+        </div>
       </div>
 
       <div class="grid-2">
         <div class="form-group">
-          <label for="testSuite">Test Suite Name</label>
-          <input type="text" id="testSuite" placeholder="e.g. Login Scenario" oninput="resetGeneratedState()">
+          <label for="testSuite">Scenario Name <span style="color: var(--coral);">*</span></label>
+          <input type="text" id="testSuite" placeholder="e.g. Login with Valid Credentials" oninput="resetGeneratedState()">
         </div>
         <div class="form-group">
           <label for="framework">Target Framework</label>
@@ -389,9 +402,9 @@
           </div>
         </div>
 
-        <!-- Folder Tree -->
+        <!-- Project & Suite Tree -->
         <div id="folderTree" style="margin-bottom: 16px; border: 1px solid var(--hairline); border-radius: var(--radius); overflow: hidden;">
-          <div style="padding: 20px; text-align: center; color: var(--slate); font-size: 13px;">Loading folders...</div>
+          <div style="padding: 20px; text-align: center; color: var(--slate); font-size: 13px;">Loading projects & suites...</div>
         </div>
 
         <div style="overflow-x: auto;">
@@ -399,7 +412,7 @@
             <thead>
               <tr>
                 <th style="width: 160px; cursor: pointer; user-select: none;" onclick="handleHistorySort('timestamp')">Date & Time <span id="sort-icon-timestamp">↓</span></th>
-                <th style="cursor: pointer; user-select: none;" onclick="handleHistorySort('testSuite')">Test Suite <span id="sort-icon-testSuite"></span></th>
+                <th style="cursor: pointer; user-select: none;" onclick="handleHistorySort('testSuite')">Scenario Name <span id="sort-icon-testSuite"></span></th>
                 <th style="cursor: pointer; user-select: none;" onclick="handleHistorySort('targetUrl')">Target URL <span id="sort-icon-targetUrl"></span></th>
                 <th style="width: 100px; text-align: center; cursor: pointer; user-select: none;" onclick="handleHistorySort('status')">Status <span id="sort-icon-status"></span></th>
                 <th style="width: 140px; text-align: center;">Action</th>
@@ -623,25 +636,53 @@
     </div>
   </div>
 
-  <!-- Create Folder Modal -->
+  <!-- Create Project Modal -->
   <div class="modal-overlay" id="createFolderModal" style="display: none; z-index: 2100;">
     <div class="modal-card" style="max-width: 440px; width: 92%;">
       <div class="modal-header">
-        <h3>New Project Folder</h3>
+        <h3>New Project</h3>
         <button class="modal-close" onclick="closeCreateFolderModal()">&times;</button>
       </div>
       <form onsubmit="submitCreateFolder(event)" style="margin-top: 16px;">
         <div class="form-group" style="margin-bottom: 16px;">
-          <label for="newFolderName">Folder Name</label>
-          <input type="text" id="newFolderName" placeholder="e.g. Project Alpha" maxlength="120" required>
+          <label for="newFolderName">Project Name <span style="color: var(--coral);">*</span></label>
+          <input type="text" id="newFolderName" placeholder="e.g. Core Banking System" maxlength="120" required>
         </div>
         <div class="form-group" style="margin-bottom: 20px;">
           <label for="newFolderDesc">Description (optional)</label>
-          <input type="text" id="newFolderDesc" placeholder="Short description" maxlength="500">
+          <input type="text" id="newFolderDesc" placeholder="Short description of this project" maxlength="500">
         </div>
         <div style="display: flex; gap: 10px; justify-content: flex-end;">
           <button type="button" class="btn-pill-outline" onclick="closeCreateFolderModal()">Cancel</button>
-          <button type="submit" class="btn-pill-primary" id="btnSubmitFolder">Create Folder</button>
+          <button type="submit" class="btn-pill-primary" id="btnSubmitFolder">Create Project</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Create Suite Modal -->
+  <div class="modal-overlay" id="createSuiteModal" style="display: none; z-index: 2100;">
+    <div class="modal-card" style="max-width: 440px; width: 92%;">
+      <div class="modal-header">
+        <h3>New Test Suite</h3>
+        <button class="modal-close" onclick="closeCreateSuiteModal()">&times;</button>
+      </div>
+      <form onsubmit="submitCreateSuite(event)" style="margin-top: 16px;">
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label>Project</label>
+          <div id="modalTargetProjectName" style="padding: 8px 12px; background: var(--surface-2); border-radius: var(--radius); font-weight: 500; color: var(--ink); border: 1px solid var(--hairline); font-size: 13px;">-</div>
+        </div>
+        <div class="form-group" style="margin-bottom: 16px;">
+          <label for="newSuiteName">Suite Name <span style="color: var(--coral);">*</span></label>
+          <input type="text" id="newSuiteName" placeholder="e.g. User Authentication & Security" maxlength="120" required>
+        </div>
+        <div class="form-group" style="margin-bottom: 20px;">
+          <label for="newSuiteDesc">Description (optional)</label>
+          <input type="text" id="newSuiteDesc" placeholder="Short description of this suite" maxlength="500">
+        </div>
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+          <button type="button" class="btn-pill-outline" onclick="closeCreateSuiteModal()">Cancel</button>
+          <button type="submit" class="btn-pill-primary" id="btnSubmitSuite">Create Suite</button>
         </div>
       </form>
     </div>

@@ -1,18 +1,21 @@
 /*
- * tester-lab - Folder store
- * Per-user project folders that group test scenarios.
+ * tester-lab - Project (Folder) store
+ * Per-user projects (stored in table 'folders') that group test suites.
  *
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 import { supabase } from './supabase-client.js';
 
-export interface Folder {
+export interface Project {
   id: string;
   userId: string;
   name: string;
   description: string;
   createdAt: string;
 }
+
+// Backward-compatible type alias
+export type Folder = Project;
 
 interface FolderRow {
   id: string;
@@ -22,7 +25,7 @@ interface FolderRow {
   created_at: string;
 }
 
-function rowToFolder(row: FolderRow): Folder {
+function rowToProject(row: FolderRow): Project {
   return {
     id: row.id,
     userId: row.user_id,
@@ -32,7 +35,7 @@ function rowToFolder(row: FolderRow): Folder {
   };
 }
 
-export async function getUserFolders(userId: string): Promise<Folder[]> {
+export async function getUserProjects(userId: string): Promise<Project[]> {
   const { data, error } = await supabase
     .from('folders')
     .select('*')
@@ -40,13 +43,13 @@ export async function getUserFolders(userId: string): Promise<Folder[]> {
     .order('created_at', { ascending: true });
 
   if (error) {
-    console.error('Failed to fetch folders:', error);
+    console.error('Failed to fetch projects:', error);
     return [];
   }
-  return (data || []).map(rowToFolder);
+  return (data || []).map(rowToProject);
 }
 
-export async function getFolderById(id: string): Promise<Folder | undefined> {
+export async function getProjectById(id: string): Promise<Project | undefined> {
   const { data, error } = await supabase
     .from('folders')
     .select('*')
@@ -55,10 +58,10 @@ export async function getFolderById(id: string): Promise<Folder | undefined> {
     .single();
 
   if (error || !data) return undefined;
-  return rowToFolder(data);
+  return rowToProject(data);
 }
 
-export async function createFolder(userId: string, name: string, description = ''): Promise<Folder> {
+export async function createProject(userId: string, name: string, description = ''): Promise<Project> {
   const { data, error } = await supabase
     .from('folders')
     .insert({ user_id: userId, name, description })
@@ -66,17 +69,17 @@ export async function createFolder(userId: string, name: string, description = '
     .single();
 
   if (error || !data) {
-    // 23505 is Postgres unique_violation (duplicate folder name for this user)
+    // 23505 is Postgres unique_violation (duplicate project name for this user)
     if ((error as { code?: string })?.code === '23505') {
-      throw new Error('DUPLICATE_FOLDER');
+      throw new Error('DUPLICATE_PROJECT');
     }
-    console.error('Failed to create folder:', error);
-    throw new Error('Failed to create folder');
+    console.error('Failed to create project:', error);
+    throw new Error('Failed to create project');
   }
-  return rowToFolder(data);
+  return rowToProject(data);
 }
 
-export async function updateFolder(id: string, updates: Partial<Pick<Folder, 'name' | 'description'>>): Promise<Folder | null> {
+export async function updateProject(id: string, updates: Partial<Pick<Project, 'name' | 'description'>>): Promise<Project | null> {
   const payload: Record<string, unknown> = {};
   if (updates.name !== undefined) payload.name = updates.name;
   if (updates.description !== undefined) payload.description = updates.description;
@@ -90,23 +93,31 @@ export async function updateFolder(id: string, updates: Partial<Pick<Folder, 'na
 
   if (error || !data) {
     if ((error as { code?: string })?.code === '23505') {
-      throw new Error('DUPLICATE_FOLDER');
+      throw new Error('DUPLICATE_PROJECT');
     }
-    console.error('Failed to update folder:', error);
+    console.error('Failed to update project:', error);
     return null;
   }
-  return rowToFolder(data);
+  return rowToProject(data);
 }
 
 /**
- * Delete a folder. Scenarios inside it are not deleted; their folder_id is set
+ * Delete a project. Scenarios inside it are not deleted; their folder_id is set
  * to NULL by the ON DELETE SET NULL constraint, so they become uncategorized.
+ * Suites inside it are cascade deleted.
  */
-export async function deleteFolder(id: string): Promise<boolean> {
+export async function deleteProject(id: string): Promise<boolean> {
   const { error } = await supabase.from('folders').delete().eq('id', id);
   if (error) {
-    console.error('Failed to delete folder:', error);
+    console.error('Failed to delete project:', error);
     return false;
   }
   return true;
 }
+
+// Backward compatibility aliases
+export const getUserFolders = getUserProjects;
+export const getFolderById = getProjectById;
+export const createFolder = createProject;
+export const updateFolder = updateProject;
+export const deleteFolder = deleteProject;

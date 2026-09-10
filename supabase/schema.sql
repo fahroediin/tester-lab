@@ -17,25 +17,39 @@ CREATE TABLE IF NOT EXISTS users (
 -- Index for fast username lookups
 CREATE INDEX IF NOT EXISTS idx_users_username ON users (LOWER(username));
 
--- 1b. FOLDERS TABLE (per-user project folders that group test scenarios)
+-- 1b. FOLDERS / PROJECTS TABLE (per-user project folders that group test suites)
 CREATE TABLE IF NOT EXISTS folders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   description TEXT NOT NULL DEFAULT '',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  -- A user cannot have two folders with the same name (case-insensitive)
+  -- A user cannot have two folders/projects with the same name (case-insensitive)
   CONSTRAINT uq_folders_user_name UNIQUE (user_id, name)
 );
 
 CREATE INDEX IF NOT EXISTS idx_folders_user_id ON folders (user_id);
 
--- 2. FLOW HISTORY TABLE
+-- 1c. SUITES TABLE (test suites that belong to a project/folder)
+CREATE TABLE IF NOT EXISTS suites (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id UUID NOT NULL REFERENCES folders(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- A project cannot have two suites with the same name
+  CONSTRAINT uq_suites_project_name UNIQUE (project_id, name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_suites_project_id ON suites (project_id);
+
+-- 2. FLOW HISTORY TABLE (test scenarios)
 CREATE TABLE IF NOT EXISTS flow_history (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   username TEXT NOT NULL,
   folder_id UUID REFERENCES folders(id) ON DELETE SET NULL,
+  suite_id UUID REFERENCES suites(id) ON DELETE SET NULL,
   timestamp TIMESTAMPTZ NOT NULL DEFAULT now(),
   test_suite TEXT NOT NULL DEFAULT '',
   target_url TEXT NOT NULL DEFAULT '',
@@ -51,10 +65,12 @@ CREATE TABLE IF NOT EXISTS flow_history (
 -- Index for fast user history lookups
 CREATE INDEX IF NOT EXISTS idx_flow_history_user_id ON flow_history (user_id);
 CREATE INDEX IF NOT EXISTS idx_flow_history_folder_id ON flow_history (folder_id);
+CREATE INDEX IF NOT EXISTS idx_flow_history_suite_id ON flow_history (suite_id);
 CREATE INDEX IF NOT EXISTS idx_flow_history_timestamp ON flow_history (timestamp DESC);
 
--- Migration for existing databases: add folder_id if the table predates folders
+-- Migration for existing databases: add folder_id and suite_id if the table predates them
 ALTER TABLE flow_history ADD COLUMN IF NOT EXISTS folder_id UUID REFERENCES folders(id) ON DELETE SET NULL;
+ALTER TABLE flow_history ADD COLUMN IF NOT EXISTS suite_id UUID REFERENCES suites(id) ON DELETE SET NULL;
 
 -- 3. ACTIVITY LOGS TABLE
 CREATE TABLE IF NOT EXISTS activity_logs (
@@ -136,6 +152,7 @@ CREATE INDEX IF NOT EXISTS idx_api_key_usage_status ON api_key_usage_logs (statu
 -- Enable RLS on all tables
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE folders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE suites ENABLE ROW LEVEL SECURITY;
 ALTER TABLE flow_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE activity_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE app_config ENABLE ROW LEVEL SECURITY;
@@ -152,6 +169,12 @@ CREATE POLICY "Service role full access on users"
 -- FOLDERS: Service role can do everything
 CREATE POLICY "Service role full access on folders"
   ON folders FOR ALL TO service_role
+  USING (true)
+  WITH CHECK (true);
+
+-- SUITES: Service role can do everything
+CREATE POLICY "Service role full access on suites"
+  ON suites FOR ALL TO service_role
   USING (true)
   WITH CHECK (true);
 

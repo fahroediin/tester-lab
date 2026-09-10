@@ -91,10 +91,13 @@
     let currentHistoryId = null;
     let currentViewedHistory = null;
     let appConfig = null;
-    let userFolders = [];
+    let userFolders = []; // Projects
+    let userProjects = userFolders; // Alias
+    let currentProjectSuites = [];
+    let projectSuitesCache = new Map();
 
     /**
-     * Load the current user's project folders and populate the builder's folder selector.
+     * Load the current user's projects and populate the builder's project selector.
      * Keeps the current selection if it still exists.
      */
     async function loadFolders() {
@@ -102,21 +105,76 @@
       if (!select || !authToken) return;
       const previous = select.value;
       try {
-        const res = await fetch('/api/v1/folders', { headers: getAuthHeaders() });
+        const res = await fetch('/api/v1/projects', { headers: getAuthHeaders() });
         const data = await res.json();
         if (!data.success) return;
-        userFolders = data.folders || [];
-        select.innerHTML = '<option value="">Select a folder first...</option>' +
+        userFolders = data.projects || data.folders || [];
+        userProjects = userFolders;
+        select.innerHTML = '<option value="">Select a project first...</option>' +
           userFolders.map(f =>
-            '<option value="' + f.id + '">' + escapeHtml(f.name) + ' (' + f.scenarioCount + ')</option>'
+            '<option value="' + f.id + '">' + escapeHtml(f.name) + ' (' + (f.scenarioCount || 0) + ')</option>'
           ).join('');
         if (previous && userFolders.some(f => f.id === previous)) {
           select.value = previous;
         }
+        await onProjectChange();
       } catch (err) {
         // Non-fatal: leave the selector as-is.
       }
     }
+    window.loadProjects = loadFolders;
+
+    async function onProjectChange() {
+      const folderSelect = document.getElementById('folderSelect');
+      const suiteSelect = document.getElementById('suiteSelect');
+      const btnNewSuite = document.getElementById('btnNewSuite');
+      if (!folderSelect || !suiteSelect) return;
+      const projectId = folderSelect.value;
+      if (!projectId) {
+        suiteSelect.disabled = true;
+        if (btnNewSuite) btnNewSuite.disabled = true;
+        suiteSelect.innerHTML = '<option value="">Select a project first...</option>';
+        currentProjectSuites = [];
+        return;
+      }
+      suiteSelect.disabled = false;
+      if (btnNewSuite) btnNewSuite.disabled = false;
+      await loadSuites(projectId);
+    }
+    window.onProjectChange = onProjectChange;
+
+    async function loadSuites(projectId, preselectedSuiteId) {
+      const suiteSelect = document.getElementById('suiteSelect');
+      if (!suiteSelect) return;
+      const previous = preselectedSuiteId || suiteSelect.value;
+      suiteSelect.innerHTML = '<option value="">Loading suites...</option>';
+      try {
+        const res = await fetch('/api/v1/suites?projectId=' + encodeURIComponent(projectId), { headers: getAuthHeaders() });
+        const data = await res.json();
+        if (!data.success) {
+          suiteSelect.innerHTML = '<option value="">Failed to load suites</option>';
+          return;
+        }
+        currentProjectSuites = data.suites || [];
+        projectSuitesCache.set(projectId, currentProjectSuites);
+        if (currentProjectSuites.length === 0) {
+          suiteSelect.innerHTML = '<option value="">No suites yet — click + New Suite</option>';
+        } else {
+          suiteSelect.innerHTML = '<option value="">Select a suite...</option>' +
+            currentProjectSuites.map(s =>
+              '<option value="' + s.id + '">' + escapeHtml(s.name) + ' (' + (s.scenarioCount || 0) + ')</option>'
+            ).join('');
+          if (previous && currentProjectSuites.some(s => s.id === previous)) {
+            suiteSelect.value = previous;
+          } else if (currentProjectSuites.length === 1) {
+            suiteSelect.value = currentProjectSuites[0].id;
+          }
+        }
+      } catch (err) {
+        suiteSelect.innerHTML = '<option value="">Failed to load suites</option>';
+      }
+    }
+    window.loadSuites = loadSuites;
 
     function openCreateFolderModal() {
       if (!authToken) {
@@ -129,11 +187,15 @@
       if (modal) modal.style.display = 'flex';
       setTimeout(() => { const n = document.getElementById('newFolderName'); if (n) n.focus(); }, 50);
     }
+    window.openCreateFolderModal = openCreateFolderModal;
+    window.openCreateProjectModal = openCreateFolderModal;
 
     function closeCreateFolderModal() {
       const modal = document.getElementById('createFolderModal');
       if (modal) modal.style.display = 'none';
     }
+    window.closeCreateFolderModal = closeCreateFolderModal;
+    window.closeCreateProjectModal = closeCreateFolderModal;
 
     async function submitCreateFolder(event) {
       event.preventDefault();
@@ -143,28 +205,112 @@
       const btn = document.getElementById('btnSubmitFolder');
       if (btn) btn.disabled = true;
       try {
-        const res = await fetch('/api/v1/folders', {
+        const res = await fetch('/api/v1/projects', {
           method: 'POST',
           headers: getAuthHeaders(),
           body: JSON.stringify({ name, description })
         });
         const data = await res.json();
-        if (data.success && data.folder) {
+        const project = data.project || data.folder;
+        if (data.success && project) {
           await loadFolders();
           const select = document.getElementById('folderSelect');
-          if (select) select.value = data.folder.id;
+          if (select) {
+            select.value = project.id;
+            await onProjectChange();
+          }
           resetGeneratedState();
           closeCreateFolderModal();
-          showSnackbar({ type: 'success', title: 'Folder Created', message: 'Folder "' + data.folder.name + '" is ready.' });
+          showSnackbar({ type: 'success', title: 'Project Created', message: 'Project "' + project.name + '" is ready. Next, create a Test Suite!' });
+          // Open create suite modal right away to guide the user smoothly
+          setTimeout(() => {
+            openCreateSuiteModal(project.id);
+          }, 350);
         } else {
-          showSnackbar({ type: 'error', title: 'Could Not Create Folder', message: data.error || 'Unknown error.' });
+          showSnackbar({ type: 'error', title: 'Could Not Create Project', message: data.error || 'Unknown error.' });
         }
       } catch (err) {
-        showSnackbar({ type: 'error', title: 'Network Error', message: 'Could not create folder.' });
+        showSnackbar({ type: 'error', title: 'Network Error', message: 'Could not create project.' });
       } finally {
         if (btn) btn.disabled = false;
       }
     }
+    window.submitCreateFolder = submitCreateFolder;
+    window.submitCreateProject = submitCreateFolder;
+
+    let modalTargetProjectId = null;
+    function openCreateSuiteModal(targetProjectId, event) {
+      if (event) event.stopPropagation();
+      if (!authToken) {
+        showSnackbar({ type: 'warning', title: 'Authentication Required', message: 'Please sign in first.' });
+        return;
+      }
+      const folderSelect = document.getElementById('folderSelect');
+      const projectId = targetProjectId || (folderSelect ? folderSelect.value : '');
+      if (!projectId) {
+        showSnackbar({ type: 'warning', title: 'Project Required', message: 'Please select or create a project first.' });
+        openCreateFolderModal();
+        return;
+      }
+      modalTargetProjectId = projectId;
+      const project = userFolders.find(p => p.id === projectId);
+      const targetLabel = document.getElementById('modalTargetProjectName');
+      if (targetLabel) targetLabel.textContent = project ? project.name : 'Selected Project';
+      
+      const modal = document.getElementById('createSuiteModal');
+      document.getElementById('newSuiteName').value = '';
+      document.getElementById('newSuiteDesc').value = '';
+      if (modal) modal.style.display = 'flex';
+      setTimeout(() => { const n = document.getElementById('newSuiteName'); if (n) n.focus(); }, 50);
+    }
+    window.openCreateSuiteModal = openCreateSuiteModal;
+
+    function closeCreateSuiteModal() {
+      const modal = document.getElementById('createSuiteModal');
+      if (modal) modal.style.display = 'none';
+      modalTargetProjectId = null;
+    }
+    window.closeCreateSuiteModal = closeCreateSuiteModal;
+
+    async function submitCreateSuite(event) {
+      event.preventDefault();
+      const folderSelect = document.getElementById('folderSelect');
+      const projectId = modalTargetProjectId || (folderSelect ? folderSelect.value : '');
+      if (!projectId) {
+        showSnackbar({ type: 'warning', title: 'Project Required', message: 'Please select or create a project first.' });
+        return;
+      }
+      const name = document.getElementById('newSuiteName').value.trim();
+      const description = document.getElementById('newSuiteDesc').value.trim();
+      if (!name) return;
+      const btn = document.getElementById('btnSubmitSuite');
+      if (btn) btn.disabled = true;
+      try {
+        const res = await fetch('/api/v1/suites', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ projectId, name, description })
+        });
+        const data = await res.json();
+        if (data.success && data.suite) {
+          closeCreateSuiteModal();
+          // Update builder dropdown if currently selected project matches
+          if (folderSelect && folderSelect.value === projectId) {
+            await loadSuites(projectId, data.suite.id);
+          }
+          await loadAllProjectSuites();
+          renderFolderTree();
+          showSnackbar({ type: 'success', title: 'Suite Created', message: 'Suite "' + data.suite.name + '" is ready.' });
+        } else {
+          showSnackbar({ type: 'error', title: 'Could Not Create Suite', message: data.error || 'Unknown error.' });
+        }
+      } catch (err) {
+        showSnackbar({ type: 'error', title: 'Network Error', message: 'Could not create suite.' });
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+    window.submitCreateSuite = submitCreateSuite;
 
     // True when the current builder state was loaded from a Flow History record.
     // A run in this state is treated as repeated work and saved as a NEW history
@@ -886,12 +1032,20 @@
         return;
       }
 
-      // Folders are mandatory: user must pick or create one before generating.
+      // Projects and Suites are mandatory: user must pick or create both before generating.
       const selectedFolderId = (document.getElementById('folderSelect') || {}).value || '';
       if (!selectedFolderId) {
-        showSnackbar({ type: 'warning', title: 'Folder Required', message: 'Select or create a project folder before generating a script.' });
+        showSnackbar({ type: 'warning', title: 'Project Required', message: 'Select or create a project before generating a script.' });
         const fg = document.getElementById('folderSelectGroup');
         if (fg) fg.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+
+      const selectedSuiteId = (document.getElementById('suiteSelect') || {}).value || '';
+      if (!selectedSuiteId) {
+        showSnackbar({ type: 'warning', title: 'Suite Required', message: 'Select or create a test suite before generating a script.' });
+        const sg = document.getElementById('suiteSelectGroup') || document.getElementById('folderSelectGroup');
+        if (sg) sg.scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
       }
 
@@ -974,7 +1128,9 @@
           body: JSON.stringify({
             dsl: dslPayload,
             dryRun: isDryRun,
-            folderId: selectedFolderId
+            folderId: selectedFolderId,
+            projectId: selectedFolderId,
+            suiteId: selectedSuiteId
           })
         });
 
@@ -1226,9 +1382,16 @@
         runPayload.targetUrl = dsl.targetUrl;
         runPayload.rawDsl = dsl;
         runPayload.resolvedSteps = replaySourceResolvedSteps;
-        // Keep the re-run in the same folder as the loaded scenario.
+        // Keep the re-run in the same project & suite as the loaded scenario.
         const fSel = document.getElementById('folderSelect');
-        if (fSel && fSel.value) runPayload.folderId = fSel.value;
+        if (fSel && fSel.value) {
+          runPayload.folderId = fSel.value;
+          runPayload.projectId = fSel.value;
+        }
+        const sSel = document.getElementById('suiteSelect');
+        if (sSel && sSel.value) {
+          runPayload.suiteId = sSel.value;
+        }
       }
 
       try {
@@ -1722,9 +1885,32 @@
     let historySortDesc = true;
     let historyCurrentPage = 1;
     const HISTORY_PAGE_SIZE = 10;
-    // Folder filter for the history view: null = all, 'none' = uncategorized, or a folder id.
-    let historyFolderFilter = null;
-    let expandedFolders = {}; // id (or 'none'/'all') -> bool, remembers expand state
+    // Filter for the history view:
+    // historyProjectFilter: null = all, 'none' = uncategorized, or a projectId
+    // historySuiteFilter: null = all in project, 'none' = unassigned in project, or a suiteId
+    let historyProjectFilter = null;
+    let historySuiteFilter = null;
+    let expandedProjects = {}; // projectId -> bool
+    let expandedSuites = {}; // suiteId -> bool
+    let expandedUnassigned = {}; // projectId -> bool
+    let expandedLegacyUncat = false;
+
+    // Backward compat alias
+    let expandedFolders = expandedProjects;
+    let historyFolderFilter = historyProjectFilter;
+
+    async function loadAllProjectSuites() {
+      if (!authToken || userFolders.length === 0) return;
+      const promises = userFolders.map(p =>
+        fetch('/api/v1/suites?projectId=' + encodeURIComponent(p.id), { headers: getAuthHeaders() })
+          .then(r => r.json())
+          .then(d => {
+            if (d.success) projectSuitesCache.set(p.id, d.suites || []);
+          })
+          .catch(() => {})
+      );
+      await Promise.all(promises);
+    }
 
     async function loadHistory() {
       const tbody = document.getElementById('historyTableBody');
@@ -1744,6 +1930,7 @@
         allHistoryData = data.history || [];
         historyCurrentPage = 1;
         await loadFolders();
+        await loadAllProjectSuites();
         renderFolderTree();
         renderHistoryTable();
       } catch (err) {
@@ -1772,38 +1959,82 @@
       renderHistoryTable();
     };
 
-    function countInFolder(folderId) {
-      if (folderId === 'none') return allHistoryData.filter(h => !h.folderId).length;
-      return allHistoryData.filter(h => h.folderId === folderId).length;
+    function countInProject(projectId) {
+      if (projectId === 'none') return allHistoryData.filter(h => !h.folderId).length;
+      return allHistoryData.filter(h => h.folderId === projectId).length;
     }
 
-    window.selectHistoryFolder = function(id) {
-      historyFolderFilter = id; // null | 'none' | folderId
+    function countInSuite(suiteId) {
+      return allHistoryData.filter(h => h.suiteId === suiteId).length;
+    }
+
+    function countUnassignedInProject(projectId) {
+      return allHistoryData.filter(h => h.folderId === projectId && !h.suiteId).length;
+    }
+
+    window.selectHistoryAll = function() {
+      historyProjectFilter = null;
+      historySuiteFilter = null;
+      historyFolderFilter = null;
       historyCurrentPage = 1;
       renderFolderTree();
       renderHistoryTable();
     };
 
-    window.toggleFolderExpand = function(id, event) {
+    window.selectHistoryProject = function(id) {
+      historyProjectFilter = id;
+      historySuiteFilter = null;
+      historyFolderFilter = id;
+      historyCurrentPage = 1;
+      renderFolderTree();
+      renderHistoryTable();
+    };
+    window.selectHistoryFolder = window.selectHistoryProject;
+
+    window.selectHistorySuite = function(suiteId, projectId, event) {
       if (event) event.stopPropagation();
-      expandedFolders[id] = !expandedFolders[id];
+      historyProjectFilter = projectId;
+      historySuiteFilter = suiteId;
+      historyFolderFilter = projectId;
+      historyCurrentPage = 1;
+      renderFolderTree();
+      renderHistoryTable();
+    };
+
+    window.selectHistoryUnassigned = function(projectId, event) {
+      if (event) event.stopPropagation();
+      historyProjectFilter = projectId;
+      historySuiteFilter = 'none';
+      historyFolderFilter = projectId;
+      historyCurrentPage = 1;
+      renderFolderTree();
+      renderHistoryTable();
+    };
+
+    window.toggleProjectExpand = function(id, event) {
+      if (event) event.stopPropagation();
+      expandedProjects[id] = !expandedProjects[id];
+      renderFolderTree();
+    };
+    window.toggleFolderExpand = window.toggleProjectExpand;
+
+    window.toggleSuiteExpand = function(id, event) {
+      if (event) event.stopPropagation();
+      expandedSuites[id] = !expandedSuites[id];
       renderFolderTree();
     };
 
-    function folderRowHtml(opts) {
-      // opts: { key, name, count, active, expandable, expanded, actions }
-      const active = opts.active ? 'background: var(--accent-soft, rgba(37,99,168,.1));' : '';
-      const caret = opts.expandable
-        ? '<span onclick="toggleFolderExpand(\'' + opts.key + '\', event)" style="cursor:pointer; width:16px; display:inline-block; text-align:center; color: var(--slate);">' + (opts.expanded ? '&#9662;' : '&#9656;') + '</span>'
-        : '<span style="width:16px; display:inline-block;"></span>';
-      return '<div class="folder-row" onclick="selectHistoryFolder(' + (opts.key === 'all' ? 'null' : "'" + opts.key + "'") + ')" ' +
-        'style="display:flex; align-items:center; gap:8px; padding:9px 14px; cursor:pointer; border-bottom:1px solid var(--hairline); ' + active + '">' +
-        caret +
-        '<span style="flex:1; font-size:13.5px; font-weight:500; color: var(--ink);">' + opts.name + '</span>' +
-        '<span style="font-size:11px; font-family:var(--font-mono); color: var(--slate); background: var(--surface-2); padding:1px 8px; border-radius:20px;">' + opts.count + '</span>' +
-        (opts.actions || '') +
-        '</div>';
-    }
+    window.toggleUnassignedExpand = function(projectId, event) {
+      if (event) event.stopPropagation();
+      expandedUnassigned[projectId] = !expandedUnassigned[projectId];
+      renderFolderTree();
+    };
+
+    window.toggleLegacyUncatExpand = function(event) {
+      if (event) event.stopPropagation();
+      expandedLegacyUncat = !expandedLegacyUncat;
+      renderFolderTree();
+    };
 
     function renderFolderTree() {
       const tree = document.getElementById('folderTree');
@@ -1811,103 +2042,230 @@
       const total = allHistoryData.length;
       let html = '';
 
-      // "All scenarios" root
-      html += folderRowHtml({
-        key: 'all',
-        name: 'All scenarios',
-        count: total,
-        active: historyFolderFilter === null,
-        expandable: false
-      });
+      // Root level: "All scenarios"
+      const isAllActive = historyProjectFilter === null && historySuiteFilter === null;
+      html += '<div class="folder-row" onclick="selectHistoryAll()" ' +
+        'style="display:flex; align-items:center; gap:8px; padding:10px 14px; cursor:pointer; border-bottom:1px solid var(--hairline); ' +
+        (isAllActive ? 'background: var(--accent-soft, rgba(37,99,168,.1));' : '') + '">' +
+        '<span style="flex:1; font-size:13.5px; font-weight:600; color: var(--ink);">All Scenarios</span>' +
+        '<span style="font-size:11px; font-family:var(--font-mono); color: var(--slate); background: var(--surface-2); padding:2px 8px; border-radius:20px;">' + total + '</span>' +
+        '</div>';
 
-      // Each folder
-      userFolders.forEach(f => {
-        const count = countInFolder(f.id);
-        const isExpanded = !!expandedFolders[f.id];
+      // Projects
+      userFolders.forEach(p => {
+        const pCount = countInProject(p.id);
+        const isPExpanded = !!expandedProjects[p.id];
+        const isPActive = historyProjectFilter === p.id && historySuiteFilter === null;
+        const suites = projectSuitesCache.get(p.id) || [];
+        const unassignedCount = countUnassignedInProject(p.id);
+
+        const caret = '<span onclick="toggleProjectExpand(\'' + p.id + '\', event)" style="cursor:pointer; width:16px; display:inline-block; text-align:center; color: var(--slate); font-size:11px;">' + (isPExpanded ? '&#9662;' : '&#9656;') + '</span>';
         const actions =
-          '<button class="btn-pill-outline" onclick="renameFolderPrompt(\'' + f.id + '\', event)" style="padding:2px 8px; font-size:10px; min-height:unset; height:auto;">Rename</button>' +
-          '<button class="btn-pill-outline" onclick="deleteFolderPrompt(\'' + f.id + '\', event)" style="padding:2px 8px; font-size:10px; min-height:unset; height:auto; color:var(--coral); border-color:var(--coral);">Delete</button>';
-        html += folderRowHtml({
-          key: f.id,
-          name: escapeHtml(f.name),
-          count: count,
-          active: historyFolderFilter === f.id,
-          expandable: count > 0,
-          expanded: isExpanded,
-          actions: actions
-        });
-        if (isExpanded) {
-          const scenarios = allHistoryData.filter(h => h.folderId === f.id);
-          html += scenarios.map(scenarioRowHtml).join('');
+          '<button class="btn-pill-outline" onclick="openCreateSuiteModal(\'' + p.id + '\', event)" style="padding:2px 8px; font-size:10px; min-height:unset; height:auto; color:var(--accent); border-color:var(--accent);" title="Create new suite in this project">+ Suite</button>' +
+          '<button class="btn-pill-outline" onclick="renameProjectPrompt(\'' + p.id + '\', event)" style="padding:2px 8px; font-size:10px; min-height:unset; height:auto;">Rename</button>' +
+          '<button class="btn-pill-outline" onclick="deleteProjectPrompt(\'' + p.id + '\', event)" style="padding:2px 8px; font-size:10px; min-height:unset; height:auto; color:var(--coral); border-color:var(--coral);">Delete</button>';
+
+        html += '<div class="folder-row" onclick="selectHistoryProject(\'' + p.id + '\')" ' +
+          'style="display:flex; align-items:center; gap:8px; padding:9px 14px; cursor:pointer; border-bottom:1px solid var(--hairline); ' +
+          (isPActive ? 'background: var(--accent-soft, rgba(37,99,168,.1));' : '') + '">' +
+          caret +
+          '<span style="flex:1; font-size:13.5px; font-weight:600; color: var(--ink);">' + escapeHtml(p.name) + '</span>' +
+          '<span style="font-size:11px; font-family:var(--font-mono); color: var(--slate); background: var(--surface-2); padding:1px 8px; border-radius:20px;">' + pCount + ' scenarios</span>' +
+          actions +
+          '</div>';
+
+        if (isPExpanded) {
+          // Suites inside project
+          if (suites.length === 0 && unassignedCount === 0) {
+            html += '<div style="padding:8px 14px 8px 38px; font-size:12px; color:var(--slate); font-style:italic; border-bottom:1px solid var(--hairline); background:var(--surface-2);">' +
+              'No test suites yet in this project. <a href="javascript:void(0)" onclick="openCreateSuiteModal(\'' + p.id + '\', event)" style="color:var(--accent); text-decoration:underline;">Create a suite</a>' +
+              '</div>';
+          } else {
+            suites.forEach(s => {
+              const sCount = countInSuite(s.id);
+              const isSExpanded = !!expandedSuites[s.id];
+              const isSActive = historySuiteFilter === s.id;
+              const sCaret = '<span onclick="toggleSuiteExpand(\'' + s.id + '\', event)" style="cursor:pointer; width:16px; display:inline-block; text-align:center; color: var(--slate); font-size:11px;">' + (isSExpanded ? '&#9662;' : '&#9656;') + '</span>';
+              const sActions =
+                '<button class="btn-pill-outline" onclick="renameSuitePrompt(\'' + s.id + '\', event)" style="padding:2px 6px; font-size:9.5px; min-height:unset; height:auto;">Rename</button>' +
+                '<button class="btn-pill-outline" onclick="deleteSuitePrompt(\'' + s.id + '\', event)" style="padding:2px 6px; font-size:9.5px; min-height:unset; height:auto; color:var(--coral); border-color:var(--coral);">Delete</button>';
+
+              html += '<div class="suite-row" onclick="selectHistorySuite(\'' + s.id + '\', \'' + p.id + '\', event)" ' +
+                'style="display:flex; align-items:center; gap:8px; padding:7px 14px 7px 34px; cursor:pointer; border-bottom:1px solid var(--hairline); ' +
+                (isSActive ? 'background: var(--accent-soft, rgba(37,99,168,.12));' : 'background: rgba(0,0,0,0.015);') + '">' +
+                sCaret +
+                '<span style="flex:1; font-size:13px; font-weight:500; color: var(--ink);">' + escapeHtml(s.name) + '</span>' +
+                '<span style="font-size:10.5px; font-family:var(--font-mono); color: var(--slate); background: var(--surface-2); padding:1px 6px; border-radius:12px;">' + sCount + '</span>' +
+                sActions +
+                '</div>';
+
+              if (isSExpanded) {
+                const scenarios = allHistoryData.filter(h => h.suiteId === s.id);
+                if (scenarios.length === 0) {
+                  html += '<div style="padding:6px 14px 6px 58px; font-size:12px; color:var(--slate); font-style:italic; border-bottom:1px solid var(--hairline); background:var(--surface-2);">No scenarios in this suite yet.</div>';
+                } else {
+                  html += scenarios.map(h => scenarioRowHtml(h, 2)).join('');
+                }
+              }
+            });
+
+            // Unassigned scenarios in this project
+            if (unassignedCount > 0) {
+              const isUExpanded = !!expandedUnassigned[p.id];
+              const isUActive = historyProjectFilter === p.id && historySuiteFilter === 'none';
+              const uCaret = '<span onclick="toggleUnassignedExpand(\'' + p.id + '\', event)" style="cursor:pointer; width:16px; display:inline-block; text-align:center; color: var(--slate); font-size:11px;">' + (isUExpanded ? '&#9662;' : '&#9656;') + '</span>';
+
+              html += '<div class="suite-row" onclick="selectHistoryUnassigned(\'' + p.id + '\', event)" ' +
+                'style="display:flex; align-items:center; gap:8px; padding:7px 14px 7px 34px; cursor:pointer; border-bottom:1px solid var(--hairline); ' +
+                (isUActive ? 'background: var(--accent-soft, rgba(37,99,168,.12));' : 'background: rgba(0,0,0,0.015);') + '">' +
+                uCaret +
+                '<span style="flex:1; font-size:12.5px; font-style:italic; color: var(--slate);">Unassigned to Suite</span>' +
+                '<span style="font-size:10.5px; font-family:var(--font-mono); color: var(--slate); background: var(--surface-2); padding:1px 6px; border-radius:12px;">' + unassignedCount + '</span>' +
+                '</div>';
+
+              if (isUExpanded) {
+                const unassignedScenarios = allHistoryData.filter(h => h.folderId === p.id && !h.suiteId);
+                html += unassignedScenarios.map(h => scenarioRowHtml(h, 2)).join('');
+              }
+            }
+          }
         }
       });
 
-      // Uncategorized (old scenarios without a folder)
-      const uncatCount = countInFolder('none');
-      if (uncatCount > 0) {
-        const isExpanded = !!expandedFolders['none'];
-        html += folderRowHtml({
-          key: 'none',
-          name: '<span style="color: var(--slate); font-style: italic;">Uncategorized</span>',
-          count: uncatCount,
-          active: historyFolderFilter === 'none',
-          expandable: true,
-          expanded: isExpanded
-        });
-        if (isExpanded) {
-          const scenarios = allHistoryData.filter(h => !h.folderId);
-          html += scenarios.map(scenarioRowHtml).join('');
+      // Legacy Uncategorized (scenarios without project)
+      const legacyCount = countInProject('none');
+      if (legacyCount > 0) {
+        const isLActive = historyProjectFilter === 'none';
+        const lCaret = '<span onclick="toggleLegacyUncatExpand(event)" style="cursor:pointer; width:16px; display:inline-block; text-align:center; color: var(--slate); font-size:11px;">' + (expandedLegacyUncat ? '&#9662;' : '&#9656;') + '</span>';
+
+        html += '<div class="folder-row" onclick="selectHistoryProject(\'none\')" ' +
+          'style="display:flex; align-items:center; gap:8px; padding:9px 14px; cursor:pointer; border-bottom:1px solid var(--hairline); ' +
+          (isLActive ? 'background: var(--accent-soft, rgba(37,99,168,.1));' : '') + '">' +
+          lCaret +
+          '<span style="flex:1; font-size:13px; font-style:italic; color: var(--slate);">Legacy Uncategorized</span>' +
+          '<span style="font-size:11px; font-family:var(--font-mono); color: var(--slate); background: var(--surface-2); padding:1px 8px; border-radius:20px;">' + legacyCount + '</span>' +
+          '</div>';
+
+        if (expandedLegacyUncat) {
+          const legacyScenarios = allHistoryData.filter(h => !h.folderId);
+          html += legacyScenarios.map(h => scenarioRowHtml(h, 1)).join('');
         }
       }
 
       tree.innerHTML = html;
     }
 
-    function scenarioRowHtml(h) {
-      const moveOptions = ['<option value="">Move to...</option>']
-        .concat(userFolders.map(f => '<option value="' + f.id + '"' + (f.id === h.folderId ? ' disabled' : '') + '>' + escapeHtml(f.name) + '</option>'))
-        .concat(h.folderId ? ['<option value="none">Uncategorized</option>'] : [])
-        .join('');
-      return '<div style="display:flex; align-items:center; gap:8px; padding:7px 14px 7px 38px; border-bottom:1px solid var(--hairline); background: var(--surface-2);">' +
-        '<span style="flex:1; font-size:12.5px; color: var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + escapeHtml(h.testSuite || 'Untitled') + '</span>' +
+    function scenarioRowHtml(h, indentLevel) {
+      const padLeft = indentLevel ? (indentLevel * 24 + 14) + 'px' : '38px';
+      let moveOptions = '<option value="">Move to...</option>';
+      userFolders.forEach(p => {
+        const suites = projectSuitesCache.get(p.id) || [];
+        moveOptions += '<optgroup label="' + escapeHtml(p.name) + '">';
+        suites.forEach(s => {
+          const isCurrent = h.suiteId === s.id;
+          moveOptions += '<option value="suite:' + s.id + '"' + (isCurrent ? ' disabled' : '') + '>' + escapeHtml(s.name) + '</option>';
+        });
+        moveOptions += '<option value="project:' + p.id + '"' + (h.folderId === p.id && !h.suiteId ? ' disabled' : '') + '>Unassigned in ' + escapeHtml(p.name) + '</option>';
+        moveOptions += '</optgroup>';
+      });
+      if (h.folderId) {
+        moveOptions += '<option value="none">Uncategorized (No Project)</option>';
+      }
+
+      return '<div style="display:flex; align-items:center; gap:8px; padding:7px 14px 7px ' + padLeft + '; border-bottom:1px solid var(--hairline); background: var(--surface-2);">' +
+        '<span style="flex:1; font-size:12.5px; color: var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="' + escapeHtml(h.testSuite || 'Untitled') + '">' + escapeHtml(h.testSuite || 'Untitled') + '</span>' +
         '<span style="font-size:10px; font-family:var(--font-mono); color: var(--slate);">' + new Date(h.timestamp).toLocaleDateString() + '</span>' +
-        '<select onchange="moveScenarioToFolder(\'' + h.id + '\', this.value)" style="font-size:11px; padding:2px 6px; max-width:130px;">' + moveOptions + '</select>' +
+        '<select onchange="handleScenarioMove(\'' + h.id + '\', this.value)" style="font-size:11px; padding:2px 6px; max-width:140px;">' + moveOptions + '</select>' +
         '<button class="btn-pill-outline" onclick="viewHistory(\'' + h.id + '\')" style="padding:2px 8px; font-size:10px; min-height:unset; height:auto;">View</button>' +
         '</div>';
     }
 
-    window.moveScenarioToFolder = async function(id, target) {
-      if (target === '') return;
-      const folderId = target === 'none' ? null : target;
+    window.handleScenarioMove = async function(id, targetValue) {
+      if (!targetValue) return;
       try {
-        const res = await fetch('/api/v1/history/' + id + '/folder', {
-          method: 'PATCH',
-          headers: getAuthHeaders(),
-          body: JSON.stringify({ folderId })
-        });
-        const data = await res.json();
-        if (data.success) {
-          const rec = allHistoryData.find(h => h.id === id);
-          if (rec) rec.folderId = folderId;
-          renderFolderTree();
-          renderHistoryTable();
-          showSnackbar({ type: 'success', title: 'Moved', message: 'Scenario moved.' });
-        } else {
-          showSnackbar({ type: 'error', title: 'Move Failed', message: data.error || 'Unknown error.' });
+        if (targetValue.startsWith('suite:')) {
+          const suiteId = targetValue.replace('suite:', '');
+          const res = await fetch('/api/v1/history/' + id + '/suite', {
+            method: 'PATCH',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ suiteId })
+          });
+          const data = await res.json();
+          if (data.success) {
+            const rec = allHistoryData.find(h => h.id === id);
+            if (rec) {
+              rec.suiteId = suiteId;
+              // Find suite's parent project
+              for (const [pId, suites] of projectSuitesCache.entries()) {
+                if (suites.some(s => s.id === suiteId)) {
+                  rec.folderId = pId;
+                  break;
+                }
+              }
+            }
+            await loadAllProjectSuites();
+            renderFolderTree();
+            renderHistoryTable();
+            showSnackbar({ type: 'success', title: 'Moved', message: 'Scenario assigned to suite.' });
+          } else {
+            showSnackbar({ type: 'error', title: 'Move Failed', message: data.error || 'Unknown error.' });
+          }
+        } else if (targetValue.startsWith('project:')) {
+          const projectId = targetValue.replace('project:', '');
+          const res = await fetch('/api/v1/history/' + id + '/project', {
+            method: 'PATCH',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ projectId })
+          });
+          const data = await res.json();
+          if (data.success) {
+            const rec = allHistoryData.find(h => h.id === id);
+            if (rec) {
+              rec.folderId = projectId;
+              rec.suiteId = null;
+            }
+            await loadAllProjectSuites();
+            renderFolderTree();
+            renderHistoryTable();
+            showSnackbar({ type: 'success', title: 'Moved', message: 'Scenario moved to project.' });
+          } else {
+            showSnackbar({ type: 'error', title: 'Move Failed', message: data.error || 'Unknown error.' });
+          }
+        } else if (targetValue === 'none') {
+          const res = await fetch('/api/v1/history/' + id + '/project', {
+            method: 'PATCH',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ projectId: null })
+          });
+          const data = await res.json();
+          if (data.success) {
+            const rec = allHistoryData.find(h => h.id === id);
+            if (rec) {
+              rec.folderId = null;
+              rec.suiteId = null;
+            }
+            renderFolderTree();
+            renderHistoryTable();
+            showSnackbar({ type: 'success', title: 'Moved', message: 'Scenario uncategorized.' });
+          } else {
+            showSnackbar({ type: 'error', title: 'Move Failed', message: data.error || 'Unknown error.' });
+          }
         }
       } catch (err) {
         showSnackbar({ type: 'error', title: 'Network Error', message: 'Could not move scenario.' });
       }
     };
+    window.moveScenarioToFolder = window.handleScenarioMove;
+    window.moveScenarioToSuite = window.handleScenarioMove;
 
-    window.renameFolderPrompt = async function(id, event) {
+    window.renameProjectPrompt = async function(id, event) {
       if (event) event.stopPropagation();
-      const folder = userFolders.find(f => f.id === id);
-      if (!folder) return;
+      const project = userFolders.find(f => f.id === id);
+      if (!project) return;
       const result = await Swal.fire({
-        title: 'Rename Folder',
+        title: 'Rename Project',
         input: 'text',
-        inputValue: folder.name,
+        inputValue: project.name,
         showCancelButton: true,
         confirmButtonText: 'Rename',
         confirmButtonColor: '#005bbf',
@@ -1915,7 +2273,7 @@
       });
       if (!result.isConfirmed) return;
       try {
-        const res = await fetch('/api/v1/folders/' + id, {
+        const res = await fetch('/api/v1/projects/' + id, {
           method: 'PATCH',
           headers: getAuthHeaders(),
           body: JSON.stringify({ name: result.value.trim() })
@@ -1923,46 +2281,135 @@
         const data = await res.json();
         if (data.success) {
           await loadFolders();
+          await loadAllProjectSuites();
           renderFolderTree();
           renderHistoryTable();
+          showSnackbar({ type: 'success', title: 'Renamed', message: 'Project renamed.' });
         } else {
           showSnackbar({ type: 'error', title: 'Rename Failed', message: data.error || 'Unknown error.' });
         }
       } catch (err) {
-        showSnackbar({ type: 'error', title: 'Network Error', message: 'Could not rename folder.' });
+        showSnackbar({ type: 'error', title: 'Network Error', message: 'Could not rename project.' });
       }
     };
+    window.renameFolderPrompt = window.renameProjectPrompt;
 
-    window.deleteFolderPrompt = async function(id, event) {
+    window.deleteProjectPrompt = async function(id, event) {
       if (event) event.stopPropagation();
-      const folder = userFolders.find(f => f.id === id);
-      if (!folder) return;
-      const count = countInFolder(id);
+      const project = userFolders.find(f => f.id === id);
+      if (!project) return;
+      const count = countInProject(id);
       const result = await Swal.fire({
         icon: 'warning',
-        title: 'Delete Folder?',
-        html: 'Delete <b>' + escapeHtml(folder.name) + '</b>?' + (count > 0 ? '<br>The ' + count + ' scenario(s) inside will become uncategorized, not deleted.' : ''),
+        title: 'Delete Project?',
+        html: 'Delete project <b>' + escapeHtml(project.name) + '</b>?' + (count > 0 ? '<br>The ' + count + ' scenario(s) inside will become uncategorized, not deleted.' : ''),
         showCancelButton: true,
         confirmButtonText: 'Delete',
         confirmButtonColor: '#dc3545'
       });
       if (!result.isConfirmed) return;
       try {
-        const res = await fetch('/api/v1/folders/' + id, { method: 'DELETE', headers: getAuthHeaders() });
+        const res = await fetch('/api/v1/projects/' + id, { method: 'DELETE', headers: getAuthHeaders() });
         const data = await res.json();
         if (data.success) {
-          if (historyFolderFilter === id) historyFolderFilter = null;
-          // Reflect the move-to-uncategorized locally.
-          allHistoryData.forEach(h => { if (h.folderId === id) h.folderId = null; });
+          if (historyProjectFilter === id) historyProjectFilter = null;
+          allHistoryData.forEach(h => {
+            if (h.folderId === id) {
+              h.folderId = null;
+              h.suiteId = null;
+            }
+          });
+          projectSuitesCache.delete(id);
           await loadFolders();
           renderFolderTree();
           renderHistoryTable();
-          showSnackbar({ type: 'success', title: 'Folder Deleted', message: 'Scenarios inside are now uncategorized.' });
+          showSnackbar({ type: 'success', title: 'Project Deleted', message: 'Scenarios inside are now uncategorized.' });
         } else {
           showSnackbar({ type: 'error', title: 'Delete Failed', message: data.error || 'Unknown error.' });
         }
       } catch (err) {
-        showSnackbar({ type: 'error', title: 'Network Error', message: 'Could not delete folder.' });
+        showSnackbar({ type: 'error', title: 'Network Error', message: 'Could not delete project.' });
+      }
+    };
+    window.deleteFolderPrompt = window.deleteProjectPrompt;
+
+    window.renameSuitePrompt = async function(suiteId, event) {
+      if (event) event.stopPropagation();
+      let foundSuite = null;
+      for (const suites of projectSuitesCache.values()) {
+        const s = suites.find(item => item.id === suiteId);
+        if (s) { foundSuite = s; break; }
+      }
+      if (!foundSuite) return;
+
+      const result = await Swal.fire({
+        title: 'Rename Test Suite',
+        input: 'text',
+        inputValue: foundSuite.name,
+        showCancelButton: true,
+        confirmButtonText: 'Rename',
+        confirmButtonColor: '#005bbf',
+        inputValidator: v => (!v || !v.trim()) ? 'Name cannot be empty' : undefined
+      });
+      if (!result.isConfirmed) return;
+
+      try {
+        const res = await fetch('/api/v1/suites/' + suiteId, {
+          method: 'PATCH',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ name: result.value.trim() })
+        });
+        const data = await res.json();
+        if (data.success) {
+          await loadAllProjectSuites();
+          renderFolderTree();
+          renderHistoryTable();
+          showSnackbar({ type: 'success', title: 'Renamed', message: 'Test suite renamed.' });
+        } else {
+          showSnackbar({ type: 'error', title: 'Rename Failed', message: data.error || 'Unknown error.' });
+        }
+      } catch (err) {
+        showSnackbar({ type: 'error', title: 'Network Error', message: 'Could not rename suite.' });
+      }
+    };
+
+    window.deleteSuitePrompt = async function(suiteId, event) {
+      if (event) event.stopPropagation();
+      let foundSuite = null;
+      for (const suites of projectSuitesCache.values()) {
+        const s = suites.find(item => item.id === suiteId);
+        if (s) { foundSuite = s; break; }
+      }
+      if (!foundSuite) return;
+
+      const count = countInSuite(suiteId);
+      const result = await Swal.fire({
+        icon: 'warning',
+        title: 'Delete Test Suite?',
+        html: 'Delete suite <b>' + escapeHtml(foundSuite.name) + '</b>?' + (count > 0 ? '<br>The ' + count + ' scenario(s) inside will remain in the project as unassigned.' : ''),
+        showCancelButton: true,
+        confirmButtonText: 'Delete',
+        confirmButtonColor: '#dc3545'
+      });
+      if (!result.isConfirmed) return;
+
+      try {
+        const res = await fetch('/api/v1/suites/' + suiteId, { method: 'DELETE', headers: getAuthHeaders() });
+        const data = await res.json();
+        if (data.success) {
+          if (historySuiteFilter === suiteId) historySuiteFilter = null;
+          allHistoryData.forEach(h => {
+            if (h.suiteId === suiteId) h.suiteId = null;
+          });
+          await loadAllProjectSuites();
+          renderFolderTree();
+          renderHistoryTable();
+          showSnackbar({ type: 'success', title: 'Suite Deleted', message: 'Scenarios remain in project as unassigned.' });
+        } else {
+          showSnackbar({ type: 'error', title: 'Delete Failed', message: data.error || 'Unknown error.' });
+        }
+      } catch (err) {
+        showSnackbar({ type: 'error', title: 'Network Error', message: 'Could not delete suite.' });
       }
     };
 
@@ -1970,13 +2417,18 @@
       const tbody = document.getElementById('historyTableBody');
       if (!tbody) return;
 
-      // Filter by folder first
+      // Filter by suite / project
       let filtered = allHistoryData;
-      if (historyFolderFilter === 'none') {
+      if (historySuiteFilter === 'none') {
+        filtered = filtered.filter(h => h.folderId === historyProjectFilter && !h.suiteId);
+      } else if (historySuiteFilter) {
+        filtered = filtered.filter(h => h.suiteId === historySuiteFilter);
+      } else if (historyProjectFilter === 'none') {
         filtered = filtered.filter(h => !h.folderId);
-      } else if (historyFolderFilter) {
-        filtered = filtered.filter(h => h.folderId === historyFolderFilter);
+      } else if (historyProjectFilter) {
+        filtered = filtered.filter(h => h.folderId === historyProjectFilter);
       }
+
       // Then by search query
       if (historySearchQuery) {
         filtered = filtered.filter(h =>
@@ -2052,12 +2504,28 @@
         else if (h.status === 'RUNNING') badgeClass += ' status-badge-running';
         else if (h.status === 'GENERATED') badgeClass += ' status-badge-generated';
         else badgeClass += ' status-badge-generated';
+
+        // Project and Suite label tags
+        const project = userFolders.find(p => p.id === h.folderId);
+        let suiteName = null;
+        if (h.suiteId) {
+          for (const suites of projectSuitesCache.values()) {
+            const s = suites.find(item => item.id === h.suiteId);
+            if (s) { suiteName = s.name; break; }
+          }
+        }
+        const locationTag = project
+          ? `<div style="font-size: 11px; color: var(--slate); margin-top: 2px;">${escapeHtml(project.name)}${suiteName ? ' &nbsp;›&nbsp; ' + escapeHtml(suiteName) : ''}</div>`
+          : `<div style="font-size: 11px; color: var(--slate); margin-top: 2px; font-style: italic;">Uncategorized</div>`;
         
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td style="vertical-align: middle;"><span style="font-size: 11px; font-family: var(--font-mono); color: var(--slate);">${new Date(h.timestamp).toLocaleString()}</span></td>
-          <td style="vertical-align: middle;"><span style="font-weight: 500;">${h.testSuite}</span></td>
-          <td style="vertical-align: middle;"><span style="font-family: var(--font-mono); font-size: 11px; word-break: break-all;">${h.targetUrl}</span></td>
+          <td style="vertical-align: middle;">
+            <div style="font-weight: 500;">${escapeHtml(h.testSuite || 'Untitled Scenario')}</div>
+            ${locationTag}
+          </td>
+          <td style="vertical-align: middle;"><span style="font-family: var(--font-mono); font-size: 11px; word-break: break-all;">${escapeHtml(h.targetUrl || '-')}</span></td>
           <td style="text-align: center; vertical-align: middle;"><span class="${badgeClass}">${h.status}</span></td>
           <td style="text-align: center; vertical-align: middle;">
             <div style="display: flex; gap: 8px; justify-content: center; align-items: center;">
@@ -2170,10 +2638,11 @@
       
       renderSteps();
 
-      // Select the folder this scenario belongs to, if it still exists.
+      // Select the project and suite this scenario belongs to, if they still exist.
       const folderSelect = document.getElementById('folderSelect');
       if (folderSelect && h.folderId && userFolders.some(f => f.id === h.folderId)) {
         folderSelect.value = h.folderId;
+        await loadSuites(h.folderId, h.suiteId);
       }
 
       // Populate Code output

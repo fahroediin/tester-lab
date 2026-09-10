@@ -8,9 +8,9 @@ process.env.SUPABASE_URL = process.env.SUPABASE_URL || 'http://localhost';
 process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'dummy';
 
 const assert = require('assert');
-const { sanitizeCode } = require('../dist/server/code-sanitizer.js');
+const { sanitizeCode } = require('../dist/security/code-sanitizer.js');
 const { CodeGenerator } = require('../dist/generator/code-generator.js');
-const { assertSafeProxyUrl, isValidHttpUrl } = require('../dist/server/lib/url-guard.js');
+const { assertSafeProxyUrl, isValidHttpUrl } = require('../dist/security/url-guard.js');
 const { validateDSL } = require('../dist/validator/dsl-validator.js');
 const { toVideoStoragePath } = require('../dist/server/lib/storage-url.js');
 

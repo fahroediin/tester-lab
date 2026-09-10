@@ -1,0 +1,204 @@
+import { Router, Response } from 'express';
+import { authenticateJWT, requireApprovedUser } from '../auth-middleware.js';
+import type { AuthenticatedRequest } from '../auth-middleware.js';
+import { getSuitesByProjectId, getSuiteById, createSuite, updateSuite, deleteSuite } from '../suite-store.js';
+import { getProjectById } from '../folder-store.js';
+import { getUserHistory } from '../flow-history-store.js';
+import { addLog } from '../activity-log-store.js';
+
+export const suiteRoutes = Router();
+
+const MAX_NAME_LEN = 120;
+const MAX_DESC_LEN = 500;
+
+function cleanName(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const name = raw.trim();
+  if (!name || name.length > MAX_NAME_LEN) return null;
+  return name;
+}
+
+/**
+ * GET /api/v1/suites
+ * Query: ?projectId=<id>
+ * List suites in the given project (or all user suites if no projectId specified),
+ * each with scenario count.
+ */
+suiteRoutes.get('/', authenticateJWT, requireApprovedUser, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const projectId = typeof req.query.projectId === 'string' ? req.query.projectId.trim() : '';
+
+    if (!projectId) {
+      res.status(400).json({ success: false, error: 'projectId is required' });
+      return;
+    }
+
+    const project = await getProjectById(projectId);
+    if (!project) {
+      res.status(404).json({ success: false, error: 'Project not found' });
+      return;
+    }
+    if (project.userId !== userId && req.user!.role !== 'admin') {
+      res.status(403).json({ success: false, error: 'Unauthorized to view this project' });
+      return;
+    }
+
+    const [suites, history] = await Promise.all([
+      getSuitesByProjectId(projectId),
+      getUserHistory(userId)
+    ]);
+
+    const counts = new Map<string, number>();
+    let uncategorizedInProject = 0;
+
+    for (const h of history) {
+      if (h.folderId === projectId) {
+        if (h.suiteId) {
+          counts.set(h.suiteId, (counts.get(h.suiteId) || 0) + 1);
+        } else {
+          uncategorizedInProject += 1;
+        }
+      }
+    }
+
+    const withCounts = suites.map(s => ({ ...s, scenarioCount: counts.get(s.id) || 0 }));
+    res.json({ success: true, suites: withCounts, uncategorizedCount: uncategorizedInProject });
+  } catch (err: unknown) {
+    const error = err as Error;
+    res.status(500).json({ success: false, error: error.message || 'Failed to fetch suites' });
+  }
+});
+
+/**
+ * POST /api/v1/suites
+ * Create a new suite inside a project.
+ */
+suiteRoutes.post('/', authenticateJWT, requireApprovedUser, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const projectId = typeof req.body?.projectId === 'string' ? req.body.projectId.trim() : '';
+    if (!projectId) {
+      res.status(400).json({ success: false, error: 'projectId is required' });
+      return;
+    }
+
+    const project = await getProjectById(projectId);
+    if (!project) {
+      res.status(404).json({ success: false, error: 'Project not found' });
+      return;
+    }
+    if (project.userId !== userId && req.user!.role !== 'admin') {
+      res.status(403).json({ success: false, error: 'Unauthorized to modify this project' });
+      return;
+    }
+
+    const name = cleanName(req.body?.name);
+    if (!name) {
+      res.status(400).json({ success: false, error: 'Suite name is required (max 120 characters)' });
+      return;
+    }
+    const description = typeof req.body?.description === 'string' ? req.body.description.trim().slice(0, MAX_DESC_LEN) : '';
+
+    const suite = await createSuite(projectId, name, description);
+    await addLog({
+      userId,
+      username: req.user!.username,
+      action: 'Create Suite',
+      details: `Created suite: ${name} in project ${project.name}`
+    });
+    res.json({ success: true, suite });
+  } catch (err: unknown) {
+    const error = err as Error;
+    if (error.message === 'DUPLICATE_SUITE') {
+      res.status(409).json({ success: false, error: 'A suite with this name already exists in this project' });
+      return;
+    }
+    res.status(500).json({ success: false, error: error.message || 'Failed to create suite' });
+  }
+});
+
+/**
+ * PATCH /api/v1/suites/:id
+ * Rename or update description of a suite.
+ */
+suiteRoutes.patch('/:id', authenticateJWT, requireApprovedUser, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const suite = await getSuiteById(req.params.id || '');
+    if (!suite) {
+      res.status(404).json({ success: false, error: 'Suite not found' });
+      return;
+    }
+
+    const project = await getProjectById(suite.projectId);
+    if (!project || (project.userId !== userId && req.user!.role !== 'admin')) {
+      res.status(403).json({ success: false, error: 'Unauthorized to modify this suite' });
+      return;
+    }
+
+    const updates: { name?: string; description?: string } = {};
+    if (req.body?.name !== undefined) {
+      const name = cleanName(req.body.name);
+      if (!name) {
+        res.status(400).json({ success: false, error: 'Suite name is invalid (max 120 characters)' });
+        return;
+      }
+      updates.name = name;
+    }
+    if (typeof req.body?.description === 'string') {
+      updates.description = req.body.description.trim().slice(0, MAX_DESC_LEN);
+    }
+
+    const updated = await updateSuite(suite.id, updates);
+    if (!updated) {
+      res.status(500).json({ success: false, error: 'Failed to update suite' });
+      return;
+    }
+    res.json({ success: true, suite: updated });
+  } catch (err: unknown) {
+    const error = err as Error;
+    if (error.message === 'DUPLICATE_SUITE') {
+      res.status(409).json({ success: false, error: 'A suite with this name already exists in this project' });
+      return;
+    }
+    res.status(500).json({ success: false, error: error.message || 'Failed to update suite' });
+  }
+});
+
+/**
+ * DELETE /api/v1/suites/:id
+ * Delete a suite. Scenarios inside remain in project with suite_id = NULL.
+ */
+suiteRoutes.delete('/:id', authenticateJWT, requireApprovedUser, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const suite = await getSuiteById(req.params.id || '');
+    if (!suite) {
+      res.status(404).json({ success: false, error: 'Suite not found' });
+      return;
+    }
+
+    const project = await getProjectById(suite.projectId);
+    if (!project || (project.userId !== userId && req.user!.role !== 'admin')) {
+      res.status(403).json({ success: false, error: 'Unauthorized to delete this suite' });
+      return;
+    }
+
+    const deleted = await deleteSuite(suite.id);
+    if (!deleted) {
+      res.status(500).json({ success: false, error: 'Failed to delete suite' });
+      return;
+    }
+    await addLog({
+      userId,
+      username: req.user!.username,
+      action: 'Delete Suite',
+      details: `Deleted suite: ${suite.name} from project ${project.name}`
+    });
+    res.json({ success: true, message: 'Suite deleted. Scenarios inside are now uncategorized in this project.' });
+  } catch (err: unknown) {
+    const error = err as Error;
+    res.status(500).json({ success: false, error: error.message || 'Failed to delete suite' });
+  }
+});
