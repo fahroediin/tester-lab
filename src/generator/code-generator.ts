@@ -53,6 +53,17 @@ Handlebars.registerHelper('pyLit', function (str: unknown) {
   return new Handlebars.SafeString(escaped);
 });
 
+// Escape a value for safe embedding inside a Java double-quoted string literal.
+Handlebars.registerHelper('jLit', function (str: unknown) {
+  const escaped = toStr(str)
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\r/g, '\\r')
+    .replace(/\n/g, '\\n')
+    .replace(/\t/g, '\\t');
+  return new Handlebars.SafeString(escaped);
+});
+
 // Sanitize a value for a Robot Framework cell: strip line breaks and collapse the
 // 2+ space separator so injected text cannot spill into extra keywords/arguments.
 Handlebars.registerHelper('rfText', function (str: unknown) {
@@ -79,7 +90,8 @@ export class CodeGenerator {
     if ((framework as string) === 'cypress') {
       templateFileName = 'cypress-js.hbs';
     } else if ((framework as string) === 'selenium') {
-      templateFileName = 'selenium-py.hbs';
+      // Selenium defaults to Python; language 'java' selects the TestNG template.
+      templateFileName = language === 'java' ? 'selenium-java.hbs' : 'selenium-py.hbs';
     } else if ((framework as string) === 'robotframework') {
       templateFileName = 'robot-rf.hbs';
     } else if (language === 'javascript') {
@@ -134,9 +146,16 @@ test('{{jsLit testSuite}}', async ({ page }) => {
     const template = Handlebars.compile(templateSource);
     const testTimeout = process.env.PLAYWRIGHT_TIMEOUT ? parseInt(process.env.PLAYWRIGHT_TIMEOUT, 10) : 120000;
     
+    const sanitizedTestSuite = config.testSuite.replace(/[^a-zA-Z0-9]/g, '');
+    // A valid Java class name cannot be empty or start with a digit.
+    const javaClassName = /^[A-Za-z]/.test(sanitizedTestSuite)
+      ? sanitizedTestSuite
+      : `Test${sanitizedTestSuite}`;
+
     const rawCode = template({
       testSuite: config.testSuite,
-      sanitizedTestSuite: config.testSuite.replace(/[^a-zA-Z0-9]/g, ''),
+      sanitizedTestSuite,
+      javaClassName,
       targetUrl: config.targetUrl,
       viewport: config.viewport,
       resolvedSteps,

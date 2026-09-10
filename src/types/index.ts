@@ -39,7 +39,7 @@ export interface DSLConfig {
   testSuite: string;
   targetUrl: string;
   framework?: 'playwright' | 'cypress' | 'selenium' | 'robotframework';
-  language?: 'typescript' | 'javascript' | 'python' | 'robot';
+  language?: 'typescript' | 'javascript' | 'python' | 'robot' | 'java';
   viewport?: {
     width: number;
     height: number;

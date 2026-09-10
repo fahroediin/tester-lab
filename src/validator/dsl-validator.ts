@@ -67,7 +67,7 @@ export const DSLConfigSchema = z.object({
       }
     }, "targetUrl must be a valid http(s) URL"),
   framework: z.enum(['playwright', 'cypress', 'selenium', 'robotframework']).default('playwright').optional(),
-  language: z.enum(['typescript', 'javascript', 'python', 'robot']).default('typescript').optional(),
+  language: z.enum(['typescript', 'javascript', 'python', 'robot', 'java']).default('typescript').optional(),
   viewport: z.object({
     width: z.number().positive(),
     height: z.number().positive()

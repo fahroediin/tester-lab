@@ -1,0 +1,121 @@
+import org.openqa.selenium.By;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
+import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.Select;
+import org.openqa.selenium.support.ui.WebDriverWait;
+import org.testng.Assert;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
+import java.time.Duration;
+
+public class {{{javaClassName}}}Test {
+
+    private WebDriver driver;
+    private WebDriverWait wait;
+
+    @BeforeMethod
+    public void setUp() {
+        driver = new ChromeDriver();
+        wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+        driver.manage().window().maximize();
+    }
+
+    @Test
+    public void testRunScenario() {
+        driver.get("{{jLit targetUrl}}");
+
+        {{#each resolvedSteps}}
+        // Step {{step}}: {{jLit description}}
+        {{#if warning}}
+        // [WARNING]: {{jLit warning}}
+        {{/if}}
+        {{#if (eq action "fill")}}
+        {{#if (eq selectorType "getByTestId")}}
+        {
+            WebElement el = wait.until(ExpectedConditions.visibilityOfElementLocated(By.xpath("//*[@data-testid='{{jLit selectorValue}}']")));
+            el.clear();
+            el.sendKeys("{{jLit value}}");
+        }
+        {{else if (eq selectorType "getByLabel")}}
+        {
+            WebElement el = wait.until(ExpectedConditions.visibilityOfElementLocated(By.xpath("//label[contains(., '{{jLit selectorValue}}')]/following::input[1]")));
+            el.clear();
+            el.sendKeys("{{jLit value}}");
+        }
+        {{else if (eq selectorType "getByPlaceholder")}}
+        {
+            WebElement el = wait.until(ExpectedConditions.visibilityOfElementLocated(By.xpath("//input[@placeholder='{{jLit selectorValue}}']")));
+            el.clear();
+            el.sendKeys("{{jLit value}}");
+        }
+        {{else}}
+        {
+            WebElement el = wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("{{jLit selectorValue}}")));
+            el.clear();
+            el.sendKeys("{{jLit value}}");
+        }
+        {{/if}}
+        {{/if}}
+        {{#if (eq action "click")}}
+        {{#if (eq selectorType "getByRole")}}
+        wait.until(ExpectedConditions.elementToBeClickable(By.xpath("//button[contains(., '{{jLit roleName}}')] | //a[contains(., '{{jLit roleName}}')]"))).click();
+        {{else if (eq selectorType "getByText")}}
+        wait.until(ExpectedConditions.elementToBeClickable(By.xpath("//*[contains(text(), '{{jLit selectorValue}}')]"))).click();
+        {{else if (eq selectorType "getByTestId")}}
+        wait.until(ExpectedConditions.elementToBeClickable(By.xpath("//*[@data-testid='{{jLit selectorValue}}']"))).click();
+        {{else}}
+        wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector("{{jLit selectorValue}}"))).click();
+        {{/if}}
+        {{/if}}
+        {{#if (eq action "select")}}
+        new Select(wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("{{jLit selectorValue}}")))).selectByVisibleText("{{jLit value}}");
+        {{/if}}
+        {{#if (eq action "check")}}
+        {
+            WebElement el = wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector("{{jLit selectorValue}}")));
+            if (!el.isSelected()) {
+                el.click();
+            }
+        }
+        {{/if}}
+        {{#if (eq action "uncheck")}}
+        {
+            WebElement el = wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector("{{jLit selectorValue}}")));
+            if (el.isSelected()) {
+                el.click();
+            }
+        }
+        {{/if}}
+        {{#if (eq action "upload")}}
+        driver.findElement(By.cssSelector("{{jLit selectorValue}}")).sendKeys("{{jLit value}}");
+        {{/if}}
+        {{#if (eq action "assert_url")}}
+        wait.until(ExpectedConditions.urlContains("{{jLit selectorValue}}"));
+        Assert.assertTrue(driver.getCurrentUrl().contains("{{jLit selectorValue}}"), "URL should contain: {{jLit selectorValue}}");
+        {{/if}}
+        {{#if (eq action "assert_text")}}
+        Assert.assertTrue(driver.getPageSource().contains("{{jLit expected}}"), "Page should contain text: {{jLit expected}}");
+        {{/if}}
+        {{#if (eq action "assert_visible")}}
+        Assert.assertTrue(wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("{{jLit selectorValue}}"))).isDisplayed());
+        {{/if}}
+        {{#if (eq action "wait")}}
+        try {
+            Thread.sleep({{selectorValue}}L);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        {{/if}}
+        {{/each}}
+    }
+
+    @AfterMethod
+    public void tearDown() {
+        if (driver != null) {
+            driver.quit();
+        }
+    }
+}

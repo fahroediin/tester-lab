@@ -891,7 +891,8 @@
         if (badge) badge.textContent = 'Cypress Engine';
       } else if (fw === 'selenium') {
         langSelect.innerHTML = `
-          <option value="python">Python (selenium.py)</option>
+          <option value="python">Python (.py)</option>
+          <option value="java">Java (TestNG .java)</option>
         `;
         if (badge) badge.textContent = 'Selenium Engine';
       } else if (fw === 'robotframework') {
@@ -1274,7 +1275,16 @@
       if (format === 'code') {
         content = document.getElementById('codeOutput').textContent;
         const lang = document.getElementById('language').value;
-        filename = `${baseFilename}.${lang === 'javascript' ? 'spec.js' : 'spec.ts'}`;
+        // Extension follows the selected language so the downloaded file matches
+        // its actual contents (e.g. Selenium Python is .py, Selenium Java is .java).
+        const extByLang = {
+          javascript: 'spec.js',
+          typescript: 'spec.ts',
+          python: 'py',
+          java: 'java',
+          robot: 'robot'
+        };
+        filename = `${baseFilename}.${extByLang[lang] || 'spec.ts'}`;
       } else {
          const data = {
            testSuite: document.getElementById('testSuite').value,
