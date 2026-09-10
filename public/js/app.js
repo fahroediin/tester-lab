@@ -2605,7 +2605,7 @@
       document.getElementById('historyVideoPlayer').pause();
     }
 
-    function loadHistoryToBuilder() {
+    async function loadHistoryToBuilder() {
       if (!currentViewedHistory) return;
       const h = currentViewedHistory;
 
