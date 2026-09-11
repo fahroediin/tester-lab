@@ -968,7 +968,7 @@
       if (terminalTitle) terminalTitle.textContent = 'CLI Terminal Output';
       if (terminalOutput) {
         if (fw !== 'playwright') {
-          terminalOutput.textContent = `// [INFO]: Server runner khusus mengeksekusi Playwright.\n// Script ${fwName} (.${codeExtForLanguage(lang)}) dapat diunduh untuk dijalankan di environment ${fwName} secara mandiri.`;
+          terminalOutput.textContent = `// [INFO]: Only Playwright scripts are executed on the server.\n// ${fwName} script (.${codeExtForLanguage(lang)}) can be downloaded to run independently in your ${fwName} environment.`;
           terminalOutput.style.color = '#94a3b8';
         } else {
           terminalOutput.textContent = "// Terminal ready. Click 'Run Script Now' to execute the generated Playwright test script directly in the terminal...";
@@ -1398,10 +1398,11 @@
       latestGeneratedCode = code;
 
       if (!code || !code.trim() || code.startsWith('//') || code.includes('[1/4] INITIALIZING')) {
+        // AC-14.09: Scenario has no generated code yet.
         showSnackbar({
           type: 'warning',
-          title: 'No Valid Script Found',
-          message: 'Please generate a valid test script first before running.'
+          title: 'Not Yet Generated Code',
+          message: 'Please Generate First.'
         });
         return;
       }
@@ -1413,13 +1414,13 @@
         const ext = codeExtForLanguage(language);
         showSnackbar({
           type: 'warning',
-          title: 'Eksekusi Ditolak',
-          message: `Hanya Playwright yang dieksekusi di server. Script ${fwName} dapat diunduh (.${ext}) untuk dijalankan sendiri.`
+          title: 'Execution Rejected',
+          message: `Only Playwright scripts are executed on the server. You can download the ${fwName} script (.${ext}) to run it independently.`
         });
-        if (terminalTitle) terminalTitle.textContent = 'CLI Terminal Output [Eksekusi Ditolak]';
+        if (terminalTitle) terminalTitle.textContent = 'CLI Terminal Output [Execution Rejected]';
         if (terminalOutput) {
           terminalOutput.style.color = '#f87171';
-          terminalOutput.textContent = `[INFO] Sistem menolak menjalankan script ${fwName}.\n[INFO] Hanya framework Playwright yang dieksekusi di server.\n[INFO] Script ${fwName} (.${ext}) tetap bisa Anda unduh menggunakan tombol "Download" di atas untuk dijalankan di environment ${fwName} secara mandiri.`;
+          terminalOutput.textContent = `[REJECT] Only Playwright scripts are executed on the server.\n[INFO] ${fwName} script (.${ext}) can be downloaded using the "Download" button above to run it independently in your ${fwName} environment.`;
         }
         return;
       }

@@ -13,7 +13,7 @@ export interface RunnerGuardCheck {
 }
 
 export const RUNNER_NON_PLAYWRIGHT_MESSAGE =
-  'Sistem menolak menjalankan script. Hanya Playwright yang dieksekusi di server. Script dapat diunduh untuk dijalankan sendiri.';
+  'Execution rejected. Only Playwright scripts are executed on the server. You can still download the script to run it independently.';
 
 /**
  * AC-14.10 & AC-14.11: Only Playwright test scripts are executed on the server.
