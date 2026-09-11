@@ -6,7 +6,9 @@
 
 **Sistem Generator Script Testing Otomatis Berbasis Rule & Heuristic DOM Matching (Deterministik, Tanpa LLM)**
 
-`tester-lab` adalah engine otomatisasi pengujian *end-to-end* yang menghasilkan script test secara otomatis berdasarkan file skenario aturan bisnis (**JSON / YAML DSL**), tanpa bergantung pada Large Language Model (LLM). Engine ini secara bawaan mendukung berbagai framework industri terkemuka: **Playwright (TypeScript & JavaScript), Cypress, Selenium (Python), dan Robot Framework**.
+`tester-lab` adalah engine otomatisasi pengujian *end-to-end* yang menghasilkan script test secara otomatis berdasarkan file skenario aturan bisnis (**JSON / YAML DSL**), tanpa bergantung pada Large Language Model (LLM). Engine ini secara bawaan mendukung berbagai framework industri terkemuka: **Playwright (TypeScript & JavaScript), Cypress, Selenium (Python), Selenium (Java / TestNG), Robot Framework, dan Katalon Studio (Groovy)**.
+
+Selain generasi, Tester Lab juga mengimpor test yang sudah ada (termasuk **proyek Katalon Studio**) kembali menjadi langkah scenario, sehingga test lama dipakai ulang tanpa menyusun ulang dari nol.
 
 ---
 
@@ -22,7 +24,9 @@
 ## Fitur Utama
 
 - **Deterministic 6-Tier Scoring Matrix:** Pencocokan label ke elemen DOM interaktif dengan bobot prioritas teruji (*Test ID -> Associated Label -> ARIA Role & Accessible Name -> InnerText -> Placeholder/Aria-Label -> Fuzzy Levenshtein*).
-- **Multi-Framework Code Transpiler:** Transpilasi otomatis ke **Playwright (TS/JS)**, **Cypress**, **Selenium Python**, dan **Robot Framework** terformat rapi via Prettier AST.
+- **Multi-Framework Code Transpiler:** Transpilasi otomatis ke **Playwright (TS/JS)**, **Cypress**, **Selenium Python**, **Selenium Java (TestNG)**, **Robot Framework**, dan **Katalon Studio (Groovy)** terformat rapi via Prettier AST. Output non-Playwright dijaga agar tidak dieksekusi langsung di server (hanya diunduh).
+- **Katalon Project Import (.zip):** Impor proyek Katalon Studio dalam bentuk arsip `.zip`. Sistem mendeteksi test case di folder `Scripts/` maupun `Test Cases/`, meminta pengguna memilih satu bila proyek memuat lebih dari satu, dan me-resolve selector langsung dari **Object Repository (`.rs`)** menjadi selector semantik Tester Lab (prioritas *placeholder -> id -> name -> text -> selectorCollection CSS -> xpath*). Field `setEncryptedText` dikosongkan dan ditandai untuk diisi manual (nilai terenkripsi Katalon tidak bisa didekripsi di luar Katalon Studio), dan konstruksi yang tidak bisa dikonversi (`callTestCase`, `CustomKeywords`) ditandai, bukan dibuang diam-diam.
+- **File Import (.groovy / .json / .yaml / spec):** Impor scenario dari file JSON, YAML, spec Playwright (`.spec.ts`/`.spec.js`), atau file Katalon `.groovy` tunggal (tahan format Katalon Studio asli: `findTestObject`, `FailureHandling`, `GlobalVariable`). Arsip dan tipe file yang tidak didukung (mis. `.rar`) ditolak dengan pesan yang jelas, bukan diproses sebagai teks mentah.
 - **Dry-Run & Self-Healing Engine:** Validasi headless langsung pasca-generasi dengan kemampuan *auto-healing* ke kandidat Rank-2 jika selector pertama gagal.
 - **Interaction Recorder (Point-and-Click DSL Capture):** Rekam interaksi langsung pada situs target yang dimuat melalui *reverse-proxy* ber-guard SSRF. Agen perekam yang diinjeksi menangkap aksi `click`/`fill` pengguna, menggabungkan langkah `fill` beruntun pada field yang sama, dan mengubahnya menjadi step DSL siap-generate — tanpa perlu menulis skenario manual.
 - **Web Workspace & Interactive Admin Portal:** UI modern responsif dengan Scenario Builder, Interaction Recorder, Flow History + video playback, Feedback Reporting, API Key Management, dan Admin Control Center.
@@ -68,7 +72,8 @@ DSL. Setelah DSL terbentuk, pipeline deterministik berikut yang berjalan:
                │
                ▼
     5. Multi-Framework Code Generator (src/generator/code-generator.ts)
-       - Handlebars Templates (Playwright TS/JS, Cypress, Selenium, Robot)
+       - Handlebars Templates (Playwright TS/JS, Cypress, Selenium Python,
+         Selenium Java/TestNG, Robot, Katalon Groovy)
        - Format kode otomatis via Prettier
                │
                ▼
@@ -77,7 +82,7 @@ DSL. Setelah DSL terbentuk, pipeline deterministik berikut yang berjalan:
        - Auto-healing fallback ke Rank 2 candidate jika selector bermasalah
                │
                ▼
- [ Output Artifact: File Script Testing (.spec.ts / .cy.js / .py / .robot) ]
+ [ Output Artifact: File Script Testing (.spec.ts / .cy.js / .py / .java / .robot / .groovy) ]
 ```
 
 ---
@@ -249,7 +254,7 @@ npm run start
 Buka browser di `http://localhost:3000` untuk mengakses Web Workspace & Admin Console.
 
 ### Fitur Antarmuka Web:
-- **Scenario Builder:** Pembuat skenario visual, import JSON/YAML, edit kode hasil generate secara inline, dan eksekusi generasi script satu klik.
+- **Scenario Builder:** Pembuat skenario visual; import JSON/YAML, spec Playwright, file Katalon `.groovy`, atau proyek Katalon `.zip` (dengan resolusi Object Repository `.rs`); edit kode hasil generate secara inline; dan eksekusi generasi script satu klik.
 - **Interaction Recorder:** Muat situs target di dalam workspace via *reverse-proxy* ber-guard SSRF, lalu rekam klik & isian pengguna menjadi step DSL otomatis.
 - **Execution History:** Riwayat lengkap skenario yang digenerasi beserta log eksekusi dan pemutar rekaman video Playwright.
 - **API Key Management:** Pembuatan dan pencabutan API key dengan ringkasan status hit (`generated`, `success`, `failed`).
@@ -355,9 +360,11 @@ tester-lab/
 │   │   └── supabase-client.ts   # Supabase client singleton
 │   ├── templates/               # Handlebars Code Generation Templates
 │   │   ├── cypress-js.hbs
+│   │   ├── katalon-groovy.hbs
 │   │   ├── playwright-js.hbs
 │   │   ├── playwright-ts.hbs
 │   │   ├── robot-rf.hbs
+│   │   ├── selenium-java.hbs
 │   │   └── selenium-py.hbs
 │   ├── types/
 │   │   └── index.ts             # Shared Domain Types & Interfaces
