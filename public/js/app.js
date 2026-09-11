@@ -603,7 +603,7 @@
       return args;
     }
 
-    function parseGroovyToSteps(code) {
+    function parseGroovyToSteps(code, rsResolver) {
       if (!code || typeof code !== 'string') return [];
       const parsedSteps = [];
       
@@ -690,6 +690,12 @@
         m = expr.match(/findTestObject\s*\(\s*('(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*")/);
         if (m) {
           const objPath = unquote(m[1]);
+          // If a .rs resolver is available, prefer the real selector from the
+          // Object Repository over the bare object name.
+          if (typeof rsResolver === 'function') {
+            const sel = rsResolver(objPath);
+            if (sel && sel.value) return sel.value;
+          }
           const parts = objPath.split('/');
           return cleanObjectName(parts[parts.length - 1]);
         }
@@ -957,6 +963,100 @@
       if (flagged.length === 0) return null;
       return flagged.length + (flagged.length === 1 ? ' step needs' : ' steps need') +
         ' manual attention (unsupported Katalon construct or variable value).';
+    }
+
+    // Parse one Object Repository .rs XML string into a semantic selector for
+    // Tester Lab. Priority (property name, NOT Katalon's isSelected flag):
+    // placeholder -> id -> name -> text -> xpath. Returns null when nothing
+    // usable is present. Tolerant of malformed/empty input (never throws).
+    function parseRsSelector(xmlString) {
+      if (!xmlString || typeof xmlString !== 'string') return null;
+
+      // Extract every <webElementProperties> block's name/value/isSelected via
+      // regex so the same logic runs in the browser and in headless tests.
+      const props = [];
+      const blockRe = /<webElementProperties\b[\s\S]*?<\/webElementProperties>/gi;
+      const blocks = xmlString.match(blockRe) || [];
+      for (const b of blocks) {
+        const nameM = b.match(/<name>\s*([\s\S]*?)\s*<\/name>/i);
+        const valM = b.match(/<value>\s*([\s\S]*?)\s*<\/value>/i);
+        const selM = b.match(/<isSelected>\s*([\s\S]*?)\s*<\/isSelected>/i);
+        if (!nameM) continue;
+        props.push({
+          name: nameM[1].trim().toLowerCase(),
+          value: valM ? valM[1].trim() : '',
+          isSelected: selM ? /true/i.test(selM[1]) : false
+        });
+      }
+      if (props.length === 0) return null;
+
+      // Pick the best-valued, prefer isSelected as a tie-breaker for duplicates.
+      function pick(propName) {
+        const matches = props.filter(p => p.name === propName && p.value);
+        if (matches.length === 0) return null;
+        const sel = matches.find(p => p.isSelected);
+        return (sel || matches[0]).value;
+      }
+
+      const placeholder = pick('placeholder');
+      if (placeholder) return { kind: 'getByPlaceholder', value: placeholder };
+
+      const id = pick('id');
+      if (id) return { kind: 'css', value: '#' + id };
+
+      const name = pick('name');
+      if (name) return { kind: 'css', value: '[name="' + name + '"]' };
+
+      const text = pick('text');
+      if (text) return { kind: 'getByText', value: text };
+
+      const xpath = pick('xpath');
+      if (xpath) {
+        // Katalon stores xpath sometimes as id("x"); normalize to real XPath.
+        const idFuncM = xpath.match(/^id\(\s*["']([^"']+)["']\s*\)$/);
+        if (idFuncM) return { kind: 'xpath', value: "//*[@id='" + idFuncM[1] + "']" };
+        return { kind: 'xpath', value: xpath };
+      }
+
+      return null;
+    }
+
+    // Build an index from Object Repository .rs entries: normalized object path
+    // (no "Object Repository/" prefix, no ".rs" suffix) -> raw XML string.
+    // Non-.rs entries are ignored.
+    function buildRsIndex(entries) {
+      const index = new Map();
+      if (!Array.isArray(entries)) return index;
+      for (const e of entries) {
+        if (!e || typeof e.path !== 'string') continue;
+        if (!/\.rs$/i.test(e.path)) continue;
+        let key = e.path.replace(/\\/g, '/');
+        key = key.replace(/^.*?Object Repository\//i, '');
+        key = key.replace(/\.rs$/i, '');
+        index.set(key, e.content);
+      }
+      return index;
+    }
+
+    // Build a resolver: findTestObject('path') -> semantic selector | null.
+    // Tries an exact index hit first, then a suffix match on the last segment,
+    // so a script path that omits leading folders still resolves.
+    function makeRsResolver(rsIndex) {
+      if (!rsIndex || typeof rsIndex.get !== 'function' || typeof rsIndex.entries !== 'function') {
+        return function () { return null; };
+      }
+      return function (objectPath) {
+        if (!objectPath) return null;
+        const norm = String(objectPath).replace(/\\/g, '/').replace(/\.rs$/i, '');
+        let xml = rsIndex.get(norm);
+        if (!xml) {
+          const last = norm.split('/').pop();
+          for (const [k, v] of rsIndex.entries()) {
+            if (k === last || k.endsWith('/' + last)) { xml = v; break; }
+          }
+        }
+        return xml ? parseRsSelector(xml) : null;
+      };
     }
 
     function loadSampleScenario() {
