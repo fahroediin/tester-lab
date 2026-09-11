@@ -606,7 +606,43 @@
     function parseGroovyToSteps(code) {
       if (!code || typeof code !== 'string') return [];
       const parsedSteps = [];
-      const lines = code.split('\n');
+      
+      // Normalize multiline statements (e.g. arguments split across lines)
+      const rawLines = code.split('\n');
+      const lines = [];
+      let buffer = '';
+
+      for (let i = 0; i < rawLines.length; i++) {
+        const raw = rawLines[i];
+        const trimmed = raw.trim();
+        if (!trimmed) continue;
+
+        if (buffer) {
+          buffer += ' ' + trimmed;
+        } else {
+          buffer = trimmed;
+        }
+
+        // Count unquoted parens to detect if statement continues
+        let inSQ = false, inDQ = false, esc = false, openParens = 0;
+        for (let j = 0; j < buffer.length; j++) {
+          const c = buffer[j];
+          if (esc) { esc = false; continue; }
+          if (c === '\\') { esc = true; continue; }
+          if (c === "'" && !inDQ) inSQ = !inSQ;
+          if (c === '"' && !inSQ) inDQ = !inDQ;
+          if (!inSQ && !inDQ) {
+            if (c === '(') openParens++;
+            if (c === ')') openParens--;
+          }
+        }
+
+        if (openParens <= 0 || trimmed.startsWith('//') || trimmed.startsWith('/*')) {
+          lines.push(buffer);
+          buffer = '';
+        }
+      }
+      if (buffer) lines.push(buffer);
 
       let currentDescription = '';
 
@@ -617,6 +653,11 @@
           return trimmed.slice(1, -1).replace(/\\'/g, "'").replace(/\\"/g, '"');
         }
         return trimmed;
+      }
+
+      function cleanObjectName(rawName) {
+        if (!rawName) return '';
+        return rawName.replace(/^(?:input|button|btn|div|span|select|a|link|label|textarea|img|table)_/i, '');
       }
 
       function extractTarget(expr) {
@@ -650,15 +691,15 @@
         if (m) {
           const objPath = unquote(m[1]);
           const parts = objPath.split('/');
-          return parts[parts.length - 1];
+          return cleanObjectName(parts[parts.length - 1]);
         }
 
         m = expr.match(/('(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*")/);
         if (m) {
-          return unquote(m[1]);
+          return cleanObjectName(unquote(m[1]));
         }
 
-        return expr.trim();
+        return cleanObjectName(expr.trim());
       }
 
       let helperBraceDepth = 0;
@@ -703,8 +744,10 @@
 
         let stepObj = null;
 
-        if (line.includes('WebUI.setText') || line.includes('WebUI.sendKeys')) {
-          const args = extractCallArgs(line, line.includes('WebUI.setText') ? 'WebUI.setText' : 'WebUI.sendKeys');
+        if (line.includes('WebUI.setText') || line.includes('WebUI.sendKeys') || line.includes('WebUI.setEncryptedText')) {
+          const method = line.includes('WebUI.setEncryptedText') ? 'WebUI.setEncryptedText' :
+                         line.includes('WebUI.setText') ? 'WebUI.setText' : 'WebUI.sendKeys';
+          const args = extractCallArgs(line, method);
           if (args && args.length >= 2) {
             const target = extractTarget(args[0]);
             stepObj = {
@@ -727,8 +770,12 @@
               description: currentDescription || `Select ${target}`
             };
           }
-        } else if (line.includes('WebUI.click')) {
-          const args = extractCallArgs(line, 'WebUI.click');
+        } else if (line.includes('WebUI.click') || line.includes('WebUI.doubleClick') || line.includes('WebUI.rightClick')) {
+          let method = 'WebUI.click';
+          if (line.includes('WebUI.doubleClick')) method = 'WebUI.doubleClick';
+          else if (line.includes('WebUI.rightClick')) method = 'WebUI.rightClick';
+
+          const args = extractCallArgs(line, method);
           if (args && args.length >= 1) {
             const target = extractTarget(args[0]);
             stepObj = {
@@ -798,8 +845,17 @@
             value: txt,
             description: currentDescription || `Verify text "${txt}"`
           };
-        } else if (line.includes('WebUI.verifyElementPresent') || line.includes('WebUI.verifyElementVisible')) {
-          const method = line.includes('WebUI.verifyElementPresent') ? 'WebUI.verifyElementPresent' : 'WebUI.verifyElementVisible';
+        } else if (
+          line.includes('WebUI.verifyElementPresent') ||
+          line.includes('WebUI.verifyElementVisible') ||
+          line.includes('WebUI.waitForElementPresent') ||
+          line.includes('WebUI.waitForElementVisible')
+        ) {
+          let method = 'WebUI.verifyElementPresent';
+          if (line.includes('WebUI.waitForElementVisible')) method = 'WebUI.waitForElementVisible';
+          else if (line.includes('WebUI.waitForElementPresent')) method = 'WebUI.waitForElementPresent';
+          else if (line.includes('WebUI.verifyElementVisible')) method = 'WebUI.verifyElementVisible';
+
           const args = extractCallArgs(line, method);
           const target = (args && args.length >= 1) ? extractTarget(args[0]) : '';
           stepObj = {
@@ -920,15 +976,20 @@
               if (langSelect) langSelect.value = 'groovy';
             }, 10);
 
-            // AC-11.14: Extract test suite name from Katalon template comment
+            // AC-11.14: Extract test suite name from Katalon template comment or fallback to file name
             const katalonSuiteMatch = content.match(/Katalon Studio Test Case:\s*(.+)/);
-            if (katalonSuiteMatch) {
-              const suiteInput = document.getElementById('testSuite');
-              if (suiteInput) suiteInput.value = katalonSuiteMatch[1].trim();
+            const suiteInput = document.getElementById('testSuite');
+            if (suiteInput) {
+              if (katalonSuiteMatch) {
+                suiteInput.value = katalonSuiteMatch[1].trim();
+              } else if (file.name) {
+                suiteInput.value = file.name.replace(/\.groovy$/i, '');
+              }
             }
 
-            // AC-11.13: Extract target URL from WebUI.navigateToUrl('...')
-            const katalonUrlMatch = content.match(/WebUI\.navigateToUrl\(['"](.+?)['"]\)/);
+            // AC-11.13: Extract target URL from WebUI.navigateToUrl('...') or WebUI.openBrowser('https://...')
+            const katalonUrlMatch = content.match(/WebUI\.navigateToUrl\(['"](.+?)['"]\)/) ||
+                                    content.match(/WebUI\.openBrowser\(['"](https?:\/\/.+?)['"]\)/);
             if (katalonUrlMatch) {
               const urlInput = document.getElementById('targetUrl');
               if (urlInput) urlInput.value = katalonUrlMatch[1];

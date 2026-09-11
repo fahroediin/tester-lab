@@ -129,10 +129,24 @@ function ok(name, cond) {
   `;
   const parsedRaw = parseGroovyToSteps(rawScript);
   ok('parses raw script without step comments (4 steps)', parsedRaw.length === 4);
-  ok('raw step 1 fill', parsedRaw[0].action === 'fill' && parsedRaw[0].targetLabel === 'input_username' && parsedRaw[0].value === 'admin');
-  ok('raw step 2 click', parsedRaw[1].action === 'click' && parsedRaw[1].targetLabel === 'btn_login');
+  ok('raw step 1 fill cleaned target', parsedRaw[0].action === 'fill' && parsedRaw[0].targetLabel === 'username' && parsedRaw[0].value === 'admin');
+  ok('raw step 2 click cleaned target', parsedRaw[1].action === 'click' && parsedRaw[1].targetLabel === 'login');
   ok('raw step 3 assert_text', parsedRaw[2].action === 'assert_text' && parsedRaw[2].value === 'Welcome');
   ok('raw step 4 wait', parsedRaw[3].action === 'wait' && parsedRaw[3].value === '3000');
+
+  // Test native Katalon Studio script (tests/Script1782801212727.groovy)
+  const nativeScriptPath = path.join(__dirname, '..', 'tests', 'Script1782801212727.groovy');
+  if (fs.existsSync(nativeScriptPath)) {
+    const nativeCode = fs.readFileSync(nativeScriptPath, 'utf-8');
+    const parsedNative = parseGroovyToSteps(nativeCode);
+    ok('native Katalon parses 6 steps', parsedNative.length === 6);
+    ok('native step 1 waitForElementVisible', parsedNative[0].action === 'assert_visible' && parsedNative[0].targetLabel === 'Username');
+    ok('native step 2 setText', parsedNative[1].action === 'fill' && parsedNative[1].targetLabel === 'Username' && parsedNative[1].value === 'adhy.surnanto');
+    ok('native step 3 setEncryptedText', parsedNative[2].action === 'fill' && parsedNative[2].targetLabel === 'Password' && parsedNative[2].value === 'DKZg8gTnVzw=');
+    ok('native step 4 button_Login click', parsedNative[3].action === 'click' && parsedNative[3].targetLabel === 'Login');
+    ok('native step 5 multiline waitForElementVisible', parsedNative[4].action === 'assert_visible' && parsedNative[4].targetLabel === 'Risk Control Unit Application');
+    ok('native step 6 doubleClick', parsedNative[5].action === 'click' && parsedNative[5].targetLabel === 'Risk Control Unit Application');
+  }
 
   // Test empty/invalid
   ok('empty returns empty array', parseGroovyToSteps('').length === 0);
