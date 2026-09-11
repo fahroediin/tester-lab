@@ -900,6 +900,11 @@
           <option value="robot">Robot Framework (.robot)</option>
         `;
         if (badge) badge.textContent = 'Robot Engine';
+      } else if (fw === 'katalon') {
+        langSelect.innerHTML = `
+          <option value="groovy">Groovy (.groovy)</option>
+        `;
+        if (badge) badge.textContent = 'Katalon Engine';
       }
       updateOutputLabels();
     }
@@ -912,7 +917,8 @@
         typescript: 'spec.ts',
         python: 'py',
         java: 'java',
-        robot: 'robot'
+        robot: 'robot',
+        groovy: 'groovy'
       };
       return map[lang] || 'spec.ts';
     }
@@ -923,7 +929,8 @@
         playwright: 'Playwright',
         cypress: 'Cypress',
         selenium: 'Selenium',
-        robotframework: 'Robot Framework'
+        robotframework: 'Robot Framework',
+        katalon: 'Katalon'
       };
       return map[fw] || 'Test';
     }

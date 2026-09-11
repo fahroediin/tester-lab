@@ -364,7 +364,33 @@ const gen = new CodeGenerator();
   }
 
   // ────────────────────────────────────────────────
-  console.log('\n[7] Playwright TS - needsRobustHelper branch');
+  console.log('\n[7] Katalon Groovy');
+  // ────────────────────────────────────────────────
+  {
+    const cfg = { ...baseConfig, framework: 'katalon', language: 'groovy' };
+    const result = await gen.generateScript(cfg, resolvedSteps);
+
+    ok('result.success is true', result.success === true);
+    const c = result.code;
+    contains(c, "WebUiBuiltInKeywords as WebUI", 'imports WebUI');
+    contains(c, "TestObject makeTestObject", 'has makeTestObject helper');
+    contains(c, "WebUI.openBrowser", 'opens browser');
+    contains(c, "WebUI.setText", 'fill generates WebUI.setText');
+    contains(c, "WebUI.click", 'click generates WebUI.click');
+    contains(c, "WebUI.verifyMatch", 'assert_url generates WebUI.verifyMatch');
+    contains(c, "WebUI.verifyTextPresent", 'assert_text generates WebUI.verifyTextPresent');
+    contains(c, "WebUI.verifyElementPresent", 'assert_visible generates WebUI.verifyElementPresent');
+    contains(c, "WebUI.selectOptionByLabel", 'select generates WebUI.selectOptionByLabel');
+    contains(c, "WebUI.check", 'check generates WebUI.check');
+    contains(c, "WebUI.uncheck", 'uncheck generates WebUI.uncheck');
+    contains(c, "WebUI.uploadFile", 'upload generates WebUI.uploadFile');
+    contains(c, "WebUI.delay", 'wait generates WebUI.delay');
+    contains(c, "WebUI.closeBrowser", 'closes browser at end');
+    ok('no Playwright/Python syntax', !c.includes('page.') && !c.includes('self.driver'));
+  }
+
+  // ────────────────────────────────────────────────
+  console.log('\n[8] Playwright TS - needsRobustHelper branch');
   // ────────────────────────────────────────────────
   {
     const cfg = { ...baseConfig, framework: 'playwright', language: 'typescript' };
@@ -442,7 +468,20 @@ const gen = new CodeGenerator();
   }
 
   // ────────────────────────────────────────────────
-  console.log('\n[13] Default framework/language fallback');
+  console.log('\n[13] String escaping - kLit (Katalon Groovy)');
+  // ────────────────────────────────────────────────
+  {
+    const cfg = { ...baseConfig, framework: 'katalon', language: 'groovy' };
+    const result = await gen.generateScript(cfg, escapingSteps);
+
+    ok('result.success is true', result.success === true);
+    const c = result.code;
+    ok('single quotes escaped in Groovy', c.includes("\\'") || c.includes("O\\'Brien"));
+    ok('newlines escaped (\\n)', c.includes('\\n'));
+  }
+
+  // ────────────────────────────────────────────────
+  console.log('\n[14] Default framework/language fallback');
   // ────────────────────────────────────────────────
   {
     const cfg = { testSuite: 'Minimal', targetUrl: 'https://test.com' };
@@ -462,7 +501,7 @@ const gen = new CodeGenerator();
   }
 
   // ────────────────────────────────────────────────
-  console.log('\n[14] Java class name sanitization');
+  console.log('\n[15] Java class name sanitization');
   // ────────────────────────────────────────────────
   {
     const cfg = { ...baseConfig, testSuite: '123 Invalid Start!', framework: 'selenium', language: 'java' };
@@ -477,7 +516,7 @@ const gen = new CodeGenerator();
   }
 
   // ────────────────────────────────────────────────
-  console.log('\n[15] No viewport config');
+  console.log('\n[16] No viewport config');
   // ────────────────────────────────────────────────
   {
     const cfg = { testSuite: 'No Viewport', targetUrl: 'https://test.com', framework: 'playwright', language: 'typescript' };
@@ -492,7 +531,7 @@ const gen = new CodeGenerator();
   }
 
   // ────────────────────────────────────────────────
-  console.log('\n[16] GenerationResult structure');
+  console.log('\n[17] GenerationResult structure');
   // ────────────────────────────────────────────────
   {
     const cfg = { ...baseConfig, framework: 'playwright', language: 'typescript' };

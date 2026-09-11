@@ -38,8 +38,8 @@ export interface DSLStep {
 export interface DSLConfig {
   testSuite: string;
   targetUrl: string;
-  framework?: 'playwright' | 'cypress' | 'selenium' | 'robotframework';
-  language?: 'typescript' | 'javascript' | 'python' | 'robot' | 'java';
+  framework?: 'playwright' | 'cypress' | 'selenium' | 'robotframework' | 'katalon';
+  language?: 'typescript' | 'javascript' | 'python' | 'robot' | 'java' | 'groovy';
   viewport?: {
     width: number;
     height: number;

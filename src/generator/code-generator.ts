@@ -64,6 +64,24 @@ Handlebars.registerHelper('jLit', function (str: unknown) {
   return new Handlebars.SafeString(escaped);
 });
 
+// Escape a value for safe embedding inside a Groovy single-quoted string literal (Katalon).
+Handlebars.registerHelper('kLit', function (str: unknown) {
+  const escaped = toStr(str)
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/\r/g, '\\r')
+    .replace(/\n/g, '\\n');
+  return new Handlebars.SafeString(escaped);
+});
+
+// Convert delay value to seconds for Katalon WebUI.delay(seconds).
+Handlebars.registerHelper('kDelay', function (str: unknown) {
+  const num = Number(toStr(str));
+  if (isNaN(num) || num <= 0) return '1';
+  const secs = num >= 1000 ? Math.max(1, Math.round(num / 1000)) : Math.max(1, Math.round(num));
+  return String(secs);
+});
+
 // Sanitize a value for a Robot Framework cell: strip line breaks and collapse the
 // 2+ space separator so injected text cannot spill into extra keywords/arguments.
 Handlebars.registerHelper('rfText', function (str: unknown) {
@@ -94,6 +112,8 @@ export class CodeGenerator {
       templateFileName = language === 'java' ? 'selenium-java.hbs' : 'selenium-py.hbs';
     } else if ((framework as string) === 'robotframework') {
       templateFileName = 'robot-rf.hbs';
+    } else if ((framework as string) === 'katalon') {
+      templateFileName = 'katalon-groovy.hbs';
     } else if (language === 'javascript') {
       templateFileName = 'playwright-js.hbs';
     }

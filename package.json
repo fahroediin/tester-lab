@@ -13,8 +13,9 @@
     "demo": "ts-node examples/demo-server.ts",
     "generate": "ts-node src/cli/index.ts generate",
     "gen-yaml": "ts-node scripts/generate-yaml.ts",
-    "test": "npm run build && node scripts/security-checks.js && node scripts/test-suites.js && node scripts/test-code-generator.js",
-    "test:security": "node scripts/security-checks.js"
+    "test": "npm run build && node scripts/security-checks.js && node scripts/test-suites.js && node scripts/test-code-generator.js && node scripts/test-katalon.js",
+    "test:security": "node scripts/security-checks.js",
+    "test:katalon": "node scripts/test-katalon.js"
   },
   "keywords": [
     "testing",
