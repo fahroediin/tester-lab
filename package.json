@@ -1,6 +1,6 @@
 {
   "name": "tester-lab",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Non-LLM Rule & Heuristic Based Automated Test Script Generator",
   "main": "dist/index.js",
   "bin": {

@@ -29,7 +29,7 @@ const program = new Command();
 program
   .name('test-gen')
   .description('Non-LLM Rule & Heuristic Based Automated Test Script Generator')
-  .version('1.0.0');
+  .version('1.1.0');
 
 program
   .command('generate')
