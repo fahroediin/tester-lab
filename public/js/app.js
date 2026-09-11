@@ -702,6 +702,25 @@
         return cleanObjectName(expr.trim());
       }
 
+      // Drop trailing FailureHandling.* / GlobalVariable-only timeout args so
+      // argument positions match the Tester Lab dialect (target, value, ...).
+      function stripNoiseArgs(args) {
+        if (!args) return args;
+        return args.filter(a => !/^FailureHandling\./.test(a.trim()));
+      }
+
+      // A value that is not string-literal and not numeric is a Groovy variable
+      // (e.g. fixed_summary, GlobalVariable.x). Return the raw token so the
+      // caller can flag it for manual attention instead of importing it as text.
+      function isUnquotedExpr(arg) {
+        if (arg == null) return false;
+        const t = arg.trim();
+        if (!t) return false;
+        if (/^'(?:[^'\\]|\\.)*'$/.test(t) || /^"(?:[^"\\]|\\.)*"$/.test(t)) return false; // string literal
+        if (/^-?\d+(\.\d+)?$/.test(t)) return false; // number
+        return true;
+      }
+
       let helperBraceDepth = 0;
 
       for (let i = 0; i < lines.length; i++) {
@@ -747,20 +766,24 @@
         if (line.includes('WebUI.setText') || line.includes('WebUI.sendKeys') || line.includes('WebUI.setEncryptedText')) {
           const method = line.includes('WebUI.setEncryptedText') ? 'WebUI.setEncryptedText' :
                          line.includes('WebUI.setText') ? 'WebUI.setText' : 'WebUI.sendKeys';
-          const args = extractCallArgs(line, method);
+          const args = stripNoiseArgs(extractCallArgs(line, method));
           if (args && args.length >= 2) {
             const target = extractTarget(args[0]);
+            const rawValue = args[1];
             stepObj = {
               action: 'fill',
               targetLabel: target,
-              value: unquote(args[1]),
+              value: unquote(rawValue),
               description: currentDescription || `Fill ${target}`
             };
+            if (isUnquotedExpr(rawValue)) {
+              stepObj.warning = `Value is a Groovy variable "${rawValue.trim()}" — set the actual value manually.`;
+            }
           }
         } else if (line.includes('WebUI.selectOption')) {
           const method = line.includes('selectOptionByLabel') ? 'WebUI.selectOptionByLabel' :
                          line.includes('selectOptionByValue') ? 'WebUI.selectOptionByValue' : 'WebUI.selectOptionByIndex';
-          const args = extractCallArgs(line, method);
+          const args = stripNoiseArgs(extractCallArgs(line, method));
           if (args && args.length >= 2) {
             const target = extractTarget(args[0]);
             stepObj = {
@@ -775,7 +798,7 @@
           if (line.includes('WebUI.doubleClick')) method = 'WebUI.doubleClick';
           else if (line.includes('WebUI.rightClick')) method = 'WebUI.rightClick';
 
-          const args = extractCallArgs(line, method);
+          const args = stripNoiseArgs(extractCallArgs(line, method));
           if (args && args.length >= 1) {
             const target = extractTarget(args[0]);
             stepObj = {
@@ -786,7 +809,7 @@
             };
           }
         } else if (line.includes('WebUI.check')) {
-          const args = extractCallArgs(line, 'WebUI.check');
+          const args = stripNoiseArgs(extractCallArgs(line, 'WebUI.check'));
           if (args && args.length >= 1) {
             const target = extractTarget(args[0]);
             stepObj = {
@@ -797,7 +820,7 @@
             };
           }
         } else if (line.includes('WebUI.uncheck')) {
-          const args = extractCallArgs(line, 'WebUI.uncheck');
+          const args = stripNoiseArgs(extractCallArgs(line, 'WebUI.uncheck'));
           if (args && args.length >= 1) {
             const target = extractTarget(args[0]);
             stepObj = {
@@ -808,7 +831,7 @@
             };
           }
         } else if (line.includes('WebUI.uploadFile')) {
-          const args = extractCallArgs(line, 'WebUI.uploadFile');
+          const args = stripNoiseArgs(extractCallArgs(line, 'WebUI.uploadFile'));
           if (args && args.length >= 2) {
             const target = extractTarget(args[0]);
             stepObj = {
@@ -837,8 +860,20 @@
             description: currentDescription || `Verify URL contains ${urlVal}`
           };
         } else if (line.includes('WebUI.verifyTextPresent')) {
-          const args = extractCallArgs(line, 'WebUI.verifyTextPresent');
+          const args = stripNoiseArgs(extractCallArgs(line, 'WebUI.verifyTextPresent'));
           const txt = (args && args.length >= 1) ? unquote(args[0]) : '';
+          stepObj = {
+            action: 'assert_text',
+            targetLabel: '',
+            value: txt,
+            description: currentDescription || `Verify text "${txt}"`
+          };
+        } else if (line.includes('WebUI.verifyElementText') || line.includes('WebUI.getText')) {
+          // verifyElementText(obj, 'expected') -> assert_text; the object identifies
+          // where, but Tester Lab's assert_text matches on the expected text.
+          const method = line.includes('WebUI.verifyElementText') ? 'WebUI.verifyElementText' : 'WebUI.getText';
+          const args = stripNoiseArgs(extractCallArgs(line, method));
+          const txt = (args && args.length >= 2) ? unquote(args[1]) : '';
           stepObj = {
             action: 'assert_text',
             targetLabel: '',
@@ -848,15 +883,19 @@
         } else if (
           line.includes('WebUI.verifyElementPresent') ||
           line.includes('WebUI.verifyElementVisible') ||
+          line.includes('WebUI.verifyElementClickable') ||
           line.includes('WebUI.waitForElementPresent') ||
-          line.includes('WebUI.waitForElementVisible')
+          line.includes('WebUI.waitForElementVisible') ||
+          line.includes('WebUI.waitForElementClickable')
         ) {
           let method = 'WebUI.verifyElementPresent';
-          if (line.includes('WebUI.waitForElementVisible')) method = 'WebUI.waitForElementVisible';
+          if (line.includes('WebUI.waitForElementClickable')) method = 'WebUI.waitForElementClickable';
+          else if (line.includes('WebUI.waitForElementVisible')) method = 'WebUI.waitForElementVisible';
           else if (line.includes('WebUI.waitForElementPresent')) method = 'WebUI.waitForElementPresent';
+          else if (line.includes('WebUI.verifyElementClickable')) method = 'WebUI.verifyElementClickable';
           else if (line.includes('WebUI.verifyElementVisible')) method = 'WebUI.verifyElementVisible';
 
-          const args = extractCallArgs(line, method);
+          const args = stripNoiseArgs(extractCallArgs(line, method));
           const target = (args && args.length >= 1) ? extractTarget(args[0]) : '';
           stepObj = {
             action: 'assert_visible',
@@ -865,7 +904,7 @@
             description: currentDescription || `Verify ${target} is visible`
           };
         } else if (line.includes('WebUI.delay')) {
-          const args = extractCallArgs(line, 'WebUI.delay');
+          const args = stripNoiseArgs(extractCallArgs(line, 'WebUI.delay'));
           let msVal = '1000';
           if (args && args.length >= 1) {
             const sec = parseFloat(args[0]);
@@ -876,6 +915,22 @@
             targetLabel: '',
             value: msVal,
             description: currentDescription || `Wait ${msVal}ms`
+          };
+        } else if (
+          line.includes('WebUI.callTestCase') ||
+          line.startsWith('CustomKeywords.') ||
+          line.includes('CustomKeywords.')
+        ) {
+          // Constructs with no DSL equivalent: keep a visible placeholder so the
+          // step is never silently dropped, and flag it for manual attention.
+          const kind = line.includes('WebUI.callTestCase') ? 'callTestCase' : 'CustomKeywords';
+          const snippet = line.length > 120 ? line.slice(0, 117) + '...' : line;
+          stepObj = {
+            action: 'wait',
+            targetLabel: '',
+            value: '0',
+            description: currentDescription || `[UNSUPPORTED] ${kind}`,
+            warning: `Unsupported Katalon construct (${kind}) — review manually: ${snippet}`
           };
         }
 
@@ -891,6 +946,17 @@
       }
 
       return parsedSteps;
+    }
+
+    // Build a one-line summary of imported steps that need manual attention
+    // (unsupported constructs, Groovy-variable values). Returns null when clean,
+    // so the caller can skip the extra notification entirely.
+    function summarizeImportWarnings(parsedSteps) {
+      if (!Array.isArray(parsedSteps)) return null;
+      const flagged = parsedSteps.filter(function (s) { return s && s.warning; });
+      if (flagged.length === 0) return null;
+      return flagged.length + (flagged.length === 1 ? ' step needs' : ' steps need') +
+        ' manual attention (unsupported Katalon construct or variable value).';
     }
 
     function loadSampleScenario() {
@@ -1001,6 +1067,7 @@
               steps = parsedSteps;
               renderSteps(true);
             }
+            const importWarning = summarizeImportWarnings(parsedSteps);
 
             resetTerminalOutput();
             latestGeneratedCode = content;
@@ -1012,9 +1079,11 @@
 
             // AC-11.15: Success notification
             showSnackbar({
-              type: 'success',
+              type: importWarning ? 'warning' : 'success',
               title: 'Katalon File Loaded',
-              message: `Successfully imported "${file.name}".`
+              message: importWarning
+                ? `Imported "${file.name}". ${importWarning}`
+                : `Successfully imported "${file.name}".`
             });
 
             const statusBadgeContainer = document.getElementById('statusBadgeContainer');
@@ -1023,10 +1092,12 @@
             }
 
             Swal.fire({
-              icon: 'success',
+              icon: importWarning ? 'warning' : 'success',
               title: 'Katalon File Loaded',
-              text: `Successfully imported "${file.name}".`,
-              timer: 2500,
+              text: importWarning
+                ? `Imported "${file.name}". ${importWarning}`
+                : `Successfully imported "${file.name}".`,
+              timer: importWarning ? 4500 : 2500,
               showConfirmButton: false,
               toast: true,
               position: 'top-end'

@@ -148,6 +148,53 @@ function ok(name, cond) {
     ok('native step 6 doubleClick', parsedNative[5].action === 'click' && parsedNative[5].targetLabel === 'Risk Control Unit Application');
   }
 
+  console.log('\n[6] Native Katalon Robustness (FailureHandling, GlobalVariable, callTestCase, CustomKeywords, unquoted vars)');
+  const nativeRobust = `
+import static com.kms.katalon.core.testobject.ObjectRepository.findTestObject
+import com.kms.katalon.core.model.FailureHandling as FailureHandling
+import com.kms.katalon.core.webui.keyword.WebUiBuiltInKeywords as WebUI
+import internal.GlobalVariable as GlobalVariable
+
+WebUI.openBrowser('', FailureHandling.STOP_ON_FAILURE)
+WebUI.navigateToUrl(GlobalVariable.G_SiteURL)
+WebUI.callTestCase(findTestCase('Login/Do Login'), [:], FailureHandling.STOP_ON_FAILURE)
+WebUI.waitForElementClickable(findTestObject('Master Page/Menu/elCreate'), 0)
+WebUI.click(findTestObject('Master Page/Menu/elCreate'), FailureHandling.CONTINUE_ON_FAILURE)
+WebUI.setText(findTestObject('Create Issue/elSummary'), fixed_summary, FailureHandling.STOP_ON_FAILURE)
+CustomKeywords.'com.jira.JSelect.selectByText'('Priority', 'Low')
+WebUI.verifyElementText(findTestObject('Create Issue/elTitle'), 'Create issue')
+WebUI.setText(findTestObject('Login Page/input_username'), 'admin', FailureHandling.STOP_ON_FAILURE)
+WebUI.closeBrowser()
+`;
+  const robust = parseGroovyToSteps(nativeRobust);
+  const hasWarn = (s) => !!s.warning;
+  ok('waitForElementClickable becomes assert_visible for elCreate',
+     robust.some(s => s.action === 'assert_visible' && s.targetLabel === 'elCreate'));
+  ok('verifyElementText becomes assert_text "Create issue"',
+     robust.some(s => s.action === 'assert_text' && s.value === 'Create issue'));
+  ok('click with FailureHandling arg still reads elCreate target',
+     robust.some(s => s.action === 'click' && s.targetLabel === 'elCreate'));
+  ok('setText with trailing FailureHandling keeps value=admin',
+     robust.some(s => s.action === 'fill' && s.targetLabel === 'username' && s.value === 'admin'));
+  ok('unquoted Groovy variable value is flagged with a warning',
+     robust.some(s => s.action === 'fill' && s.targetLabel === 'elSummary' && hasWarn(s)));
+  ok('callTestCase produces a flagged/unsupported step',
+     robust.some(s => hasWarn(s) && /callTestCase/i.test(s.warning || '')));
+  ok('CustomKeywords produces a flagged/unsupported step',
+     robust.some(s => hasWarn(s) && /CustomKeywords/i.test(s.warning || '')));
+
+  console.log('\n[7] Import Warning Summary (reported to user, not silently dropped)');
+  const summaryMatch = appJs.match(/function summarizeImportWarnings[\s\S]*?\n    \}/);
+  ok('found summarizeImportWarnings in app.js', !!summaryMatch);
+  if (summaryMatch) {
+    vm.runInNewContext(summaryMatch[0] + '\nsandbox.summarize = summarizeImportWarnings;', { sandbox });
+    const summarize = sandbox.summarize;
+    ok('no warnings -> null summary', summarize(robust.filter(s => !s.warning).map(s => ({ action: s.action }))) === null);
+    const summary = summarize(robust);
+    ok('counts the 3 flagged steps from native fixture', typeof summary === 'string' && /3/.test(summary));
+    ok('summary mentions manual attention', typeof summary === 'string' && /manual|attention|review/i.test(summary));
+  }
+
   // Test empty/invalid
   ok('empty returns empty array', parseGroovyToSteps('').length === 0);
   ok('null returns empty array', parseGroovyToSteps(null).length === 0);
