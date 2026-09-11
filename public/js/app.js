@@ -2942,6 +2942,7 @@
               const isSActive = historySuiteFilter === s.id;
               const sCaret = '<span onclick="toggleSuiteExpand(\'' + s.id + '\', event)" style="cursor:pointer; width:16px; display:inline-block; text-align:center; color: var(--slate); font-size:11px;">' + (isSExpanded ? '&#9662;' : '&#9656;') + '</span>';
               const sActions =
+                '<button class="btn-suite-run" data-suite-id="' + s.id + '" onclick="runSuitePrompt(\'' + s.id + '\', \'' + escapeHtml(s.name).replace(/'/g, "\\'") + '\', event)" style="padding:2px 8px; font-size:9.5px; min-height:unset; height:auto;"><span class="run-label">Run</span></button>' +
                 '<button class="btn-pill-outline" onclick="renameSuitePrompt(\'' + s.id + '\', event)" style="padding:2px 6px; font-size:9.5px; min-height:unset; height:auto;">Rename</button>' +
                 '<button class="btn-pill-outline" onclick="deleteSuitePrompt(\'' + s.id + '\', event)" style="padding:2px 6px; font-size:9.5px; min-height:unset; height:auto; color:var(--coral); border-color:var(--coral);">Delete</button>';
 
@@ -3267,6 +3268,103 @@
         showSnackbar({ type: 'error', title: 'Network Error', message: 'Could not delete suite.' });
       }
     };
+
+    // Run every scenario in a suite sequentially (Run Suite, POC). Sets the
+    // button to a loading state while running, then shows a summary modal.
+    window.runSuitePrompt = async function(suiteId, suiteName, event) {
+      if (event) event.stopPropagation();
+
+      const btn = document.querySelector('.btn-suite-run[data-suite-id="' + suiteId + '"]');
+      if (btn && btn.dataset.running === '1') return; // guard double-click
+      const label = btn ? btn.querySelector('.run-label') : null;
+      const restore = label ? label.textContent : 'Run';
+      if (btn) {
+        btn.dataset.running = '1';
+        btn.disabled = true;
+        if (label) label.textContent = 'Running...';
+      }
+
+      try {
+        const res = await fetch('/api/v1/suites/' + suiteId + '/run', {
+          method: 'POST',
+          headers: getAuthHeaders()
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          showSnackbar({ type: 'error', title: 'Run Suite Failed', message: data.error || 'Could not run this suite.' });
+          return;
+        }
+        showRunSuiteResult(suiteName, data);
+        // Statuses may have changed; refresh the history view.
+        try { await loadAllProjectSuites(); renderFolderTree(); renderHistoryTable(); } catch (e) {}
+      } catch (err) {
+        showSnackbar({ type: 'error', title: 'Network Error', message: 'Could not reach the server to run this suite.' });
+      } finally {
+        const b = document.querySelector('.btn-suite-run[data-suite-id="' + suiteId + '"]');
+        if (b) {
+          b.dataset.running = '';
+          b.disabled = false;
+          const l = b.querySelector('.run-label');
+          if (l) l.textContent = restore;
+        }
+      }
+    };
+
+    // Render the Run Suite summary modal: job status + per-scenario status.
+    function showRunSuiteResult(suiteName, data) {
+      const jobStatus = data.jobStatus || 'SKIPPED';
+      const results = Array.isArray(data.results) ? data.results : [];
+
+      const jobStyle = {
+        PASSED:  'background:var(--pale-green); color:var(--deep-green); border-color:var(--deep-green);',
+        PARTIAL: 'background:#faeeda; color:#854f0b; border-color:#ef9f27;',
+        FAILED:  'background:var(--coral-soft); color:#993c1d; border-color:var(--coral);',
+        SKIPPED: 'background:var(--surface-2); color:var(--slate); border-color:var(--hairline);'
+      }[jobStatus] || '';
+
+      const rowIcon = {
+        SUCCESS: '<span style="color:var(--deep-green);">&#10003;</span>',
+        FAILED:  '<span style="color:var(--coral);">&#10007;</span>',
+        SKIPPED: '<span style="color:var(--slate);">&#8211;</span>'
+      };
+      const rowColor = { SUCCESS: 'var(--deep-green)', FAILED: '#993c1d', SKIPPED: 'var(--slate)' };
+
+      const ranCount = results.filter(r => r.status === 'SUCCESS' || r.status === 'FAILED').length;
+      const subtitle = ranCount + ' scenario dijalankan berurutan';
+
+      let rows = '';
+      if (results.length === 0) {
+        rows = '<div style="padding:14px 0; font-size:13px; color:var(--slate);">Tidak ada scenario untuk dijalankan.</div>';
+      } else {
+        results.forEach((r, i) => {
+          const isLast = i === results.length - 1;
+          const reason = r.reason ? '<div style="font-size:11px; color:var(--slate); margin-top:2px;">' + escapeHtml(r.reason) + '</div>' : '';
+          rows +=
+            '<div style="display:flex; align-items:flex-start; gap:10px; padding:10px 0;' + (isLast ? '' : ' border-bottom:1px solid var(--hairline);') + '">' +
+              '<span style="font-size:15px; line-height:1.3; width:16px; text-align:center;">' + (rowIcon[r.status] || '') + '</span>' +
+              '<div style="flex:1;"><span style="font-size:14px; color:var(--ink);">' + escapeHtml(r.name || 'Scenario') + '</span>' + reason + '</div>' +
+              '<span style="font-size:11px; font-weight:600; color:' + (rowColor[r.status] || 'var(--slate)') + ';">' + escapeHtml(r.status) + '</span>' +
+            '</div>';
+        });
+      }
+
+      const html =
+        '<div style="text-align:left;">' +
+          '<div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:4px;">' +
+            '<span style="font-size:12px; color:var(--slate);">' + escapeHtml(subtitle) + '</span>' +
+            '<span style="display:inline-block; padding:3px 12px; border:1px solid; border-radius:12px; font-size:12px; font-weight:600; ' + jobStyle + '">' + escapeHtml(jobStatus) + '</span>' +
+          '</div>' +
+          '<div style="margin-top:8px;">' + rows + '</div>' +
+        '</div>';
+
+      Swal.fire({
+        title: 'Run Suite: ' + escapeHtml(suiteName),
+        html: html,
+        confirmButtonText: 'Tutup',
+        confirmButtonColor: '#005bbf',
+        width: 480
+      });
+    }
 
     function renderHistoryTable() {
       const tbody = document.getElementById('historyTableBody');

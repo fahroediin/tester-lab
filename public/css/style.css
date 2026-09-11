@@ -442,6 +442,38 @@ textarea:focus {
   pointer-events: none !important;
 }
 
+/* Run Suite: accent-filled pill in the suite row, reusing the pill base shape. */
+.btn-suite-run {
+  background-color: var(--action-blue) !important;
+  border: 1px solid var(--action-blue) !important;
+  color: #ffffff !important;
+  border-radius: 9999px !important;
+  font-family: var(--font-body) !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 5px !important;
+  transition: all 0.2s ease !important;
+  white-space: nowrap !important;
+}
+.btn-suite-run::before {
+  content: "\25B6"; /* play triangle */
+  font-size: 8px !important;
+  line-height: 1 !important;
+}
+.btn-suite-run:hover {
+  background-color: #12539f !important;
+  border-color: #12539f !important;
+  transform: translateY(-1px) !important;
+}
+.btn-suite-run:disabled {
+  opacity: 0.65 !important;
+  cursor: progress !important;
+  transform: none !important;
+}
+
 /* Dedicated Icon Button (for Copy, Actions, etc.) */
 .btn-icon {
   display: inline-flex !important;
