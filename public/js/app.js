@@ -345,6 +345,8 @@
             stepObj.targetLabel = s.targetLabel;
           }
           if (s.action === 'wait') stepObj.value = s.value;
+          // US-36: carry step options (e.g. within) through to generation.
+          if (s.options && Object.keys(s.options).length > 0) stepObj.options = s.options;
           return stepObj;
         })
       };
@@ -1557,6 +1559,19 @@
       resetGeneratedState();
     }
 
+    // US-36: set/clear options.within (scope a click to the row containing this text).
+    function updateStepWithin(index, val) {
+      const marker = (val || '').trim();
+      if (!steps[index].options) steps[index].options = {};
+      if (marker) {
+        steps[index].options.within = marker;
+      } else {
+        delete steps[index].options.within;
+        if (Object.keys(steps[index].options).length === 0) delete steps[index].options;
+      }
+      resetGeneratedState();
+    }
+
     function moveStepUp(index) {
       if (index > 0) {
         const temp = steps[index];
@@ -1631,6 +1646,13 @@
               <input type="text" value="${step.value || ''}" placeholder="${step.action === 'upload' ? 'e.g. fixtures/ktp.pdf' : 'e.g. user@example.com'}" onchange="updateStep(${idx}, 'value', this.value)">
             </div>` : ''}
           </div>
+
+          ${step.action === 'click' ? `
+          <div class="form-group">
+            <label>Within Row (Optional)</label>
+            <input type="text" value="${(step.options && step.options.within) || ''}" placeholder="e.g. a unique cell text like an ID, to target the button inside that row" onchange="updateStepWithin(${idx}, this.value)">
+            <p style="font-size: 11px; color: var(--slate); margin: 4px 0 0;">Scope this click to the row or card that contains this unique text. Leave empty to click anywhere on the page.</p>
+          </div>` : ''}
 
           <div class="form-group">
             <label>Description (Optional)</label>
