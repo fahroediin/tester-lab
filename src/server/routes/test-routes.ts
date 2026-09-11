@@ -11,6 +11,7 @@ import { TestScriptGenerator } from '../../index.js';
 import { DOMExtractor } from '../../crawler/dom-extractor.js';
 import { recordApiKeyUsage } from '../api-key-usage-store.js';
 import { executePlaywrightTest } from '../services/test-runner-service.js';
+import { checkRunnerSupport } from '../../security/runner-guard.js';
 
 export const testRoutes = Router();
 
@@ -196,6 +197,23 @@ testRoutes.post('/run-test', authenticateJWT, requireApprovedUser, async (req: A
       res.status(400).json({
         success: false,
         error: 'Missing required field: code'
+      });
+      return;
+    }
+
+    // AC-14.10 & AC-14.11: Only Playwright test scripts are executed on the server.
+    const framework = req.body.framework || (rawDsl && rawDsl.framework);
+    const runnerGuard = checkRunnerSupport({ framework, language, code });
+    if (!runnerGuard.allowed) {
+      await addLog({
+        userId: req.user!.id,
+        username: req.user!.username,
+        action: 'Run Test Rejected',
+        details: runnerGuard.reason!
+      });
+      res.status(400).json({
+        success: false,
+        error: runnerGuard.reason
       });
       return;
     }

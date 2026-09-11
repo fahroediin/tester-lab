@@ -907,6 +907,7 @@
         if (badge) badge.textContent = 'Katalon Engine';
       }
       updateOutputLabels();
+      resetTerminalOutput();
     }
 
     // File extension for the generated code, keyed by the selected language.
@@ -960,11 +961,19 @@
       const terminalOutput = document.getElementById('terminalOutput');
       const videoContainer = document.getElementById('videoContainer');
       const videoPlayer = document.getElementById('videoPlayer');
+      const fw = (document.getElementById('framework') || {}).value || 'playwright';
+      const lang = (document.getElementById('language') || {}).value || 'typescript';
+      const fwName = frameworkDisplayName(fw);
 
       if (terminalTitle) terminalTitle.textContent = 'CLI Terminal Output';
       if (terminalOutput) {
-        terminalOutput.textContent = "// Terminal ready. Click 'Run Script Now' to execute the generated Playwright test script directly in the terminal...";
-        terminalOutput.style.color = '#34d399';
+        if (fw !== 'playwright') {
+          terminalOutput.textContent = `// [INFO]: Server runner khusus mengeksekusi Playwright.\n// Script ${fwName} (.${codeExtForLanguage(lang)}) dapat diunduh untuk dijalankan di environment ${fwName} secara mandiri.`;
+          terminalOutput.style.color = '#94a3b8';
+        } else {
+          terminalOutput.textContent = "// Terminal ready. Click 'Run Script Now' to execute the generated Playwright test script directly in the terminal...";
+          terminalOutput.style.color = '#34d399';
+        }
       }
       if (videoContainer) videoContainer.style.display = 'none';
       if (videoPlayer) videoPlayer.src = '';
@@ -1394,6 +1403,24 @@
           title: 'No Valid Script Found',
           message: 'Please generate a valid test script first before running.'
         });
+        return;
+      }
+
+      // AC-14.10 & AC-14.11: Only Playwright test scripts are executed on the server.
+      const currentFw = (document.getElementById('framework') || {}).value || 'playwright';
+      if (currentFw !== 'playwright' || !['typescript', 'javascript'].includes(language)) {
+        const fwName = frameworkDisplayName(currentFw);
+        const ext = codeExtForLanguage(language);
+        showSnackbar({
+          type: 'warning',
+          title: 'Eksekusi Ditolak',
+          message: `Hanya Playwright yang dieksekusi di server. Script ${fwName} dapat diunduh (.${ext}) untuk dijalankan sendiri.`
+        });
+        if (terminalTitle) terminalTitle.textContent = 'CLI Terminal Output [Eksekusi Ditolak]';
+        if (terminalOutput) {
+          terminalOutput.style.color = '#f87171';
+          terminalOutput.textContent = `[INFO] Sistem menolak menjalankan script ${fwName}.\n[INFO] Hanya framework Playwright yang dieksekusi di server.\n[INFO] Script ${fwName} (.${ext}) tetap bisa Anda unduh menggunakan tombol "Download" di atas untuk dijalankan di environment ${fwName} secara mandiri.`;
+        }
         return;
       }
 

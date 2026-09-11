@@ -13,6 +13,7 @@ const { CodeGenerator } = require('../dist/generator/code-generator.js');
 const { assertSafeProxyUrl, isValidHttpUrl } = require('../dist/security/url-guard.js');
 const { validateDSL } = require('../dist/validator/dsl-validator.js');
 const { toVideoStoragePath } = require('../dist/server/lib/storage-url.js');
+const { checkRunnerSupport, RUNNER_NON_PLAYWRIGHT_MESSAGE } = require('../dist/security/runner-guard.js');
 
 let passed = 0;
 function ok(name, cond) {
@@ -95,6 +96,18 @@ function ok(name, cond) {
   ok('benign output parses & is safe', parsesOk(okRes.code) && sanitizeCode(okRes.code).safe);
   const apos = await gen.generateScript(okCfg, [{ step: 1, action: 'fill', selectorType: 'getByTestId', selectorValue: 'name', value: "O'Brien", targetLabel: 'Name', matchScore: 100 }]);
   ok("value with apostrophe stays safe & valid", parsesOk(apos.code) && sanitizeCode(apos.code).safe);
+
+  console.log('\n[8] AC-14.10 & AC-14.11 non-Playwright runner guard');
+  ok('allows Playwright TS', checkRunnerSupport({ framework: 'playwright', language: 'typescript', code: "await page.goto('x');" }).allowed === true);
+  ok('allows Playwright JS', checkRunnerSupport({ framework: 'playwright', language: 'javascript', code: "const { test } = require('@playwright/test');" }).allowed === true);
+  ok('blocks Katalon framework', checkRunnerSupport({ framework: 'katalon', language: 'groovy' }).allowed === false);
+  ok('blocks Groovy language', checkRunnerSupport({ language: 'groovy' }).allowed === false);
+  ok('blocks Cypress framework', checkRunnerSupport({ framework: 'cypress', language: 'javascript' }).allowed === false);
+  ok('blocks Selenium framework', checkRunnerSupport({ framework: 'selenium', language: 'python' }).allowed === false);
+  ok('blocks Robot framework', checkRunnerSupport({ framework: 'robotframework', language: 'robot' }).allowed === false);
+  ok('blocks code with Katalon imports', checkRunnerSupport({ code: "import com.kms.katalon.core.model.FailureHandling" }).allowed === false);
+  ok('blocks code with Selenium imports', checkRunnerSupport({ code: "from selenium import webdriver" }).allowed === false);
+  ok('guard reason mentions only Playwright runs on server', checkRunnerSupport({ framework: 'katalon' }).reason === RUNNER_NON_PLAYWRIGHT_MESSAGE);
 
   console.log('\nALL SECURITY CHECKS PASSED (' + passed + ' assertions)\n');
 })().catch((e) => { console.error(e); process.exit(1); });
