@@ -776,13 +776,18 @@
           if (args && args.length >= 2) {
             const target = extractTarget(args[0]);
             const rawValue = args[1];
+            const isEncrypted = method === 'WebUI.setEncryptedText';
             stepObj = {
               action: 'fill',
               targetLabel: target,
-              value: unquote(rawValue),
+              // Katalon's encrypted value can only be decrypted inside Katalon
+              // Studio, so it is useless here — clear it and flag for manual entry.
+              value: isEncrypted ? '' : unquote(rawValue),
               description: currentDescription || `Fill ${target}`
             };
-            if (isUnquotedExpr(rawValue)) {
+            if (isEncrypted) {
+              stepObj.warning = `Encrypted value (Katalon setEncryptedText) can't be decrypted outside Katalon — enter the real value manually.`;
+            } else if (isUnquotedExpr(rawValue)) {
               stepObj.warning = `Value is a Groovy variable "${rawValue.trim()}" — set the actual value manually.`;
             }
           }

@@ -142,7 +142,7 @@ function ok(name, cond) {
     ok('native Katalon parses 6 steps', parsedNative.length === 6);
     ok('native step 1 waitForElementVisible', parsedNative[0].action === 'assert_visible' && parsedNative[0].targetLabel === 'Username');
     ok('native step 2 setText', parsedNative[1].action === 'fill' && parsedNative[1].targetLabel === 'Username' && parsedNative[1].value === 'adhy.surnanto');
-    ok('native step 3 setEncryptedText', parsedNative[2].action === 'fill' && parsedNative[2].targetLabel === 'Password' && parsedNative[2].value === 'DKZg8gTnVzw=');
+    ok('native step 3 setEncryptedText clears value and flags it', parsedNative[2].action === 'fill' && parsedNative[2].targetLabel === 'Password' && parsedNative[2].value === '' && !!parsedNative[2].warning);
     ok('native step 4 button_Login click', parsedNative[3].action === 'click' && parsedNative[3].targetLabel === 'Login');
     ok('native step 5 multiline waitForElementVisible', parsedNative[4].action === 'assert_visible' && parsedNative[4].targetLabel === 'Risk Control Unit Application');
     ok('native step 6 doubleClick', parsedNative[5].action === 'click' && parsedNative[5].targetLabel === 'Risk Control Unit Application');
@@ -406,6 +406,22 @@ WebUI.closeBrowser()
     const rCvX = parseRsSelector(rsCssVsXpath);
     ok('selectorCollection CSS beats raw xpath property',
        rCvX && rCvX.kind === 'css' && rCvX.value === '.btn-primary');
+  }
+
+  console.log('\n[14] setEncryptedText — clear value, flag for manual entry');
+  {
+    const encScript = `
+WebUI.setText(findTestObject('Login/input_username'), 'admin')
+WebUI.setEncryptedText(findTestObject('Login/input_password'), 'VOSzbAMJCzEcNIvND94nDQ==')
+`;
+    const encSteps = parseGroovyToSteps(encScript);
+    const pw = encSteps.find(s => s.action === 'fill' && s.targetLabel === 'password');
+    ok('encrypted password fill has empty value', !!pw && pw.value === '');
+    ok('encrypted password fill carries a warning', !!pw && !!pw.warning);
+    ok('warning mentions encrypted/manual', !!pw && /encrypt|manual/i.test(pw.warning || ''));
+    // Plain setText must be unaffected.
+    const user = encSteps.find(s => s.targetLabel === 'username');
+    ok('plain setText value unchanged (admin)', !!user && user.value === 'admin' && !user.warning);
   }
 
   // Test empty/invalid
