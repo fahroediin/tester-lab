@@ -92,6 +92,28 @@ function ok(name, cond) {
   // Urutan hasil stabil menurut kemunculan pertama nama (untuk eksekusi berurutan yang dapat diprediksi).
   ok('order follows first appearance of each name', dedupe(recs)[0].testSuite === 'Login');
 
+  console.log('\n[6b] Run Suite — extractErrorSnippet (cuplikan error andal dari log)');
+  const snip = runSuite.extractErrorSnippet;
+  ok('extractErrorSnippet is exported', typeof snip === 'function');
+  // Ambil baris di sekitar penanda error Playwright, dibatasi panjang.
+  const plog = [
+    'Running 1 test using 1 worker',
+    '  1) login.spec.ts:12:5 > fills the form',
+    '    Error: locator.click: Timeout 30000ms exceeded.',
+    '    Call log: waiting for getByRole(\'button\', { name: \'Login\' })',
+    '    at login.spec.ts:14:20'
+  ].join('\n');
+  const s1 = snip(plog);
+  ok('captures the Error: line', /Timeout 30000ms exceeded/.test(s1));
+  ok('snippet is non-empty string', typeof s1 === 'string' && s1.length > 0);
+  ok('empty log -> empty string (no throw)', snip('') === '');
+  ok('null log -> empty string (no throw)', snip(null) === '');
+  // Batasi panjang agar payload modal tidak membengkak.
+  const huge = 'Error: boom\n' + 'x'.repeat(5000);
+  ok('snippet is length-capped', snip(huge).length <= 1200);
+  // Tanpa penanda error eksplisit, kembalikan ekor log (bukan kosong) supaya tetap informatif.
+  ok('no explicit Error marker -> falls back to tail', snip('some plain output line\nanother line').length > 0);
+
   console.log('\n[7] Run Suite — service & route wiring');
   ok('runSuiteForSuite is exported', typeof runSuite.runSuiteForSuite === 'function');
   const hist = require('../dist/server/flow-history-store.js');

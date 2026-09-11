@@ -78,13 +78,42 @@ export function dedupeLatestByName<T extends { testSuite: string; timestamp: str
   return order.map((k) => latest.get(k) as T);
 }
 
+/**
+ * Pull a concise, reliable error snippet out of raw Playwright logs for the
+ * failure modal. Prefers the block starting at the first "Error:" line; falls
+ * back to the tail of the log when no explicit marker is present. Length-capped
+ * so the modal payload stays small. Never throws.
+ */
+export function extractErrorSnippet(logs: string | null | undefined): string {
+  const CAP = 1200;
+  if (!logs || typeof logs !== 'string') return '';
+  const text = logs.replace(/\r\n/g, '\n').trim();
+  if (!text) return '';
+
+  const lines = text.split('\n');
+  const errIdx = lines.findIndex((l) => /(^|\s)(Error|TimeoutError|AssertionError|expect\()/i.test(l));
+
+  let snippet: string;
+  if (errIdx !== -1) {
+    // From the error line, take a handful of following context lines.
+    snippet = lines.slice(errIdx, errIdx + 8).join('\n').trim();
+  } else {
+    // No explicit marker: the tail usually holds the failure summary.
+    snippet = lines.slice(-8).join('\n').trim();
+  }
+  if (snippet.length > CAP) snippet = snippet.slice(0, CAP - 3).trimEnd() + '...';
+  return snippet;
+}
+
 /** One scenario's result within a suite run. */
 export interface ScenarioResult {
   id: string;
   name: string;
   status: ScenarioRunStatus;
+  /** Why a scenario was SKIPPED (no script, unsupported runner). */
   reason?: string;
-  logs?: string;
+  /** Concise error snippet for a FAILED scenario, from the runner logs. */
+  error?: string;
 }
 
 /** Outcome of running a whole suite (POC): a batch id, the aggregate status, and per-scenario results. */
@@ -133,7 +162,7 @@ export async function runSuiteForSuite(userId: string, suiteId: string): Promise
         id: s.id,
         name: s.testSuite,
         status: exec.success ? 'SUCCESS' : 'FAILED',
-        logs: exec.logs
+        error: exec.success ? undefined : extractErrorSnippet(exec.logs)
       });
     } catch (err) {
       results.push({ id: s.id, name: s.testSuite, status: 'FAILED', reason: err instanceof Error ? err.message : String(err) });

@@ -941,7 +941,7 @@
             targetLabel: '',
             value: '0',
             description: currentDescription || `[UNSUPPORTED] ${kind}`,
-            warning: `Unsupported Katalon construct (${kind}) — review manually: ${snippet}`
+            warning: `Unsupported Katalon construct (${kind}). Review manually: ${snippet}`
           };
         }
 
@@ -3339,10 +3339,17 @@
         results.forEach((r, i) => {
           const isLast = i === results.length - 1;
           const reason = r.reason ? '<div style="font-size:11px; color:var(--slate); margin-top:2px;">' + escapeHtml(r.reason) + '</div>' : '';
+          // FAILED scenarios show an expandable error snippet from the runner log.
+          const errorBlock = (r.status === 'FAILED' && r.error)
+            ? '<details style="margin-top:6px;">' +
+                '<summary style="font-size:11px; color:var(--action-blue); cursor:pointer;">Lihat detail kegagalan</summary>' +
+                '<pre style="margin:6px 0 0; padding:8px 10px; background:var(--surface-2); border:1px solid var(--hairline); border-radius:6px; font-family:var(--font-mono); font-size:11px; line-height:1.5; color:var(--ink); white-space:pre-wrap; word-break:break-word; max-height:180px; overflow:auto;">' + escapeHtml(r.error) + '</pre>' +
+              '</details>'
+            : '';
           rows +=
             '<div style="display:flex; align-items:flex-start; gap:10px; padding:10px 0;' + (isLast ? '' : ' border-bottom:1px solid var(--hairline);') + '">' +
               '<span style="font-size:15px; line-height:1.3; width:16px; text-align:center;">' + (rowIcon[r.status] || '') + '</span>' +
-              '<div style="flex:1;"><span style="font-size:14px; color:var(--ink);">' + escapeHtml(r.name || 'Scenario') + '</span>' + reason + '</div>' +
+              '<div style="flex:1;"><span style="font-size:14px; color:var(--ink);">' + escapeHtml(r.name || 'Scenario') + '</span>' + reason + errorBlock + '</div>' +
               '<span style="font-size:11px; font-weight:600; color:' + (rowColor[r.status] || 'var(--slate)') + ';">' + escapeHtml(r.status) + '</span>' +
             '</div>';
         });
