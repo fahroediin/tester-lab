@@ -29,6 +29,41 @@ function toStr(v: unknown): string {
   return typeof v === 'string' ? v : String(v);
 }
 
+/**
+ * Wrap a Playwright locator expression so it resolves only inside the row/card
+ * that contains a unique marker text (US-36 / AC-36). Resolution is deferred to
+ * run time via a runtime helper (`maestro.scopedRow`), so the row is matched by
+ * identity, not position (AC-36.03).
+ *
+ * When `within` is empty/whitespace/absent, the inner expression is returned
+ * unchanged (AC-36.06 — ordinary locator, no scoping).
+ *
+ * `innerExpr` must be a locator expression relative to a base, e.g.
+ * "getByRole('button')" (note: NO leading "page."). The caller passes the
+ * page-rooted form for the unscoped case and the base-relative form when a
+ * scope is applied. To keep one call site, this function accepts a page-rooted
+ * inner ("page.getByRole(...)") and rebases it onto the scoped row when needed.
+ */
+export function buildScopedLocatorExpr(innerExpr: string, within: string | null | undefined): string {
+  const marker = (within == null ? '' : String(within)).trim();
+  if (!marker) return innerExpr;
+
+  // Escape the marker for safe embedding inside a single-quoted JS string.
+  const jsEscaped = marker
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/\r/g, '\\r')
+    .replace(/\n/g, '\\n');
+
+  // Rebase a page-rooted inner ("page.getByRole(...)") onto the scoped row.
+  const rebased = innerExpr.replace(/^\s*page\./, 'maestro.scopedRow(\'' + jsEscaped + "').");
+  // If the inner was not page-rooted, wrap defensively.
+  if (rebased === innerExpr) {
+    return "maestro.scopedRow('" + jsEscaped + "').locator(" + JSON.stringify(innerExpr) + ')';
+  }
+  return rebased;
+}
+
 // Escape a value for safe embedding inside a single-quoted JavaScript/TypeScript string literal.
 // Prevents string-literal breakout (code injection) in generated Playwright/Cypress scripts.
 Handlebars.registerHelper('jsLit', function (str: unknown) {

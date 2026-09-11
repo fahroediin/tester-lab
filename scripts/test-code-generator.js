@@ -547,6 +547,29 @@ const gen = new CodeGenerator();
     ok('logs contain matchScore', result.logs[0].includes('score'));
   }
 
+  // ── Scoped within-locator (US-36 / AC-36) ────
+  console.log('\n[within] buildScopedLocatorExpr');
+  const { buildScopedLocatorExpr } = require('../dist/generator/code-generator.js');
+  ok('buildScopedLocatorExpr is exported', typeof buildScopedLocatorExpr === 'function');
+  if (typeof buildScopedLocatorExpr === 'function') {
+    const inner = "page.getByRole('button')";
+    // AC-36.06: within kosong/absen -> ekspresi target apa adanya.
+    ok('empty within returns inner unchanged', buildScopedLocatorExpr(inner, '') === inner);
+    ok('undefined within returns inner unchanged', buildScopedLocatorExpr(inner, undefined) === inner);
+    ok('whitespace within returns inner unchanged', buildScopedLocatorExpr(inner, '   ') === inner);
+
+    // AC-36.01: within ada -> bungkus scope baris + inner.
+    const scoped = buildScopedLocatorExpr(inner, '260911-0003');
+    ok('scoped wraps a row scope', /scopedRow\(/.test(scoped) || /getByRole\(\s*['"]row['"]/.test(scoped));
+    ok('scoped mentions the marker text', scoped.includes('260911-0003'));
+    ok('scoped still contains the inner target', scoped.includes('getByRole') && scoped.length > inner.length);
+
+    // Escaping: kutip tunggal di marker tidak boleh memutus string literal.
+    const q = buildScopedLocatorExpr(inner, "O'Brien Corp");
+    ok('single quote in marker is escaped', q.includes("O\\'Brien") || q.includes('O\\u0027Brien') || /O.?Brien/.test(q));
+    ok('quote-marker output has no unescaped breakouts', !/[^\\]'O'Brien/.test(q));
+  }
+
   // ── Summary ──────────────────────────────────
   console.log('\n' + '='.repeat(50));
   if (failed > 0) {
