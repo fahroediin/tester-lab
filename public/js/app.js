@@ -967,10 +967,17 @@
 
     // Parse one Object Repository .rs XML string into a semantic selector for
     // Tester Lab. Priority (property name, NOT Katalon's isSelected flag):
-    // placeholder -> id -> name -> text -> xpath. Returns null when nothing
-    // usable is present. Tolerant of malformed/empty input (never throws).
+    // placeholder -> id -> name -> text -> selectorCollection CSS -> xpath.
+    // Returns null when nothing usable is present. Never throws.
     function parseRsSelector(xmlString) {
       if (!xmlString || typeof xmlString !== 'string') return null;
+
+      // Decode the handful of XML/HTML entities Katalon writes into values.
+      function decodeEntities(s) {
+        return String(s)
+          .replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+          .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+      }
 
       // Extract every <webElementProperties> block's name/value/isSelected via
       // regex so the same logic runs in the browser and in headless tests.
@@ -988,7 +995,19 @@
           isSelected: selM ? /true/i.test(selM[1]) : false
         });
       }
-      if (props.length === 0) return null;
+
+      // Extract selectorCollection entries (newer .rs format): key -> value.
+      const coll = {};
+      const collBlock = xmlString.match(/<selectorCollection\b[\s\S]*?<\/selectorCollection>/i);
+      if (collBlock) {
+        const entryRe = /<entry>[\s\S]*?<key>\s*([\s\S]*?)\s*<\/key>[\s\S]*?<value>\s*([\s\S]*?)\s*<\/value>[\s\S]*?<\/entry>/gi;
+        let em;
+        while ((em = entryRe.exec(collBlock[0])) !== null) {
+          coll[em[1].trim().toUpperCase()] = decodeEntities(em[2].trim());
+        }
+      }
+
+      if (props.length === 0 && Object.keys(coll).length === 0) return null;
 
       // Pick the best-valued, prefer isSelected as a tie-breaker for duplicates.
       function pick(propName) {
@@ -1010,7 +1029,10 @@
       const text = pick('text');
       if (text) return { kind: 'getByText', value: text };
 
-      const xpath = pick('xpath');
+      // Curated CSS from selectorCollection beats a raw xpath property.
+      if (coll.CSS) return { kind: 'css', value: coll.CSS };
+
+      const xpath = pick('xpath') || coll.XPATH;
       if (xpath) {
         // Katalon stores xpath sometimes as id("x"); normalize to real XPath.
         const idFuncM = xpath.match(/^id\(\s*["']([^"']+)["']\s*\)$/);
@@ -1090,6 +1112,20 @@
       return found;
     }
 
+    // Classify an import by file name into one of the supported kinds, or
+    // 'unsupported'. Order matters: .spec.ts/.spec.js are spec before the
+    // bare .ts/.js check. Anything not listed (e.g. .rar, .7z) is rejected
+    // instead of silently falling through to the spec parser.
+    function classifyImportKind(fileName) {
+      if (!fileName || typeof fileName !== 'string') return 'unsupported';
+      const n = fileName.toLowerCase();
+      if (n.endsWith('.json') || n.endsWith('.yaml') || n.endsWith('.yml')) return 'flow';
+      if (n.endsWith('.groovy')) return 'katalon-groovy';
+      if (n.endsWith('.zip')) return 'katalon-zip';
+      if (n.endsWith('.spec.ts') || n.endsWith('.spec.js') || n.endsWith('.ts') || n.endsWith('.js')) return 'spec';
+      return 'unsupported';
+    }
+
     function loadSampleScenario() {
       if (appConfig && appConfig.sampleSteps && appConfig.sampleSteps.length > 0) {
         document.getElementById('testSuite').value = appConfig.sampleTestSuite || '';
@@ -1109,8 +1145,26 @@
       const file = event.target.files[0];
       if (!file) return;
 
+      const importKind = classifyImportKind(file.name);
+
+      // Reject unknown types up front instead of letting them fall through to
+      // the spec parser (which rendered binary garbage for e.g. .rar files).
+      if (importKind === 'unsupported') {
+        const ext = (file.name.match(/\.[^.]+$/) || [''])[0] || 'this file type';
+        const isArchive = /\.(rar|7z|tar|gz|tgz|bz2)$/i.test(file.name);
+        showSnackbar({
+          type: 'error',
+          title: 'Unsupported File',
+          message: isArchive
+            ? `${ext} archives are not supported. Zip the Katalon project as .zip (Send to > Compressed (zipped) folder) and try again.`
+            : `${ext} is not a supported import. Use .json, .yaml, .groovy, a Katalon project .zip, or a .spec.ts/.js file.`
+        });
+        event.target.value = '';
+        return;
+      }
+
       // A .zip is a binary Katalon project — handle it before the text reader.
-      if (file.name.toLowerCase().endsWith('.zip')) {
+      if (importKind === 'katalon-zip') {
         handleKatalonZipImport(file).catch(function (err) {
           console.error('Katalon zip import failed:', err);
           showSnackbar({ type: 'error', title: 'Import Failed', message: 'Could not read the Katalon project zip.' });

@@ -348,6 +348,66 @@ WebUI.closeBrowser()
     ok('null input -> empty list (no throw)', findKatalonTestCases(null).length === 0);
   }
 
+  console.log('\n[12] classifyImportKind — accept known types, reject the rest');
+  const classifyImportKind = loadFn('classifyImportKind');
+  if (classifyImportKind) {
+    ok('.json -> flow', classifyImportKind('flow.json') === 'flow');
+    ok('.yaml -> flow', classifyImportKind('flow.yaml') === 'flow');
+    ok('.yml -> flow', classifyImportKind('flow.yml') === 'flow');
+    ok('.groovy -> katalon-groovy', classifyImportKind('Test.groovy') === 'katalon-groovy');
+    ok('.zip -> katalon-zip', classifyImportKind('Project.zip') === 'katalon-zip');
+    ok('.spec.ts -> spec', classifyImportKind('login.spec.ts') === 'spec');
+    ok('.spec.js -> spec', classifyImportKind('login.spec.js') === 'spec');
+    ok('.ts -> spec', classifyImportKind('login.ts') === 'spec');
+    ok('.js -> spec', classifyImportKind('login.js') === 'spec');
+    ok('.rar -> unsupported (the reported bug)', classifyImportKind('Sample Katalon Groovy.rar') === 'unsupported');
+    ok('.7z -> unsupported', classifyImportKind('proj.7z') === 'unsupported');
+    ok('.tar.gz -> unsupported', classifyImportKind('proj.tar.gz') === 'unsupported');
+    ok('.txt -> unsupported', classifyImportKind('notes.txt') === 'unsupported');
+    ok('case-insensitive (.RAR)', classifyImportKind('X.RAR') === 'unsupported');
+    ok('case-insensitive (.ZIP)', classifyImportKind('X.ZIP') === 'katalon-zip');
+    ok('null -> unsupported (no throw)', classifyImportKind(null) === 'unsupported');
+  }
+
+  console.log('\n[13] parseRsSelector — use <selectorCollection> CSS from newer .rs format');
+  if (parseRsSelector) {
+    // Newer Katalon .rs: selectorCollection with HTML-entity-encoded CSS, and
+    // NO semantic property (no placeholder/id/name) — CSS should be used,
+    // decoded, in preference to raw xpath.
+    const rsColl = `<?xml version="1.0" encoding="UTF-8"?>
+<WebElementEntity>
+   <name>select_order_type</name>
+   <selectorCollection>
+      <entry><key>CSS</key><value>[name=&quot;order_type&quot;]</value></entry>
+      <entry><key>XPATH</key><value>//*[@name = 'order_type']</value></entry>
+   </selectorCollection>
+   <selectorMethod>XPATH</selectorMethod>
+   <webElementProperties><isSelected>false</isSelected><name>tag</name><value>select</value></webElementProperties>
+   <webElementProperties><isSelected>false</isSelected><name>class</name><value>w-full border</value></webElementProperties>
+</WebElementEntity>`;
+    const rColl = parseRsSelector(rsColl);
+    ok('selectorCollection CSS used and HTML-entities decoded',
+       rColl && rColl.kind === 'css' && rColl.value === '[name="order_type"]');
+
+    // Priority: a semantic placeholder still wins over selectorCollection CSS.
+    const rsBoth = `<WebElementEntity>
+   <selectorCollection><entry><key>CSS</key><value>#fallback</value></entry></selectorCollection>
+   <webElementProperties><isSelected>true</isSelected><name>placeholder</name><value>Cari</value></webElementProperties>
+</WebElementEntity>`;
+    const rBoth = parseRsSelector(rsBoth);
+    ok('placeholder still beats selectorCollection CSS',
+       rBoth && rBoth.kind === 'getByPlaceholder' && rBoth.value === 'Cari');
+
+    // selectorCollection CSS beats a raw xpath-only property.
+    const rsCssVsXpath = `<WebElementEntity>
+   <selectorCollection><entry><key>CSS</key><value>.btn-primary</value></entry></selectorCollection>
+   <webElementProperties><isSelected>true</isSelected><name>xpath</name><value>//*[@id='x']</value></webElementProperties>
+</WebElementEntity>`;
+    const rCvX = parseRsSelector(rsCssVsXpath);
+    ok('selectorCollection CSS beats raw xpath property',
+       rCvX && rCvX.kind === 'css' && rCvX.value === '.btn-primary');
+  }
+
   // Test empty/invalid
   ok('empty returns empty array', parseGroovyToSteps('').length === 0);
   ok('null returns empty array', parseGroovyToSteps(null).length === 0);
