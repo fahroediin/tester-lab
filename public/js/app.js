@@ -607,6 +607,75 @@
               message: `Successfully imported "${file.name}".`
             });
 
+          } else if (fileName.endsWith('.groovy')) {
+            // AC-11.12 to AC-11.16: Katalon Groovy import logic
+            // AC-11.16: Handle empty .groovy file
+            if (!content || !content.trim()) {
+              showSnackbar({ type: 'warning', title: 'Empty File', message: 'The uploaded spec file is empty.' });
+              return;
+            }
+
+            // AC-11.12: Load content to editor and set framework/language
+            const fwSelect = document.getElementById('framework');
+            if (fwSelect) {
+              fwSelect.value = 'katalon';
+              onFrameworkChange();
+            }
+            setTimeout(() => {
+              const langSelect = document.getElementById('language');
+              if (langSelect) langSelect.value = 'groovy';
+            }, 10);
+
+            resetTerminalOutput();
+            latestGeneratedCode = content;
+            const codeOutput = document.getElementById('codeOutput');
+            if (codeOutput) codeOutput.textContent = content;
+            setCodeEditable(true);
+
+            // AC-11.14: Extract test suite name from Katalon template comment
+            const katalonSuiteMatch = content.match(/Katalon Studio Test Case:\s*(.+)/);
+            if (katalonSuiteMatch) {
+              const suiteInput = document.getElementById('testSuite');
+              if (suiteInput) suiteInput.value = katalonSuiteMatch[1].trim();
+            }
+
+            // AC-11.13: Extract target URL from WebUI.navigateToUrl('...')
+            const katalonUrlMatch = content.match(/WebUI\.navigateToUrl\(['"](.+?)['"]\)/);
+            if (katalonUrlMatch) {
+              const urlInput = document.getElementById('targetUrl');
+              if (urlInput) urlInput.value = katalonUrlMatch[1];
+            }
+
+            // AC-11.15: Success notification
+            showSnackbar({
+              type: 'success',
+              title: 'Katalon File Loaded',
+              message: `Successfully imported "${file.name}".`
+            });
+
+            const statusBadgeContainer = document.getElementById('statusBadgeContainer');
+            if (statusBadgeContainer) {
+              statusBadgeContainer.innerHTML = '<span class="status-chip chip-pass">Katalon File Loaded</span>';
+            }
+
+            Swal.fire({
+              icon: 'success',
+              title: 'Katalon File Loaded',
+              text: `Successfully imported "${file.name}".`,
+              timer: 2500,
+              showConfirmButton: false,
+              toast: true,
+              position: 'top-end'
+            });
+
+            // Enable actions
+            const btnCopyCode = document.getElementById('btnCopyCode');
+            const btnDownloadCode = document.getElementById('btnDownloadCode');
+            const btnRunTest = document.getElementById('btnRunTest');
+            if (btnCopyCode) btnCopyCode.disabled = false;
+            if (btnDownloadCode) btnDownloadCode.disabled = false;
+            if (btnRunTest) btnRunTest.disabled = false;
+
           } else {
             // Spec import logic (.spec.ts, .spec.js, .ts, .js)
             if (!content || !content.trim()) {

@@ -180,9 +180,9 @@
       <div class="card-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
         <div class="card-title">Scenario Builder</div>
         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-          <input type="file" id="importFileInput" accept=".ts,.js,.spec.ts,.spec.js,.json,.yaml,.yml" style="display: none;" onchange="handleImportFile(event)">
+          <input type="file" id="importFileInput" accept=".ts,.js,.spec.ts,.spec.js,.json,.yaml,.yml,.groovy" style="display: none;" onchange="handleImportFile(event)">
           <button type="button" class="btn-pill-outline" onclick="document.getElementById('importFileInput').click()">
-            Import File (.spec/.json/.yaml)
+            Import File (.spec/.json/.yaml/.groovy)
           </button>
           <button type="button" class="btn-pill-outline" onclick="loadSampleScenario()">
             Load Sample Flow
