@@ -148,6 +148,164 @@ function ok(name, cond) {
     ok('native step 6 doubleClick', parsedNative[5].action === 'click' && parsedNative[5].targetLabel === 'Risk Control Unit Application');
   }
 
+  console.log('\n[6] Native Katalon Robustness (FailureHandling, GlobalVariable, callTestCase, CustomKeywords, unquoted vars)');
+  const nativeRobust = `
+import static com.kms.katalon.core.testobject.ObjectRepository.findTestObject
+import com.kms.katalon.core.model.FailureHandling as FailureHandling
+import com.kms.katalon.core.webui.keyword.WebUiBuiltInKeywords as WebUI
+import internal.GlobalVariable as GlobalVariable
+
+WebUI.openBrowser('', FailureHandling.STOP_ON_FAILURE)
+WebUI.navigateToUrl(GlobalVariable.G_SiteURL)
+WebUI.callTestCase(findTestCase('Login/Do Login'), [:], FailureHandling.STOP_ON_FAILURE)
+WebUI.waitForElementClickable(findTestObject('Master Page/Menu/elCreate'), 0)
+WebUI.click(findTestObject('Master Page/Menu/elCreate'), FailureHandling.CONTINUE_ON_FAILURE)
+WebUI.setText(findTestObject('Create Issue/elSummary'), fixed_summary, FailureHandling.STOP_ON_FAILURE)
+CustomKeywords.'com.jira.JSelect.selectByText'('Priority', 'Low')
+WebUI.verifyElementText(findTestObject('Create Issue/elTitle'), 'Create issue')
+WebUI.setText(findTestObject('Login Page/input_username'), 'admin', FailureHandling.STOP_ON_FAILURE)
+WebUI.closeBrowser()
+`;
+  const robust = parseGroovyToSteps(nativeRobust);
+  const hasWarn = (s) => !!s.warning;
+  ok('waitForElementClickable becomes assert_visible for elCreate',
+     robust.some(s => s.action === 'assert_visible' && s.targetLabel === 'elCreate'));
+  ok('verifyElementText becomes assert_text "Create issue"',
+     robust.some(s => s.action === 'assert_text' && s.value === 'Create issue'));
+  ok('click with FailureHandling arg still reads elCreate target',
+     robust.some(s => s.action === 'click' && s.targetLabel === 'elCreate'));
+  ok('setText with trailing FailureHandling keeps value=admin',
+     robust.some(s => s.action === 'fill' && s.targetLabel === 'username' && s.value === 'admin'));
+  ok('unquoted Groovy variable value is flagged with a warning',
+     robust.some(s => s.action === 'fill' && s.targetLabel === 'elSummary' && hasWarn(s)));
+  ok('callTestCase produces a flagged/unsupported step',
+     robust.some(s => hasWarn(s) && /callTestCase/i.test(s.warning || '')));
+  ok('CustomKeywords produces a flagged/unsupported step',
+     robust.some(s => hasWarn(s) && /CustomKeywords/i.test(s.warning || '')));
+
+  console.log('\n[7] Import Warning Summary (reported to user, not silently dropped)');
+  const summaryMatch = appJs.match(/function summarizeImportWarnings[\s\S]*?\n    \}/);
+  ok('found summarizeImportWarnings in app.js', !!summaryMatch);
+  if (summaryMatch) {
+    vm.runInNewContext(summaryMatch[0] + '\nsandbox.summarize = summarizeImportWarnings;', { sandbox });
+    const summarize = sandbox.summarize;
+    ok('no warnings -> null summary', summarize(robust.filter(s => !s.warning).map(s => ({ action: s.action }))) === null);
+    const summary = summarize(robust);
+    ok('counts the 3 flagged steps from native fixture', typeof summary === 'string' && /3/.test(summary));
+    ok('summary mentions manual attention', typeof summary === 'string' && /manual|attention|review/i.test(summary));
+  }
+
+  // Helper: pull a top-level (4-space indented) function body out of app.js and
+  // eval it into our sandbox, returning the callable.
+  function loadFn(name) {
+    const re = new RegExp('function ' + name + '[\\s\\S]*?\\n    \\}');
+    const m = appJs.match(re);
+    ok('found ' + name + ' in app.js', !!m);
+    if (!m) return null;
+    vm.runInNewContext(m[0] + '\nsandbox.__fn = ' + name + ';', { sandbox });
+    return sandbox.__fn;
+  }
+
+  console.log('\n[8] parseRsSelector — semantic mapping from Object Repository .rs');
+  const parseRsSelector = loadFn('parseRsSelector');
+  if (parseRsSelector) {
+    // Real CURA input_username.rs: placeholder(false), id(false), name(false),
+    // xpath(true) = id("txt-username"). Priority says placeholder wins over all.
+    const rsFull = `<?xml version="1.0" encoding="UTF-8"?>
+<WebElementEntity>
+   <name>input_username</name>
+   <webElementProperties><isSelected>true</isSelected><matchCondition>equals</matchCondition><name>tag</name><type>Main</type><value>input</value></webElementProperties>
+   <webElementProperties><isSelected>true</isSelected><matchCondition>equals</matchCondition><name>xpath</name><type>Main</type><value>id("txt-username")</value></webElementProperties>
+   <webElementProperties><isSelected>false</isSelected><matchCondition>equals</matchCondition><name>name</name><type>Main</type><value>username</value></webElementProperties>
+   <webElementProperties><isSelected>false</isSelected><matchCondition>equals</matchCondition><name>id</name><type>Main</type><value>txt-username</value></webElementProperties>
+   <webElementProperties><isSelected>false</isSelected><matchCondition>equals</matchCondition><name>placeholder</name><type>Main</type><value>Username</value></webElementProperties>
+</WebElementEntity>`;
+    const rFull = parseRsSelector(rsFull);
+    ok('placeholder wins priority over id/name/xpath',
+       rFull && rFull.kind === 'getByPlaceholder' && rFull.value === 'Username');
+
+    const rsId = `<WebElementEntity>
+   <webElementProperties><isSelected>true</isSelected><name>id</name><value>txt-user</value></webElementProperties>
+   <webElementProperties><isSelected>true</isSelected><name>xpath</name><value>id("txt-user")</value></webElementProperties>
+</WebElementEntity>`;
+    const rId = parseRsSelector(rsId);
+    ok('id maps to css #id when no placeholder', rId && rId.kind === 'css' && rId.value === '#txt-user');
+
+    const rsName = `<WebElementEntity>
+   <webElementProperties><isSelected>true</isSelected><name>name</name><value>email</value></webElementProperties>
+</WebElementEntity>`;
+    const rName = parseRsSelector(rsName);
+    ok('name maps to css [name="..."]', rName && rName.kind === 'css' && rName.value === '[name="email"]');
+
+    const rsXpath = `<WebElementEntity>
+   <webElementProperties><isSelected>true</isSelected><name>xpath</name><value>id("only-xpath")</value></webElementProperties>
+</WebElementEntity>`;
+    const rXpath = parseRsSelector(rsXpath);
+    ok('lone xpath id("x") normalizes to //*[@id=\'x\']',
+       rXpath && rXpath.kind === 'xpath' && rXpath.value === "//*[@id='only-xpath']");
+
+    const rsPlainXpath = `<WebElementEntity>
+   <webElementProperties><isSelected>true</isSelected><name>xpath</name><value>//div[@class='x']</value></webElementProperties>
+</WebElementEntity>`;
+    const rPlain = parseRsSelector(rsPlainXpath);
+    ok('plain // xpath is used as-is', rPlain && rPlain.kind === 'xpath' && rPlain.value === "//div[@class='x']");
+
+    const rsEmpty = `<WebElementEntity><name>nothing</name></WebElementEntity>`;
+    ok('no usable property -> null', parseRsSelector(rsEmpty) === null);
+    ok('garbage input -> null (no throw)', parseRsSelector('not xml at all') === null);
+    ok('null input -> null (no throw)', parseRsSelector(null) === null);
+  }
+
+  console.log('\n[9] buildRsIndex — normalize object paths');
+  const buildRsIndex = loadFn('buildRsIndex');
+  if (buildRsIndex) {
+    const idx = buildRsIndex([
+      { path: 'Object Repository/Login Page/input_username.rs', content: '<a/>' },
+      { path: 'Object Repository/Master/Menu/elCreate.rs', content: '<b/>' },
+      { path: 'Test Cases/foo.groovy', content: 'ignore me' }
+    ]);
+    ok('buildRsIndex returns a Map-like object', idx && typeof idx.get === 'function' && typeof idx.size === 'number');
+    ok('strips Object Repository/ prefix and .rs suffix',
+       idx.get('Login Page/input_username') === '<a/>');
+    ok('keeps nested path', idx.get('Master/Menu/elCreate') === '<b/>');
+    ok('ignores non-.rs entries', !idx.has('Test Cases/foo') && idx.size === 2);
+  }
+
+  console.log('\n[10] rsResolver end-to-end via parseGroovyToSteps(code, resolver)');
+  // makeRsResolver calls parseRsSelector, so both must share one eval scope
+  // (in production they live in the same closure; the harness isolates them).
+  let makeRsResolver = null;
+  const mkMatch = appJs.match(/function makeRsResolver[\s\S]*?\n    \}/);
+  const rsMatch = appJs.match(/function parseRsSelector[\s\S]*?\n    \}/);
+  ok('found makeRsResolver in app.js', !!mkMatch);
+  if (mkMatch && rsMatch) {
+    vm.runInNewContext(rsMatch[0] + '\n' + mkMatch[0] + '\nsandbox.mk = makeRsResolver;', { sandbox });
+    makeRsResolver = sandbox.mk;
+  }
+  if (makeRsResolver && parseRsSelector) {
+    const rsIndex = new Map([
+      ['Login Page/input_username', `<WebElementEntity><webElementProperties><isSelected>false</isSelected><name>placeholder</name><value>Username</value></webElementProperties></WebElementEntity>`]
+    ]);
+    const resolver = makeRsResolver(rsIndex);
+    const scriptWithRepo = `
+WebUI.openBrowser('')
+WebUI.setText(findTestObject('Login Page/input_username'), 'admin')
+WebUI.click(findTestObject('Unknown Page/missing_object'))
+WebUI.closeBrowser()
+`;
+    const resolved = parseGroovyToSteps(scriptWithRepo, resolver);
+    const fillStep = resolved.find(s => s.action === 'fill');
+    ok('resolved fill uses .rs placeholder as target, not object name',
+       !!fillStep && fillStep.targetLabel === 'Username');
+    const clickStep = resolved.find(s => s.action === 'click');
+    ok('unresolved object falls back to cleaned name (no crash)',
+       !!clickStep && clickStep.targetLabel === 'missing_object');
+    // Regression guard within this block: same script WITHOUT resolver = old behavior
+    const noResolver = parseGroovyToSteps(scriptWithRepo);
+    ok('without resolver, fill target is object name (backward compatible)',
+       noResolver.find(s => s.action === 'fill').targetLabel === 'username');
+  }
+
   // Test empty/invalid
   ok('empty returns empty array', parseGroovyToSteps('').length === 0);
   ok('null returns empty array', parseGroovyToSteps(null).length === 0);

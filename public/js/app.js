@@ -603,7 +603,7 @@
       return args;
     }
 
-    function parseGroovyToSteps(code) {
+    function parseGroovyToSteps(code, rsResolver) {
       if (!code || typeof code !== 'string') return [];
       const parsedSteps = [];
       
@@ -690,6 +690,12 @@
         m = expr.match(/findTestObject\s*\(\s*('(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*")/);
         if (m) {
           const objPath = unquote(m[1]);
+          // If a .rs resolver is available, prefer the real selector from the
+          // Object Repository over the bare object name.
+          if (typeof rsResolver === 'function') {
+            const sel = rsResolver(objPath);
+            if (sel && sel.value) return sel.value;
+          }
           const parts = objPath.split('/');
           return cleanObjectName(parts[parts.length - 1]);
         }
@@ -700,6 +706,25 @@
         }
 
         return cleanObjectName(expr.trim());
+      }
+
+      // Drop trailing FailureHandling.* / GlobalVariable-only timeout args so
+      // argument positions match the Tester Lab dialect (target, value, ...).
+      function stripNoiseArgs(args) {
+        if (!args) return args;
+        return args.filter(a => !/^FailureHandling\./.test(a.trim()));
+      }
+
+      // A value that is not string-literal and not numeric is a Groovy variable
+      // (e.g. fixed_summary, GlobalVariable.x). Return the raw token so the
+      // caller can flag it for manual attention instead of importing it as text.
+      function isUnquotedExpr(arg) {
+        if (arg == null) return false;
+        const t = arg.trim();
+        if (!t) return false;
+        if (/^'(?:[^'\\]|\\.)*'$/.test(t) || /^"(?:[^"\\]|\\.)*"$/.test(t)) return false; // string literal
+        if (/^-?\d+(\.\d+)?$/.test(t)) return false; // number
+        return true;
       }
 
       let helperBraceDepth = 0;
@@ -747,20 +772,24 @@
         if (line.includes('WebUI.setText') || line.includes('WebUI.sendKeys') || line.includes('WebUI.setEncryptedText')) {
           const method = line.includes('WebUI.setEncryptedText') ? 'WebUI.setEncryptedText' :
                          line.includes('WebUI.setText') ? 'WebUI.setText' : 'WebUI.sendKeys';
-          const args = extractCallArgs(line, method);
+          const args = stripNoiseArgs(extractCallArgs(line, method));
           if (args && args.length >= 2) {
             const target = extractTarget(args[0]);
+            const rawValue = args[1];
             stepObj = {
               action: 'fill',
               targetLabel: target,
-              value: unquote(args[1]),
+              value: unquote(rawValue),
               description: currentDescription || `Fill ${target}`
             };
+            if (isUnquotedExpr(rawValue)) {
+              stepObj.warning = `Value is a Groovy variable "${rawValue.trim()}" — set the actual value manually.`;
+            }
           }
         } else if (line.includes('WebUI.selectOption')) {
           const method = line.includes('selectOptionByLabel') ? 'WebUI.selectOptionByLabel' :
                          line.includes('selectOptionByValue') ? 'WebUI.selectOptionByValue' : 'WebUI.selectOptionByIndex';
-          const args = extractCallArgs(line, method);
+          const args = stripNoiseArgs(extractCallArgs(line, method));
           if (args && args.length >= 2) {
             const target = extractTarget(args[0]);
             stepObj = {
@@ -775,7 +804,7 @@
           if (line.includes('WebUI.doubleClick')) method = 'WebUI.doubleClick';
           else if (line.includes('WebUI.rightClick')) method = 'WebUI.rightClick';
 
-          const args = extractCallArgs(line, method);
+          const args = stripNoiseArgs(extractCallArgs(line, method));
           if (args && args.length >= 1) {
             const target = extractTarget(args[0]);
             stepObj = {
@@ -786,7 +815,7 @@
             };
           }
         } else if (line.includes('WebUI.check')) {
-          const args = extractCallArgs(line, 'WebUI.check');
+          const args = stripNoiseArgs(extractCallArgs(line, 'WebUI.check'));
           if (args && args.length >= 1) {
             const target = extractTarget(args[0]);
             stepObj = {
@@ -797,7 +826,7 @@
             };
           }
         } else if (line.includes('WebUI.uncheck')) {
-          const args = extractCallArgs(line, 'WebUI.uncheck');
+          const args = stripNoiseArgs(extractCallArgs(line, 'WebUI.uncheck'));
           if (args && args.length >= 1) {
             const target = extractTarget(args[0]);
             stepObj = {
@@ -808,7 +837,7 @@
             };
           }
         } else if (line.includes('WebUI.uploadFile')) {
-          const args = extractCallArgs(line, 'WebUI.uploadFile');
+          const args = stripNoiseArgs(extractCallArgs(line, 'WebUI.uploadFile'));
           if (args && args.length >= 2) {
             const target = extractTarget(args[0]);
             stepObj = {
@@ -837,8 +866,20 @@
             description: currentDescription || `Verify URL contains ${urlVal}`
           };
         } else if (line.includes('WebUI.verifyTextPresent')) {
-          const args = extractCallArgs(line, 'WebUI.verifyTextPresent');
+          const args = stripNoiseArgs(extractCallArgs(line, 'WebUI.verifyTextPresent'));
           const txt = (args && args.length >= 1) ? unquote(args[0]) : '';
+          stepObj = {
+            action: 'assert_text',
+            targetLabel: '',
+            value: txt,
+            description: currentDescription || `Verify text "${txt}"`
+          };
+        } else if (line.includes('WebUI.verifyElementText') || line.includes('WebUI.getText')) {
+          // verifyElementText(obj, 'expected') -> assert_text; the object identifies
+          // where, but Tester Lab's assert_text matches on the expected text.
+          const method = line.includes('WebUI.verifyElementText') ? 'WebUI.verifyElementText' : 'WebUI.getText';
+          const args = stripNoiseArgs(extractCallArgs(line, method));
+          const txt = (args && args.length >= 2) ? unquote(args[1]) : '';
           stepObj = {
             action: 'assert_text',
             targetLabel: '',
@@ -848,15 +889,19 @@
         } else if (
           line.includes('WebUI.verifyElementPresent') ||
           line.includes('WebUI.verifyElementVisible') ||
+          line.includes('WebUI.verifyElementClickable') ||
           line.includes('WebUI.waitForElementPresent') ||
-          line.includes('WebUI.waitForElementVisible')
+          line.includes('WebUI.waitForElementVisible') ||
+          line.includes('WebUI.waitForElementClickable')
         ) {
           let method = 'WebUI.verifyElementPresent';
-          if (line.includes('WebUI.waitForElementVisible')) method = 'WebUI.waitForElementVisible';
+          if (line.includes('WebUI.waitForElementClickable')) method = 'WebUI.waitForElementClickable';
+          else if (line.includes('WebUI.waitForElementVisible')) method = 'WebUI.waitForElementVisible';
           else if (line.includes('WebUI.waitForElementPresent')) method = 'WebUI.waitForElementPresent';
+          else if (line.includes('WebUI.verifyElementClickable')) method = 'WebUI.verifyElementClickable';
           else if (line.includes('WebUI.verifyElementVisible')) method = 'WebUI.verifyElementVisible';
 
-          const args = extractCallArgs(line, method);
+          const args = stripNoiseArgs(extractCallArgs(line, method));
           const target = (args && args.length >= 1) ? extractTarget(args[0]) : '';
           stepObj = {
             action: 'assert_visible',
@@ -865,7 +910,7 @@
             description: currentDescription || `Verify ${target} is visible`
           };
         } else if (line.includes('WebUI.delay')) {
-          const args = extractCallArgs(line, 'WebUI.delay');
+          const args = stripNoiseArgs(extractCallArgs(line, 'WebUI.delay'));
           let msVal = '1000';
           if (args && args.length >= 1) {
             const sec = parseFloat(args[0]);
@@ -876,6 +921,22 @@
             targetLabel: '',
             value: msVal,
             description: currentDescription || `Wait ${msVal}ms`
+          };
+        } else if (
+          line.includes('WebUI.callTestCase') ||
+          line.startsWith('CustomKeywords.') ||
+          line.includes('CustomKeywords.')
+        ) {
+          // Constructs with no DSL equivalent: keep a visible placeholder so the
+          // step is never silently dropped, and flag it for manual attention.
+          const kind = line.includes('WebUI.callTestCase') ? 'callTestCase' : 'CustomKeywords';
+          const snippet = line.length > 120 ? line.slice(0, 117) + '...' : line;
+          stepObj = {
+            action: 'wait',
+            targetLabel: '',
+            value: '0',
+            description: currentDescription || `[UNSUPPORTED] ${kind}`,
+            warning: `Unsupported Katalon construct (${kind}) — review manually: ${snippet}`
           };
         }
 
@@ -891,6 +952,111 @@
       }
 
       return parsedSteps;
+    }
+
+    // Build a one-line summary of imported steps that need manual attention
+    // (unsupported constructs, Groovy-variable values). Returns null when clean,
+    // so the caller can skip the extra notification entirely.
+    function summarizeImportWarnings(parsedSteps) {
+      if (!Array.isArray(parsedSteps)) return null;
+      const flagged = parsedSteps.filter(function (s) { return s && s.warning; });
+      if (flagged.length === 0) return null;
+      return flagged.length + (flagged.length === 1 ? ' step needs' : ' steps need') +
+        ' manual attention (unsupported Katalon construct or variable value).';
+    }
+
+    // Parse one Object Repository .rs XML string into a semantic selector for
+    // Tester Lab. Priority (property name, NOT Katalon's isSelected flag):
+    // placeholder -> id -> name -> text -> xpath. Returns null when nothing
+    // usable is present. Tolerant of malformed/empty input (never throws).
+    function parseRsSelector(xmlString) {
+      if (!xmlString || typeof xmlString !== 'string') return null;
+
+      // Extract every <webElementProperties> block's name/value/isSelected via
+      // regex so the same logic runs in the browser and in headless tests.
+      const props = [];
+      const blockRe = /<webElementProperties\b[\s\S]*?<\/webElementProperties>/gi;
+      const blocks = xmlString.match(blockRe) || [];
+      for (const b of blocks) {
+        const nameM = b.match(/<name>\s*([\s\S]*?)\s*<\/name>/i);
+        const valM = b.match(/<value>\s*([\s\S]*?)\s*<\/value>/i);
+        const selM = b.match(/<isSelected>\s*([\s\S]*?)\s*<\/isSelected>/i);
+        if (!nameM) continue;
+        props.push({
+          name: nameM[1].trim().toLowerCase(),
+          value: valM ? valM[1].trim() : '',
+          isSelected: selM ? /true/i.test(selM[1]) : false
+        });
+      }
+      if (props.length === 0) return null;
+
+      // Pick the best-valued, prefer isSelected as a tie-breaker for duplicates.
+      function pick(propName) {
+        const matches = props.filter(p => p.name === propName && p.value);
+        if (matches.length === 0) return null;
+        const sel = matches.find(p => p.isSelected);
+        return (sel || matches[0]).value;
+      }
+
+      const placeholder = pick('placeholder');
+      if (placeholder) return { kind: 'getByPlaceholder', value: placeholder };
+
+      const id = pick('id');
+      if (id) return { kind: 'css', value: '#' + id };
+
+      const name = pick('name');
+      if (name) return { kind: 'css', value: '[name="' + name + '"]' };
+
+      const text = pick('text');
+      if (text) return { kind: 'getByText', value: text };
+
+      const xpath = pick('xpath');
+      if (xpath) {
+        // Katalon stores xpath sometimes as id("x"); normalize to real XPath.
+        const idFuncM = xpath.match(/^id\(\s*["']([^"']+)["']\s*\)$/);
+        if (idFuncM) return { kind: 'xpath', value: "//*[@id='" + idFuncM[1] + "']" };
+        return { kind: 'xpath', value: xpath };
+      }
+
+      return null;
+    }
+
+    // Build an index from Object Repository .rs entries: normalized object path
+    // (no "Object Repository/" prefix, no ".rs" suffix) -> raw XML string.
+    // Non-.rs entries are ignored.
+    function buildRsIndex(entries) {
+      const index = new Map();
+      if (!Array.isArray(entries)) return index;
+      for (const e of entries) {
+        if (!e || typeof e.path !== 'string') continue;
+        if (!/\.rs$/i.test(e.path)) continue;
+        let key = e.path.replace(/\\/g, '/');
+        key = key.replace(/^.*?Object Repository\//i, '');
+        key = key.replace(/\.rs$/i, '');
+        index.set(key, e.content);
+      }
+      return index;
+    }
+
+    // Build a resolver: findTestObject('path') -> semantic selector | null.
+    // Tries an exact index hit first, then a suffix match on the last segment,
+    // so a script path that omits leading folders still resolves.
+    function makeRsResolver(rsIndex) {
+      if (!rsIndex || typeof rsIndex.get !== 'function' || typeof rsIndex.entries !== 'function') {
+        return function () { return null; };
+      }
+      return function (objectPath) {
+        if (!objectPath) return null;
+        const norm = String(objectPath).replace(/\\/g, '/').replace(/\.rs$/i, '');
+        let xml = rsIndex.get(norm);
+        if (!xml) {
+          const last = norm.split('/').pop();
+          for (const [k, v] of rsIndex.entries()) {
+            if (k === last || k.endsWith('/' + last)) { xml = v; break; }
+          }
+        }
+        return xml ? parseRsSelector(xml) : null;
+      };
     }
 
     function loadSampleScenario() {
@@ -912,12 +1078,22 @@
       const file = event.target.files[0];
       if (!file) return;
 
+      // A .zip is a binary Katalon project — handle it before the text reader.
+      if (file.name.toLowerCase().endsWith('.zip')) {
+        handleKatalonZipImport(file).catch(function (err) {
+          console.error('Katalon zip import failed:', err);
+          showSnackbar({ type: 'error', title: 'Import Failed', message: 'Could not read the Katalon project zip.' });
+        });
+        event.target.value = '';
+        return;
+      }
+
       const reader = new FileReader();
       reader.onload = function(e) {
         try {
           const content = e.target.result;
           const fileName = file.name.toLowerCase();
-          
+
           if (fileName.endsWith('.json') || fileName.endsWith('.yaml') || fileName.endsWith('.yml')) {
             // Flow import logic
             let data;
@@ -959,86 +1135,11 @@
 
           } else if (fileName.endsWith('.groovy')) {
             // AC-11.12 to AC-11.16: Katalon Groovy import logic
-            // AC-11.16: Handle empty .groovy file
             if (!content || !content.trim()) {
               showSnackbar({ type: 'warning', title: 'Empty File', message: 'The uploaded spec file is empty.' });
               return;
             }
-
-            // AC-11.12: Load content to editor and set framework/language
-            const fwSelect = document.getElementById('framework');
-            if (fwSelect) {
-              fwSelect.value = 'katalon';
-              onFrameworkChange();
-            }
-            setTimeout(() => {
-              const langSelect = document.getElementById('language');
-              if (langSelect) langSelect.value = 'groovy';
-            }, 10);
-
-            // AC-11.14: Extract test suite name from Katalon template comment or fallback to file name
-            const katalonSuiteMatch = content.match(/Katalon Studio Test Case:\s*(.+)/);
-            const suiteInput = document.getElementById('testSuite');
-            if (suiteInput) {
-              if (katalonSuiteMatch) {
-                suiteInput.value = katalonSuiteMatch[1].trim();
-              } else if (file.name) {
-                suiteInput.value = file.name.replace(/\.groovy$/i, '');
-              }
-            }
-
-            // AC-11.13: Extract target URL from WebUI.navigateToUrl('...') or WebUI.openBrowser('https://...')
-            const katalonUrlMatch = content.match(/WebUI\.navigateToUrl\(['"](.+?)['"]\)/) ||
-                                    content.match(/WebUI\.openBrowser\(['"](https?:\/\/.+?)['"]\)/);
-            if (katalonUrlMatch) {
-              const urlInput = document.getElementById('targetUrl');
-              if (urlInput) urlInput.value = katalonUrlMatch[1];
-            }
-
-            // Attempt to parse back the UI steps into Scenario Builder
-            const parsedSteps = parseGroovyToSteps(content);
-            if (parsedSteps.length > 0) {
-              steps = parsedSteps;
-              renderSteps(true);
-            }
-
-            resetTerminalOutput();
-            latestGeneratedCode = content;
-            const generatedCodeCard = document.getElementById('generatedCodeCard');
-            if (generatedCodeCard) generatedCodeCard.style.display = 'flex';
-            const codeOutput = document.getElementById('codeOutput');
-            if (codeOutput) codeOutput.textContent = content;
-            setCodeEditable(true);
-
-            // AC-11.15: Success notification
-            showSnackbar({
-              type: 'success',
-              title: 'Katalon File Loaded',
-              message: `Successfully imported "${file.name}".`
-            });
-
-            const statusBadgeContainer = document.getElementById('statusBadgeContainer');
-            if (statusBadgeContainer) {
-              statusBadgeContainer.innerHTML = '<span class="status-chip chip-pass">Katalon File Loaded</span>';
-            }
-
-            Swal.fire({
-              icon: 'success',
-              title: 'Katalon File Loaded',
-              text: `Successfully imported "${file.name}".`,
-              timer: 2500,
-              showConfirmButton: false,
-              toast: true,
-              position: 'top-end'
-            });
-
-            // Enable actions
-            const btnCopyCode = document.getElementById('btnCopyCode');
-            const btnDownloadCode = document.getElementById('btnDownloadCode');
-            const btnRunTest = document.getElementById('btnRunTest');
-            if (btnCopyCode) btnCopyCode.disabled = false;
-            if (btnDownloadCode) btnDownloadCode.disabled = false;
-            if (btnRunTest) btnRunTest.disabled = false;
+            applyKatalonImport(content, file.name);
 
           } else {
             // Spec import logic (.spec.ts, .spec.js, .ts, .js)
@@ -1124,6 +1225,144 @@
 
       // Reset input value to allow importing the same file again
       event.target.value = '';
+    }
+
+    // Apply a parsed Katalon .groovy script to the Scenario Builder + editor.
+    // Shared by the single-file .groovy path and the .zip project path; the
+    // optional rsResolver lets the zip path substitute real Object Repository
+    // selectors. displayName is what the notifications show.
+    function applyKatalonImport(content, displayName, rsResolver) {
+      const fwSelect = document.getElementById('framework');
+      if (fwSelect) {
+        fwSelect.value = 'katalon';
+        onFrameworkChange();
+      }
+      setTimeout(() => {
+        const langSelect = document.getElementById('language');
+        if (langSelect) langSelect.value = 'groovy';
+      }, 10);
+
+      const katalonSuiteMatch = content.match(/Katalon Studio Test Case:\s*(.+)/);
+      const suiteInput = document.getElementById('testSuite');
+      if (suiteInput) {
+        if (katalonSuiteMatch) {
+          suiteInput.value = katalonSuiteMatch[1].trim();
+        } else if (displayName) {
+          suiteInput.value = displayName.replace(/\.groovy$/i, '');
+        }
+      }
+
+      const katalonUrlMatch = content.match(/WebUI\.navigateToUrl\(['"](.+?)['"]\)/) ||
+                              content.match(/WebUI\.openBrowser\(['"](https?:\/\/.+?)['"]\)/);
+      if (katalonUrlMatch) {
+        const urlInput = document.getElementById('targetUrl');
+        if (urlInput) urlInput.value = katalonUrlMatch[1];
+      }
+
+      const parsedSteps = parseGroovyToSteps(content, rsResolver);
+      if (parsedSteps.length > 0) {
+        steps = parsedSteps;
+        renderSteps(true);
+      }
+      const importWarning = summarizeImportWarnings(parsedSteps);
+
+      resetTerminalOutput();
+      latestGeneratedCode = content;
+      const generatedCodeCard = document.getElementById('generatedCodeCard');
+      if (generatedCodeCard) generatedCodeCard.style.display = 'flex';
+      const codeOutput = document.getElementById('codeOutput');
+      if (codeOutput) codeOutput.textContent = content;
+      setCodeEditable(true);
+
+      const okMsg = `Successfully imported "${displayName}".`;
+      const warnMsg = `Imported "${displayName}". ${importWarning}`;
+      showSnackbar({
+        type: importWarning ? 'warning' : 'success',
+        title: 'Katalon File Loaded',
+        message: importWarning ? warnMsg : okMsg
+      });
+
+      const statusBadgeContainer = document.getElementById('statusBadgeContainer');
+      if (statusBadgeContainer) {
+        statusBadgeContainer.innerHTML = '<span class="status-chip chip-pass">Katalon File Loaded</span>';
+      }
+
+      Swal.fire({
+        icon: importWarning ? 'warning' : 'success',
+        title: 'Katalon File Loaded',
+        text: importWarning ? warnMsg : okMsg,
+        timer: importWarning ? 4500 : 2500,
+        showConfirmButton: false,
+        toast: true,
+        position: 'top-end'
+      });
+
+      const btnCopyCode = document.getElementById('btnCopyCode');
+      const btnDownloadCode = document.getElementById('btnDownloadCode');
+      const btnRunTest = document.getElementById('btnRunTest');
+      if (btnCopyCode) btnCopyCode.disabled = false;
+      if (btnDownloadCode) btnDownloadCode.disabled = false;
+      if (btnRunTest) btnRunTest.disabled = false;
+    }
+
+    // Import a zipped Katalon project: unzip, index Object Repository .rs files,
+    // let the user pick one test case, then apply it with a .rs-backed resolver.
+    async function handleKatalonZipImport(file) {
+      if (typeof JSZip === 'undefined') {
+        showSnackbar({ type: 'error', title: 'Import Failed', message: 'Zip support failed to load. Check your connection and retry.' });
+        return;
+      }
+
+      const zip = await JSZip.loadAsync(file);
+
+      // Collect test cases (.groovy under Test Cases/) and .rs entries.
+      const testCasePaths = [];
+      const rsEntries = [];
+      zip.forEach((relativePath, entry) => {
+        if (entry.dir) return;
+        const p = relativePath.replace(/\\/g, '/');
+        if (/(^|\/)Test Cases\/.+\.groovy$/i.test(p)) testCasePaths.push(relativePath);
+        else if (/\.rs$/i.test(p)) rsEntries.push(relativePath);
+      });
+
+      if (testCasePaths.length === 0) {
+        showSnackbar({ type: 'error', title: 'Not a Katalon Project', message: 'No test cases found under a "Test Cases" folder in the zip.' });
+        return;
+      }
+
+      // Build the .rs index from the zip contents.
+      const rsPairs = [];
+      for (const rsPath of rsEntries) {
+        const xml = await zip.file(rsPath).async('string');
+        rsPairs.push({ path: rsPath, content: xml });
+      }
+      const rsResolver = makeRsResolver(buildRsIndex(rsPairs));
+
+      // Let the user pick one test case when there is more than one.
+      let chosen = testCasePaths[0];
+      if (testCasePaths.length > 1) {
+        const options = {};
+        testCasePaths.forEach((p) => { options[p] = p.replace(/^.*Test Cases\//i, '').replace(/\.groovy$/i, ''); });
+        const res = await Swal.fire({
+          title: 'Pilih Test Case',
+          input: 'select',
+          inputOptions: options,
+          inputPlaceholder: 'Pilih satu test case',
+          showCancelButton: true,
+          confirmButtonText: 'Import',
+          confirmButtonColor: '#005bbf'
+        });
+        if (!res.isConfirmed || !res.value) return;
+        chosen = res.value;
+      }
+
+      const groovy = await zip.file(chosen).async('string');
+      if (!groovy || !groovy.trim()) {
+        showSnackbar({ type: 'warning', title: 'Empty Test Case', message: 'The selected test case is empty.' });
+        return;
+      }
+      const displayName = chosen.replace(/^.*\//, '');
+      applyKatalonImport(groovy, displayName, rsResolver);
     }
 
     function resetGeneratedState() {
