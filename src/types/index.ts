@@ -23,6 +23,8 @@ export interface StepOptions {
   force?: boolean;
   iframeSelector?: string;
   exact?: boolean;
+  /** US-36: scope the target to the row/card containing this marker text. */
+  within?: string;
 }
 
 export interface DSLStep {

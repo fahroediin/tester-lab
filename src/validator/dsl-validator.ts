@@ -26,7 +26,9 @@ export const StepOptionsSchema = z.object({
   timeout: z.number().positive().optional(),
   force: z.boolean().optional(),
   iframeSelector: z.string().optional(),
-  exact: z.boolean().optional()
+  exact: z.boolean().optional(),
+  // US-36: scope the target to the row/card containing this marker text.
+  within: z.string().optional()
 }).optional();
 
 export const DSLStepSchema = z.object({

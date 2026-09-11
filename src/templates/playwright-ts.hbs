@@ -47,6 +47,25 @@ test('{{jsLit testSuite}}', async ({ page }) => {
         }
       }
       throw new Error(`Maestro Auto-Scroll Timeout: Element not found or interactable. Last error: ${lastError?.message}`);
+    },
+    // US-36: resolve the single row/card that contains a unique marker text.
+    // Throws the not-found (AC-36.04) or not-unique (AC-36.05) message.
+    scopedRow(marker: string): Locator {
+      const byRole = page.getByRole('row', { name: new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') });
+      const byFilter = page.locator('tr, li, [role="row"]').filter({ hasText: marker });
+      return {
+        locator: (sel: string) => byRole.or(byFilter).first().locator(sel),
+        getByRole: (role: string, opts?: { name?: RegExp | string }) => byRole.or(byFilter).first().getByRole(role as Parameters<Locator['getByRole']>[0], opts as Parameters<Locator['getByRole']>[1]),
+        getByText: (text: RegExp | string) => byRole.or(byFilter).first().getByText(text),
+        getByTestId: (id: string) => byRole.or(byFilter).first().getByTestId(id),
+        getByPlaceholder: (text: RegExp | string) => byRole.or(byFilter).first().getByPlaceholder(text),
+        getByLabel: (text: RegExp | string) => byRole.or(byFilter).first().getByLabel(text),
+        async assertResolvable() {
+          const count = await byRole.or(byFilter).count();
+          if (count === 0) throw new Error(`No row containing "${marker}" was found on the page.`);
+          if (count > 1) throw new Error(`Scope marker "${marker}" matched more than one row. Use a unique value such as an ID so the step targets exactly one row.`);
+        }
+      } as unknown as Locator;
     }
   };
 
@@ -93,18 +112,21 @@ test('{{jsLit testSuite}}', async ({ page }) => {
   {{/if}}
 
   {{#if (eq action "click")}}
+    {{#if options.within}}
+  await maestro.scopedRow('{{jsLit options.within}}').assertResolvable();
+    {{/if}}
     {{#if (eq selectorType "getByTestId")}}
-  await maestro.interact(page.getByTestId('{{jsLit selectorValue}}'), 'click');
+  await maestro.interact({{{scopedLoc (concat "page.getByTestId('" (jsLit selectorValue) "')") options.within}}}, 'click');
     {{else if (eq selectorType "getByLabel")}}
-  await maestro.interact(page.getByLabel(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'click');
+  await maestro.interact({{{scopedLoc (concat "page.getByLabel(new RegExp('" (escapeRegex selectorValue) "', 'i'))") options.within}}}, 'click');
     {{else if (eq selectorType "getByRole")}}
-  await maestro.interact(page.getByRole('{{jsLit selectorValue}}', { name: new RegExp('{{{escapeRegex roleName}}}', 'i') }), 'click');
+  await maestro.interact({{{scopedLoc (concat "page.getByRole('" (jsLit selectorValue) "', { name: new RegExp('" (escapeRegex roleName) "', 'i') })") options.within}}}, 'click');
     {{else if (eq selectorType "getByPlaceholder")}}
-  await maestro.interact(page.getByPlaceholder(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'click');
+  await maestro.interact({{{scopedLoc (concat "page.getByPlaceholder(new RegExp('" (escapeRegex selectorValue) "', 'i'))") options.within}}}, 'click');
     {{else if (eq selectorType "getByText")}}
-  await maestro.interact(page.getByText(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'click');
+  await maestro.interact({{{scopedLoc (concat "page.getByText(new RegExp('" (escapeRegex selectorValue) "', 'i'))") options.within}}}, 'click');
     {{else}}
-  await maestro.interact(page.locator('{{jsLit selectorValue}}'), 'click');
+  await maestro.interact({{{scopedLoc (concat "page.locator('" (jsLit selectorValue) "')") options.within}}}, 'click');
     {{/if}}
   {{/if}}
 

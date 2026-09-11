@@ -17,6 +17,28 @@ Handlebars.registerHelper('eq', function (a: unknown, b: unknown) {
   return a === b;
 });
 
+// Concatenate arguments into one string (coercing Handlebars SafeStrings).
+Handlebars.registerHelper('concat', function (...args: unknown[]) {
+  // Last arg is the Handlebars options object; drop it.
+  const parts = args.slice(0, -1).map((a) => (a == null ? '' : String(a)));
+  return new Handlebars.SafeString(parts.join(''));
+});
+
+// US-36: wrap a page-rooted locator expression so it resolves inside the row
+// that contains options.within. Emits a SafeString (raw code, not escaped).
+// `base` is the runtime accessor the rebased expression hangs off ('maestro.scopedRow'
+// for the TS template's maestro object, or 'scopedRow' for the JS template's helper fn).
+Handlebars.registerHelper('scopedLoc', function (expr: unknown, within: unknown) {
+  const inner = typeof expr === 'string' ? expr : String(expr ?? '');
+  const marker = typeof within === 'string' ? within : (within == null ? '' : String(within));
+  return new Handlebars.SafeString(buildScopedLocatorExpr(inner, marker));
+});
+Handlebars.registerHelper('scopedLocJs', function (expr: unknown, within: unknown) {
+  const inner = typeof expr === 'string' ? expr : String(expr ?? '');
+  const marker = typeof within === 'string' ? within : (within == null ? '' : String(within));
+  return new Handlebars.SafeString(buildScopedLocatorExpr(inner, marker, 'scopedRow'));
+});
+
 // Register Handlebars helper for escaping regex special characters inside string literals
 Handlebars.registerHelper('escapeRegex', function (str: unknown) {
   if (typeof str !== 'string') return '';
@@ -44,7 +66,7 @@ function toStr(v: unknown): string {
  * scope is applied. To keep one call site, this function accepts a page-rooted
  * inner ("page.getByRole(...)") and rebases it onto the scoped row when needed.
  */
-export function buildScopedLocatorExpr(innerExpr: string, within: string | null | undefined): string {
+export function buildScopedLocatorExpr(innerExpr: string, within: string | null | undefined, base = 'maestro.scopedRow'): string {
   const marker = (within == null ? '' : String(within)).trim();
   if (!marker) return innerExpr;
 
@@ -55,11 +77,12 @@ export function buildScopedLocatorExpr(innerExpr: string, within: string | null 
     .replace(/\r/g, '\\r')
     .replace(/\n/g, '\\n');
 
+  const scopeAccessor = base + "('" + jsEscaped + "').";
   // Rebase a page-rooted inner ("page.getByRole(...)") onto the scoped row.
-  const rebased = innerExpr.replace(/^\s*page\./, 'maestro.scopedRow(\'' + jsEscaped + "').");
+  const rebased = innerExpr.replace(/^\s*page\./, scopeAccessor);
   // If the inner was not page-rooted, wrap defensively.
   if (rebased === innerExpr) {
-    return "maestro.scopedRow('" + jsEscaped + "').locator(" + JSON.stringify(innerExpr) + ')';
+    return base + "('" + jsEscaped + "').locator(" + JSON.stringify(innerExpr) + ')';
   }
   return rebased;
 }

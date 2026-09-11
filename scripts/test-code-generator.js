@@ -547,6 +547,40 @@ const gen = new CodeGenerator();
     ok('logs contain matchScore', result.logs[0].includes('score'));
   }
 
+  // ── Scoped within end-to-end (US-36 / AC-36.01, 36.06) ────
+  console.log('\n[within-e2e] generateScript with options.within');
+  {
+    const cfg = { ...baseConfig, framework: 'playwright', language: 'typescript' };
+    const withinSteps = [
+      {
+        step: 1, action: 'click', targetLabel: 'Action menu',
+        selectorType: 'getByRole', selectorValue: 'button', roleName: 'Action menu',
+        matchScore: 80, options: { within: '260911-0003' }
+      },
+      {
+        step: 2, action: 'click', targetLabel: 'Selesai',
+        selectorType: 'getByText', selectorValue: 'Selesai',
+        matchScore: 80
+      }
+    ];
+    const res = await gen.generateScript(cfg, withinSteps);
+    ok('within: generation succeeds', res.success === true && typeof res.code === 'string');
+    ok('within step 1 is row-scoped', /scopedRow\(\s*'260911-0003'\s*\)/.test(res.code));
+    ok('within step 1 keeps the inner target (getByRole)', res.code.includes('getByRole'));
+    ok('within step 1 asserts the row is resolvable', res.code.includes('assertResolvable'));
+    // Step 2 has no within: its getByText('Selesai') click must be page-rooted, not scoped.
+    ok('within step 2 (no within) uses a page-rooted locator', /maestro\.interact\(page\.getByText\(new RegExp\('Selesai'/.test(res.code));
+    ok('scopedRow definition + one scoped step = marker appears for step 1 only', (res.code.match(/scopedRow\('260911-0003'\)/g) || []).length >= 1);
+    ok('scopedRow helper is defined in output', res.code.includes('scopedRow(marker'));
+
+    // Same must hold for Playwright JavaScript output (also executed on the server).
+    const resJs = await gen.generateScript({ ...cfg, language: 'javascript' }, withinSteps);
+    ok('within (JS): generation succeeds', resJs.success === true);
+    ok('within (JS) step 1 is row-scoped', /scopedRow\(\s*'260911-0003'\s*\)/.test(resJs.code));
+    ok('within (JS) step 2 (no within) is page-rooted', /await page\.getByText\('Selesai'\)/.test(resJs.code));
+    ok('within (JS) scopedRow helper defined', resJs.code.includes('scopedRow(marker'));
+  }
+
   // ── Scoped within-locator (US-36 / AC-36) ────
   console.log('\n[within] buildScopedLocatorExpr');
   const { buildScopedLocatorExpr } = require('../dist/generator/code-generator.js');

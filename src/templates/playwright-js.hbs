@@ -8,6 +8,20 @@ test('{{jsLit testSuite}}', async ({ page }) => {
   await page.goto('{{jsLit targetUrl}}');
   await page.waitForLoadState('networkidle');
 
+  // US-36: resolve the single row/card that contains a unique marker text.
+  // Throws the not-found (AC-36.04) or not-unique (AC-36.05) message.
+  function scopedRow(marker) {
+    const byRole = page.getByRole('row', { name: new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') });
+    const byFilter = page.locator('tr, li, [role="row"]').filter({ hasText: marker });
+    const base = byRole.or(byFilter).first();
+    base.assertResolvable = async () => {
+      const count = await byRole.or(byFilter).count();
+      if (count === 0) throw new Error(`No row containing "${marker}" was found on the page.`);
+      if (count > 1) throw new Error(`Scope marker "${marker}" matched more than one row. Use a unique value such as an ID so the step targets exactly one row.`);
+    };
+    return base;
+  }
+
   {{#if needsRobustHelper}}
   async function action(type, label, value) {
     const tag = type === 'select' ? 'select' : 'input';
@@ -57,18 +71,21 @@ test('{{jsLit testSuite}}', async ({ page }) => {
     {{/if}}
   {{/if}}
   {{#if (eq action "click")}}
+    {{#if options.within}}
+  await scopedRow('{{jsLit options.within}}').assertResolvable();
+    {{/if}}
     {{#if (eq selectorType "getByTestId")}}
-  await page.getByTestId('{{jsLit selectorValue}}').click({ force: true });
+  await {{{scopedLocJs (concat "page.getByTestId('" (jsLit selectorValue) "')") options.within}}}.click({ force: true });
     {{else if (eq selectorType "getByLabel")}}
-  await page.getByLabel('{{jsLit selectorValue}}', { exact: true }).click({ force: true });
+  await {{{scopedLocJs (concat "page.getByLabel('" (jsLit selectorValue) "', { exact: true })") options.within}}}.click({ force: true });
     {{else if (eq selectorType "getByRole")}}
-  await page.getByRole('{{jsLit selectorValue}}', { name: '{{jsLit roleName}}' }).first().click({ force: true });
+  await {{{scopedLocJs (concat "page.getByRole('" (jsLit selectorValue) "', { name: '" (jsLit roleName) "' })") options.within}}}.first().click({ force: true });
     {{else if (eq selectorType "getByPlaceholder")}}
-  await page.getByPlaceholder('{{jsLit selectorValue}}').first().click({ force: true });
+  await {{{scopedLocJs (concat "page.getByPlaceholder('" (jsLit selectorValue) "')") options.within}}}.first().click({ force: true });
     {{else if (eq selectorType "getByText")}}
-  await page.getByText('{{jsLit selectorValue}}').first().click({ force: true });
+  await {{{scopedLocJs (concat "page.getByText('" (jsLit selectorValue) "')") options.within}}}.first().click({ force: true });
     {{else}}
-  await page.locator('{{jsLit selectorValue}}').click({ force: true });
+  await {{{scopedLocJs (concat "page.locator('" (jsLit selectorValue) "')") options.within}}}.click({ force: true });
     {{/if}}
   {{/if}}
   {{#if (eq action "select")}}
