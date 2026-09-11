@@ -306,6 +306,48 @@ WebUI.closeBrowser()
        noResolver.find(s => s.action === 'fill').targetLabel === 'username');
   }
 
+  console.log('\n[11] findKatalonTestCases — detect .groovy in Scripts/ AND Test Cases/');
+  const findKatalonTestCases = loadFn('findKatalonTestCases');
+  if (findKatalonTestCases) {
+    // Real Katalon Studio layout: Groovy lives under Scripts/<name>/Script*.groovy,
+    // Test Cases/ holds only .tc metadata.
+    const realProject = [
+      'Test Generate Code Tester-Lab/Test Cases/Buat SPK DEV TERRAL.tc',
+      'Test Generate Code Tester-Lab/Scripts/Buat SPK DEV TERRAL/Script1789118376776.groovy',
+      'Test Generate Code Tester-Lab/Object Repository/Page_Login - BDS/input_Username.rs',
+      'Test Generate Code Tester-Lab/.classpath',
+      'Test Generate Code Tester-Lab/build.gradle'
+    ];
+    const foundReal = findKatalonTestCases(realProject);
+    ok('finds the Scripts/ groovy as a test case',
+       Array.isArray(foundReal) && foundReal.some(tc => tc.path.endsWith('Script1789118376776.groovy')));
+    ok('test case name derived from Scripts/ folder',
+       foundReal.some(tc => tc.name === 'Buat SPK DEV TERRAL'));
+    ok('does not list .tc or .classpath as a test case',
+       foundReal.every(tc => tc.path.endsWith('.groovy')));
+
+    // Legacy/sample layout: .groovy directly under Test Cases/
+    const legacy = [
+      'Proj/Test Cases/Login Flow.groovy',
+      'Proj/Object Repository/x.rs'
+    ];
+    const foundLegacy = findKatalonTestCases(legacy);
+    ok('finds .groovy under Test Cases/ (legacy layout)',
+       foundLegacy.some(tc => tc.path.endsWith('Login Flow.groovy') && tc.name === 'Login Flow'));
+
+    // Both layouts present: dedup, both found
+    const both = [
+      'P/Scripts/A/Script1.groovy',
+      'P/Test Cases/B.groovy'
+    ];
+    const foundBoth = findKatalonTestCases(both);
+    ok('supports both layouts at once', foundBoth.length === 2);
+
+    // No groovy anywhere -> empty
+    ok('no groovy -> empty list', findKatalonTestCases(['P/build.gradle', 'P/x.rs']).length === 0);
+    ok('null input -> empty list (no throw)', findKatalonTestCases(null).length === 0);
+  }
+
   // Test empty/invalid
   ok('empty returns empty array', parseGroovyToSteps('').length === 0);
   ok('null returns empty array', parseGroovyToSteps(null).length === 0);

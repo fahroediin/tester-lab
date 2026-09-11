@@ -1059,6 +1059,37 @@
       };
     }
 
+    // Find Katalon test cases among a list of zip entry paths. Katalon Studio
+    // stores the real Groovy under Scripts/<test case name>/Script*.groovy;
+    // older/sample projects put .groovy directly under Test Cases/. Support
+    // both, dedup by path. Each result: { path, name }.
+    function findKatalonTestCases(paths) {
+      if (!Array.isArray(paths)) return [];
+      const found = [];
+      const seen = new Set();
+      for (const raw of paths) {
+        if (typeof raw !== 'string') continue;
+        const p = raw.replace(/\\/g, '/');
+        if (!/\.groovy$/i.test(p)) continue;
+
+        let name = null;
+        // Scripts/<name>/Script*.groovy -> name is the parent folder.
+        const scriptsM = p.match(/(?:^|\/)Scripts\/([^/]+)\/[^/]+\.groovy$/i);
+        if (scriptsM) {
+          name = scriptsM[1];
+        } else {
+          // Test Cases/.../<file>.groovy -> name is the file (legacy layout).
+          const tcM = p.match(/(?:^|\/)Test Cases\/(?:.*\/)?([^/]+)\.groovy$/i);
+          if (tcM) name = tcM[1];
+        }
+        if (!name) continue;
+        if (seen.has(p)) continue;
+        seen.add(p);
+        found.push({ path: raw, name: name });
+      }
+      return found;
+    }
+
     function loadSampleScenario() {
       if (appConfig && appConfig.sampleSteps && appConfig.sampleSteps.length > 0) {
         document.getElementById('testSuite').value = appConfig.sampleTestSuite || '';
@@ -1315,18 +1346,23 @@
 
       const zip = await JSZip.loadAsync(file);
 
-      // Collect test cases (.groovy under Test Cases/) and .rs entries.
-      const testCasePaths = [];
+      // Collect every entry path, then detect test cases (Scripts/ and Test
+      // Cases/ layouts) and .rs entries from that list.
+      const allPaths = [];
       const rsEntries = [];
       zip.forEach((relativePath, entry) => {
         if (entry.dir) return;
-        const p = relativePath.replace(/\\/g, '/');
-        if (/(^|\/)Test Cases\/.+\.groovy$/i.test(p)) testCasePaths.push(relativePath);
-        else if (/\.rs$/i.test(p)) rsEntries.push(relativePath);
+        allPaths.push(relativePath);
+        if (/\.rs$/i.test(relativePath.replace(/\\/g, '/'))) rsEntries.push(relativePath);
       });
 
-      if (testCasePaths.length === 0) {
-        showSnackbar({ type: 'error', title: 'Not a Katalon Project', message: 'No test cases found under a "Test Cases" folder in the zip.' });
+      const testCases = findKatalonTestCases(allPaths);
+      if (testCases.length === 0) {
+        showSnackbar({
+          type: 'error',
+          title: 'Not a Katalon Project',
+          message: 'No test case (.groovy) found under a "Scripts" or "Test Cases" folder in the zip.'
+        });
         return;
       }
 
@@ -1339,10 +1375,10 @@
       const rsResolver = makeRsResolver(buildRsIndex(rsPairs));
 
       // Let the user pick one test case when there is more than one.
-      let chosen = testCasePaths[0];
-      if (testCasePaths.length > 1) {
+      let chosen = testCases[0];
+      if (testCases.length > 1) {
         const options = {};
-        testCasePaths.forEach((p) => { options[p] = p.replace(/^.*Test Cases\//i, '').replace(/\.groovy$/i, ''); });
+        testCases.forEach((tc) => { options[tc.path] = tc.name; });
         const res = await Swal.fire({
           title: 'Pilih Test Case',
           input: 'select',
@@ -1353,16 +1389,15 @@
           confirmButtonColor: '#005bbf'
         });
         if (!res.isConfirmed || !res.value) return;
-        chosen = res.value;
+        chosen = testCases.find((tc) => tc.path === res.value) || testCases[0];
       }
 
-      const groovy = await zip.file(chosen).async('string');
+      const groovy = await zip.file(chosen.path).async('string');
       if (!groovy || !groovy.trim()) {
         showSnackbar({ type: 'warning', title: 'Empty Test Case', message: 'The selected test case is empty.' });
         return;
       }
-      const displayName = chosen.replace(/^.*\//, '');
-      applyKatalonImport(groovy, displayName, rsResolver);
+      applyKatalonImport(groovy, chosen.name, rsResolver);
     }
 
     function resetGeneratedState() {
