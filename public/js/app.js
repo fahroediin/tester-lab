@@ -543,6 +543,284 @@
       return parsedSteps;
     }
 
+    function extractCallArgs(line, methodName) {
+      const idx = line.indexOf(methodName + '(');
+      if (idx === -1) return null;
+      let start = idx + methodName.length + 1;
+      let depth = 1;
+      let inSingleQuote = false;
+      let inDoubleQuote = false;
+      let escaped = false;
+      let args = [];
+      let currentArg = '';
+
+      for (let i = start; i < line.length; i++) {
+        const char = line[i];
+
+        if (escaped) {
+          currentArg += char;
+          escaped = false;
+          continue;
+        }
+
+        if (char === '\\') {
+          escaped = true;
+          currentArg += char;
+          continue;
+        }
+
+        if (char === "'" && !inDoubleQuote) {
+          inSingleQuote = !inSingleQuote;
+          currentArg += char;
+          continue;
+        }
+
+        if (char === '"' && !inSingleQuote) {
+          inDoubleQuote = !inDoubleQuote;
+          currentArg += char;
+          continue;
+        }
+
+        if (!inSingleQuote && !inDoubleQuote) {
+          if (char === '(') {
+            depth++;
+          } else if (char === ')') {
+            depth--;
+            if (depth === 0) {
+              args.push(currentArg.trim());
+              return args;
+            }
+          } else if (char === ',' && depth === 1) {
+            args.push(currentArg.trim());
+            currentArg = '';
+            continue;
+          }
+        }
+
+        currentArg += char;
+      }
+      if (currentArg.trim()) args.push(currentArg.trim());
+      return args;
+    }
+
+    function parseGroovyToSteps(code) {
+      if (!code || typeof code !== 'string') return [];
+      const parsedSteps = [];
+      const lines = code.split('\n');
+
+      let currentDescription = '';
+
+      function unquote(str) {
+        if (!str) return '';
+        const trimmed = str.trim();
+        if ((trimmed.startsWith("'") && trimmed.endsWith("'")) || (trimmed.startsWith('"') && trimmed.endsWith('"'))) {
+          return trimmed.slice(1, -1).replace(/\\'/g, "'").replace(/\\"/g, '"');
+        }
+        return trimmed;
+      }
+
+      function extractTarget(expr) {
+        if (!expr) return '';
+        let m = expr.match(/@data-testid=['"]([^'"]+)['"]/);
+        if (m) return m[1];
+
+        m = expr.match(/\/\/label\[contains\(\.,\s*['"]([^'"]+)['"]\)/);
+        if (m) return m[1];
+
+        m = expr.match(/@placeholder=['"]([^'"]+)['"]/);
+        if (m) return m[1];
+
+        m = expr.match(/\/\/(?:button|a)\[contains\(\.,\s*['"]([^'"]+)['"]\)/);
+        if (m) return m[1];
+
+        m = expr.match(/contains\(text\(\),\s*['"]([^'"]+)['"]\)/);
+        if (m) return m[1];
+
+        m = expr.match(/makeTestObject\s*\(\s*('(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*")/);
+        if (m) {
+          let sel = unquote(m[1]);
+          if (sel.startsWith('//') || sel.startsWith('/*')) {
+            const sub = extractTarget(sel);
+            if (sub && sub !== sel) return sub;
+          }
+          return sel;
+        }
+
+        m = expr.match(/findTestObject\s*\(\s*('(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*")/);
+        if (m) {
+          const objPath = unquote(m[1]);
+          const parts = objPath.split('/');
+          return parts[parts.length - 1];
+        }
+
+        m = expr.match(/('(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*")/);
+        if (m) {
+          return unquote(m[1]);
+        }
+
+        return expr.trim();
+      }
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        const stepCommentMatch = line.match(/\/\/\s*Step\s*\d+\s*:\s*(.*)/i);
+        if (stepCommentMatch) {
+          currentDescription = stepCommentMatch[1].trim();
+          continue;
+        }
+
+        if (line.startsWith('//') || line.startsWith('/*') || line.startsWith('*')) {
+          continue;
+        }
+
+        if (
+          line.includes('WebUI.openBrowser') ||
+          line.includes('WebUI.maximizeWindow') ||
+          line.includes('WebUI.waitForPageLoad') ||
+          line.includes('WebUI.closeBrowser') ||
+          line.includes('WebUI.navigateToUrl')
+        ) {
+          continue;
+        }
+
+        let stepObj = null;
+
+        if (line.includes('WebUI.setText') || line.includes('WebUI.sendKeys')) {
+          const args = extractCallArgs(line, line.includes('WebUI.setText') ? 'WebUI.setText' : 'WebUI.sendKeys');
+          if (args && args.length >= 2) {
+            const target = extractTarget(args[0]);
+            stepObj = {
+              action: 'fill',
+              targetLabel: target,
+              value: unquote(args[1]),
+              description: currentDescription || `Fill ${target}`
+            };
+          }
+        } else if (line.includes('WebUI.selectOption')) {
+          const method = line.includes('selectOptionByLabel') ? 'WebUI.selectOptionByLabel' :
+                         line.includes('selectOptionByValue') ? 'WebUI.selectOptionByValue' : 'WebUI.selectOptionByIndex';
+          const args = extractCallArgs(line, method);
+          if (args && args.length >= 2) {
+            const target = extractTarget(args[0]);
+            stepObj = {
+              action: 'select',
+              targetLabel: target,
+              value: unquote(args[1]),
+              description: currentDescription || `Select ${target}`
+            };
+          }
+        } else if (line.includes('WebUI.click')) {
+          const args = extractCallArgs(line, 'WebUI.click');
+          if (args && args.length >= 1) {
+            const target = extractTarget(args[0]);
+            stepObj = {
+              action: 'click',
+              targetLabel: target,
+              value: '',
+              description: currentDescription || `Click ${target}`
+            };
+          }
+        } else if (line.includes('WebUI.check')) {
+          const args = extractCallArgs(line, 'WebUI.check');
+          if (args && args.length >= 1) {
+            const target = extractTarget(args[0]);
+            stepObj = {
+              action: 'check',
+              targetLabel: target,
+              value: '',
+              description: currentDescription || `Check ${target}`
+            };
+          }
+        } else if (line.includes('WebUI.uncheck')) {
+          const args = extractCallArgs(line, 'WebUI.uncheck');
+          if (args && args.length >= 1) {
+            const target = extractTarget(args[0]);
+            stepObj = {
+              action: 'uncheck',
+              targetLabel: target,
+              value: '',
+              description: currentDescription || `Uncheck ${target}`
+            };
+          }
+        } else if (line.includes('WebUI.uploadFile')) {
+          const args = extractCallArgs(line, 'WebUI.uploadFile');
+          if (args && args.length >= 2) {
+            const target = extractTarget(args[0]);
+            stepObj = {
+              action: 'upload',
+              targetLabel: target,
+              value: unquote(args[1]),
+              description: currentDescription || `Upload file to ${target}`
+            };
+          }
+        } else if (line.includes('WebUI.verifyMatch') && line.includes('WebUI.getUrl()')) {
+          const args = extractCallArgs(line, 'WebUI.verifyMatch');
+          let urlVal = '';
+          if (args && args.length >= 2) {
+            const patternArg = args[1];
+            const concatMatch = patternArg.match(/'\.\*'\s*\+\s*('(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*")\s*\+\s*'\.\*'/);
+            if (concatMatch) {
+              urlVal = unquote(concatMatch[1]);
+            } else {
+              urlVal = unquote(patternArg).replace(/^\.\*|\.\*$/g, '');
+            }
+          }
+          stepObj = {
+            action: 'assert_url',
+            targetLabel: '',
+            value: urlVal,
+            description: currentDescription || `Verify URL contains ${urlVal}`
+          };
+        } else if (line.includes('WebUI.verifyTextPresent')) {
+          const args = extractCallArgs(line, 'WebUI.verifyTextPresent');
+          const txt = (args && args.length >= 1) ? unquote(args[0]) : '';
+          stepObj = {
+            action: 'assert_text',
+            targetLabel: '',
+            value: txt,
+            description: currentDescription || `Verify text "${txt}"`
+          };
+        } else if (line.includes('WebUI.verifyElementPresent') || line.includes('WebUI.verifyElementVisible')) {
+          const method = line.includes('WebUI.verifyElementPresent') ? 'WebUI.verifyElementPresent' : 'WebUI.verifyElementVisible';
+          const args = extractCallArgs(line, method);
+          const target = (args && args.length >= 1) ? extractTarget(args[0]) : '';
+          stepObj = {
+            action: 'assert_visible',
+            targetLabel: target,
+            value: '',
+            description: currentDescription || `Verify ${target} is visible`
+          };
+        } else if (line.includes('WebUI.delay')) {
+          const args = extractCallArgs(line, 'WebUI.delay');
+          let msVal = '1000';
+          if (args && args.length >= 1) {
+            const sec = parseFloat(args[0]);
+            msVal = sec < 100 ? String(Math.round(sec * 1000)) : String(Math.round(sec));
+          }
+          stepObj = {
+            action: 'wait',
+            targetLabel: '',
+            value: msVal,
+            description: currentDescription || `Wait ${msVal}ms`
+          };
+        }
+
+        if (stepObj) {
+          const descMatch = stepObj.description.match(/^([a-z_]+)\s*->\s*(.*)/i);
+          if (descMatch) {
+            stepObj.action = descMatch[1].toLowerCase();
+            if (!stepObj.targetLabel) stepObj.targetLabel = descMatch[2].trim();
+          }
+          parsedSteps.push(stepObj);
+          currentDescription = '';
+        }
+      }
+
+      return parsedSteps;
+    }
+
     function loadSampleScenario() {
       if (appConfig && appConfig.sampleSteps && appConfig.sampleSteps.length > 0) {
         document.getElementById('testSuite').value = appConfig.sampleTestSuite || '';
@@ -626,12 +904,6 @@
               if (langSelect) langSelect.value = 'groovy';
             }, 10);
 
-            resetTerminalOutput();
-            latestGeneratedCode = content;
-            const codeOutput = document.getElementById('codeOutput');
-            if (codeOutput) codeOutput.textContent = content;
-            setCodeEditable(true);
-
             // AC-11.14: Extract test suite name from Katalon template comment
             const katalonSuiteMatch = content.match(/Katalon Studio Test Case:\s*(.+)/);
             if (katalonSuiteMatch) {
@@ -645,6 +917,21 @@
               const urlInput = document.getElementById('targetUrl');
               if (urlInput) urlInput.value = katalonUrlMatch[1];
             }
+
+            // Attempt to parse back the UI steps into Scenario Builder
+            const parsedSteps = parseGroovyToSteps(content);
+            if (parsedSteps.length > 0) {
+              steps = parsedSteps;
+              renderSteps(true);
+            }
+
+            resetTerminalOutput();
+            latestGeneratedCode = content;
+            const generatedCodeCard = document.getElementById('generatedCodeCard');
+            if (generatedCodeCard) generatedCodeCard.style.display = 'flex';
+            const codeOutput = document.getElementById('codeOutput');
+            if (codeOutput) codeOutput.textContent = content;
+            setCodeEditable(true);
 
             // AC-11.15: Success notification
             showSnackbar({
@@ -683,18 +970,20 @@
               return;
             }
 
-            resetTerminalOutput();
-            latestGeneratedCode = content;
-            const codeOutput = document.getElementById('codeOutput');
-            if (codeOutput) codeOutput.textContent = content;
-            setCodeEditable(true);
-
             // Attempt to parse back the UI steps
             const parsedSteps = parseSpecToSteps(content);
             if (parsedSteps.length > 0) {
               steps = parsedSteps;
-              renderSteps();
+              renderSteps(true);
             }
+
+            resetTerminalOutput();
+            latestGeneratedCode = content;
+            const generatedCodeCard = document.getElementById('generatedCodeCard');
+            if (generatedCodeCard) generatedCodeCard.style.display = 'flex';
+            const codeOutput = document.getElementById('codeOutput');
+            if (codeOutput) codeOutput.textContent = content;
+            setCodeEditable(true);
 
             showSnackbar({
               type: 'success',
@@ -876,8 +1165,8 @@
       }
     }
 
-    function renderSteps() {
-      resetGeneratedState();
+    function renderSteps(skipReset = false) {
+      if (!skipReset) resetGeneratedState();
       const container = document.getElementById('stepList');
       const badge = document.getElementById('stepCountBadge');
       container.innerHTML = '';
@@ -2789,7 +3078,8 @@
         }
       } else {
         // Fallback for older history records without rawDsl
-        const parsed = parseSpecToSteps(h.generatedCode);
+        const isKatalon = h.framework === 'katalon' || (h.generatedCode && h.generatedCode.includes('WebUI.'));
+        const parsed = isKatalon ? parseGroovyToSteps(h.generatedCode) : parseSpecToSteps(h.generatedCode);
         if (parsed.length > 0) steps = parsed;
       }
       
