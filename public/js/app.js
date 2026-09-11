@@ -661,9 +661,24 @@
         return expr.trim();
       }
 
+      let helperBraceDepth = 0;
+
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
         if (!line) continue;
+
+        if (helperBraceDepth > 0) {
+          for (const char of line) {
+            if (char === '{') helperBraceDepth++;
+            else if (char === '}') helperBraceDepth--;
+          }
+          continue;
+        }
+
+        if (line.includes('TestObject makeTestObject') || line.includes('boolean waitForUrl')) {
+          helperBraceDepth = 1;
+          continue;
+        }
 
         const stepCommentMatch = line.match(/\/\/\s*Step\s*\d+\s*:\s*(.*)/i);
         if (stepCommentMatch) {
@@ -680,7 +695,8 @@
           line.includes('WebUI.maximizeWindow') ||
           line.includes('WebUI.waitForPageLoad') ||
           line.includes('WebUI.closeBrowser') ||
-          line.includes('WebUI.navigateToUrl')
+          line.includes('WebUI.navigateToUrl') ||
+          line.startsWith('waitForUrl(')
         ) {
           continue;
         }

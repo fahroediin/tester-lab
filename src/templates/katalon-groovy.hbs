@@ -15,6 +15,19 @@ TestObject makeTestObject(String selector, String type = 'xpath') {
     return to
 }
 
+// Helper to wait for URL to match pattern (handles SPA asynchronous redirects)
+boolean waitForUrl(String pattern, int timeoutSeconds = 10) {
+    long endTime = System.currentTimeMillis() + (timeoutSeconds * 1000)
+    while (System.currentTimeMillis() < endTime) {
+        String currentUrl = WebUI.getUrl()
+        if (currentUrl != null && currentUrl.matches(pattern)) {
+            return true
+        }
+        WebUI.delay(1)
+    }
+    return false
+}
+
 WebUI.openBrowser('')
 WebUI.maximizeWindow()
 WebUI.navigateToUrl('{{kLit targetUrl}}')
@@ -60,6 +73,7 @@ WebUI.uncheck(makeTestObject('{{kLit selectorValue}}', 'css'))
 WebUI.uploadFile(makeTestObject('{{kLit selectorValue}}', 'css'), '{{kLit value}}')
 {{/if}}
 {{#if (eq action "assert_url")}}
+waitForUrl('.*' + '{{kLit selectorValue}}' + '.*', 10)
 WebUI.verifyMatch(WebUI.getUrl(), '.*' + '{{kLit selectorValue}}' + '.*', true)
 {{/if}}
 {{#if (eq action "assert_text")}}
