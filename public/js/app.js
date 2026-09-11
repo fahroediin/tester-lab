@@ -1078,12 +1078,22 @@
       const file = event.target.files[0];
       if (!file) return;
 
+      // A .zip is a binary Katalon project — handle it before the text reader.
+      if (file.name.toLowerCase().endsWith('.zip')) {
+        handleKatalonZipImport(file).catch(function (err) {
+          console.error('Katalon zip import failed:', err);
+          showSnackbar({ type: 'error', title: 'Import Failed', message: 'Could not read the Katalon project zip.' });
+        });
+        event.target.value = '';
+        return;
+      }
+
       const reader = new FileReader();
       reader.onload = function(e) {
         try {
           const content = e.target.result;
           const fileName = file.name.toLowerCase();
-          
+
           if (fileName.endsWith('.json') || fileName.endsWith('.yaml') || fileName.endsWith('.yml')) {
             // Flow import logic
             let data;
@@ -1125,91 +1135,11 @@
 
           } else if (fileName.endsWith('.groovy')) {
             // AC-11.12 to AC-11.16: Katalon Groovy import logic
-            // AC-11.16: Handle empty .groovy file
             if (!content || !content.trim()) {
               showSnackbar({ type: 'warning', title: 'Empty File', message: 'The uploaded spec file is empty.' });
               return;
             }
-
-            // AC-11.12: Load content to editor and set framework/language
-            const fwSelect = document.getElementById('framework');
-            if (fwSelect) {
-              fwSelect.value = 'katalon';
-              onFrameworkChange();
-            }
-            setTimeout(() => {
-              const langSelect = document.getElementById('language');
-              if (langSelect) langSelect.value = 'groovy';
-            }, 10);
-
-            // AC-11.14: Extract test suite name from Katalon template comment or fallback to file name
-            const katalonSuiteMatch = content.match(/Katalon Studio Test Case:\s*(.+)/);
-            const suiteInput = document.getElementById('testSuite');
-            if (suiteInput) {
-              if (katalonSuiteMatch) {
-                suiteInput.value = katalonSuiteMatch[1].trim();
-              } else if (file.name) {
-                suiteInput.value = file.name.replace(/\.groovy$/i, '');
-              }
-            }
-
-            // AC-11.13: Extract target URL from WebUI.navigateToUrl('...') or WebUI.openBrowser('https://...')
-            const katalonUrlMatch = content.match(/WebUI\.navigateToUrl\(['"](.+?)['"]\)/) ||
-                                    content.match(/WebUI\.openBrowser\(['"](https?:\/\/.+?)['"]\)/);
-            if (katalonUrlMatch) {
-              const urlInput = document.getElementById('targetUrl');
-              if (urlInput) urlInput.value = katalonUrlMatch[1];
-            }
-
-            // Attempt to parse back the UI steps into Scenario Builder
-            const parsedSteps = parseGroovyToSteps(content);
-            if (parsedSteps.length > 0) {
-              steps = parsedSteps;
-              renderSteps(true);
-            }
-            const importWarning = summarizeImportWarnings(parsedSteps);
-
-            resetTerminalOutput();
-            latestGeneratedCode = content;
-            const generatedCodeCard = document.getElementById('generatedCodeCard');
-            if (generatedCodeCard) generatedCodeCard.style.display = 'flex';
-            const codeOutput = document.getElementById('codeOutput');
-            if (codeOutput) codeOutput.textContent = content;
-            setCodeEditable(true);
-
-            // AC-11.15: Success notification
-            showSnackbar({
-              type: importWarning ? 'warning' : 'success',
-              title: 'Katalon File Loaded',
-              message: importWarning
-                ? `Imported "${file.name}". ${importWarning}`
-                : `Successfully imported "${file.name}".`
-            });
-
-            const statusBadgeContainer = document.getElementById('statusBadgeContainer');
-            if (statusBadgeContainer) {
-              statusBadgeContainer.innerHTML = '<span class="status-chip chip-pass">Katalon File Loaded</span>';
-            }
-
-            Swal.fire({
-              icon: importWarning ? 'warning' : 'success',
-              title: 'Katalon File Loaded',
-              text: importWarning
-                ? `Imported "${file.name}". ${importWarning}`
-                : `Successfully imported "${file.name}".`,
-              timer: importWarning ? 4500 : 2500,
-              showConfirmButton: false,
-              toast: true,
-              position: 'top-end'
-            });
-
-            // Enable actions
-            const btnCopyCode = document.getElementById('btnCopyCode');
-            const btnDownloadCode = document.getElementById('btnDownloadCode');
-            const btnRunTest = document.getElementById('btnRunTest');
-            if (btnCopyCode) btnCopyCode.disabled = false;
-            if (btnDownloadCode) btnDownloadCode.disabled = false;
-            if (btnRunTest) btnRunTest.disabled = false;
+            applyKatalonImport(content, file.name);
 
           } else {
             // Spec import logic (.spec.ts, .spec.js, .ts, .js)
@@ -1295,6 +1225,144 @@
 
       // Reset input value to allow importing the same file again
       event.target.value = '';
+    }
+
+    // Apply a parsed Katalon .groovy script to the Scenario Builder + editor.
+    // Shared by the single-file .groovy path and the .zip project path; the
+    // optional rsResolver lets the zip path substitute real Object Repository
+    // selectors. displayName is what the notifications show.
+    function applyKatalonImport(content, displayName, rsResolver) {
+      const fwSelect = document.getElementById('framework');
+      if (fwSelect) {
+        fwSelect.value = 'katalon';
+        onFrameworkChange();
+      }
+      setTimeout(() => {
+        const langSelect = document.getElementById('language');
+        if (langSelect) langSelect.value = 'groovy';
+      }, 10);
+
+      const katalonSuiteMatch = content.match(/Katalon Studio Test Case:\s*(.+)/);
+      const suiteInput = document.getElementById('testSuite');
+      if (suiteInput) {
+        if (katalonSuiteMatch) {
+          suiteInput.value = katalonSuiteMatch[1].trim();
+        } else if (displayName) {
+          suiteInput.value = displayName.replace(/\.groovy$/i, '');
+        }
+      }
+
+      const katalonUrlMatch = content.match(/WebUI\.navigateToUrl\(['"](.+?)['"]\)/) ||
+                              content.match(/WebUI\.openBrowser\(['"](https?:\/\/.+?)['"]\)/);
+      if (katalonUrlMatch) {
+        const urlInput = document.getElementById('targetUrl');
+        if (urlInput) urlInput.value = katalonUrlMatch[1];
+      }
+
+      const parsedSteps = parseGroovyToSteps(content, rsResolver);
+      if (parsedSteps.length > 0) {
+        steps = parsedSteps;
+        renderSteps(true);
+      }
+      const importWarning = summarizeImportWarnings(parsedSteps);
+
+      resetTerminalOutput();
+      latestGeneratedCode = content;
+      const generatedCodeCard = document.getElementById('generatedCodeCard');
+      if (generatedCodeCard) generatedCodeCard.style.display = 'flex';
+      const codeOutput = document.getElementById('codeOutput');
+      if (codeOutput) codeOutput.textContent = content;
+      setCodeEditable(true);
+
+      const okMsg = `Successfully imported "${displayName}".`;
+      const warnMsg = `Imported "${displayName}". ${importWarning}`;
+      showSnackbar({
+        type: importWarning ? 'warning' : 'success',
+        title: 'Katalon File Loaded',
+        message: importWarning ? warnMsg : okMsg
+      });
+
+      const statusBadgeContainer = document.getElementById('statusBadgeContainer');
+      if (statusBadgeContainer) {
+        statusBadgeContainer.innerHTML = '<span class="status-chip chip-pass">Katalon File Loaded</span>';
+      }
+
+      Swal.fire({
+        icon: importWarning ? 'warning' : 'success',
+        title: 'Katalon File Loaded',
+        text: importWarning ? warnMsg : okMsg,
+        timer: importWarning ? 4500 : 2500,
+        showConfirmButton: false,
+        toast: true,
+        position: 'top-end'
+      });
+
+      const btnCopyCode = document.getElementById('btnCopyCode');
+      const btnDownloadCode = document.getElementById('btnDownloadCode');
+      const btnRunTest = document.getElementById('btnRunTest');
+      if (btnCopyCode) btnCopyCode.disabled = false;
+      if (btnDownloadCode) btnDownloadCode.disabled = false;
+      if (btnRunTest) btnRunTest.disabled = false;
+    }
+
+    // Import a zipped Katalon project: unzip, index Object Repository .rs files,
+    // let the user pick one test case, then apply it with a .rs-backed resolver.
+    async function handleKatalonZipImport(file) {
+      if (typeof JSZip === 'undefined') {
+        showSnackbar({ type: 'error', title: 'Import Failed', message: 'Zip support failed to load. Check your connection and retry.' });
+        return;
+      }
+
+      const zip = await JSZip.loadAsync(file);
+
+      // Collect test cases (.groovy under Test Cases/) and .rs entries.
+      const testCasePaths = [];
+      const rsEntries = [];
+      zip.forEach((relativePath, entry) => {
+        if (entry.dir) return;
+        const p = relativePath.replace(/\\/g, '/');
+        if (/(^|\/)Test Cases\/.+\.groovy$/i.test(p)) testCasePaths.push(relativePath);
+        else if (/\.rs$/i.test(p)) rsEntries.push(relativePath);
+      });
+
+      if (testCasePaths.length === 0) {
+        showSnackbar({ type: 'error', title: 'Not a Katalon Project', message: 'No test cases found under a "Test Cases" folder in the zip.' });
+        return;
+      }
+
+      // Build the .rs index from the zip contents.
+      const rsPairs = [];
+      for (const rsPath of rsEntries) {
+        const xml = await zip.file(rsPath).async('string');
+        rsPairs.push({ path: rsPath, content: xml });
+      }
+      const rsResolver = makeRsResolver(buildRsIndex(rsPairs));
+
+      // Let the user pick one test case when there is more than one.
+      let chosen = testCasePaths[0];
+      if (testCasePaths.length > 1) {
+        const options = {};
+        testCasePaths.forEach((p) => { options[p] = p.replace(/^.*Test Cases\//i, '').replace(/\.groovy$/i, ''); });
+        const res = await Swal.fire({
+          title: 'Pilih Test Case',
+          input: 'select',
+          inputOptions: options,
+          inputPlaceholder: 'Pilih satu test case',
+          showCancelButton: true,
+          confirmButtonText: 'Import',
+          confirmButtonColor: '#005bbf'
+        });
+        if (!res.isConfirmed || !res.value) return;
+        chosen = res.value;
+      }
+
+      const groovy = await zip.file(chosen).async('string');
+      if (!groovy || !groovy.trim()) {
+        showSnackbar({ type: 'warning', title: 'Empty Test Case', message: 'The selected test case is empty.' });
+        return;
+      }
+      const displayName = chosen.replace(/^.*\//, '');
+      applyKatalonImport(groovy, displayName, rsResolver);
     }
 
     function resetGeneratedState() {
