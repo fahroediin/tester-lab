@@ -3,7 +3,9 @@ import { authenticateJWT, requireApprovedUser } from '../auth-middleware.js';
 import type { AuthenticatedRequest } from '../auth-middleware.js';
 import { getSuitesByProjectId, getSuiteById, createSuite, updateSuite, deleteSuite } from '../suite-store.js';
 import { getProjectById } from '../folder-store.js';
-import { getScenarioCountsBySuite } from '../flow-history-store.js';
+import { getScenarioCountsBySuite, getRunnableScenariosBySuite } from '../flow-history-store.js';
+import { dedupeLatestByName } from '../services/run-suite-service.js';
+import { runSuiteForSuite } from '../services/run-suite-service.js';
 import { addLog } from '../activity-log-store.js';
 
 export const suiteRoutes = Router();
@@ -54,6 +56,51 @@ suiteRoutes.get('/', authenticateJWT, requireApprovedUser, async (req: Authentic
   } catch (err: unknown) {
     const error = err as Error;
     res.status(500).json({ success: false, error: error.message || 'Failed to fetch suites' });
+  }
+});
+
+/**
+ * POST /api/v1/suites/:suiteId/run
+ * Run Suite (POC): execute every scenario in the suite sequentially in one
+ * batch (Model B), and return the aggregate job status plus per-scenario
+ * results. AC-15.01/02/03/05/06/07/08/09/10/11/12-14.
+ *
+ * Empty suite (no runnable scenario) is rejected without starting a run
+ * (AC-15.08). Cancel and real-time status are out of POC scope.
+ */
+suiteRoutes.post('/:suiteId/run', authenticateJWT, requireApprovedUser, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const suiteId = typeof req.params.suiteId === 'string' ? req.params.suiteId.trim() : '';
+    if (!suiteId) {
+      res.status(400).json({ success: false, error: 'suiteId is required' });
+      return;
+    }
+
+    const suite = await getSuiteById(suiteId);
+    if (!suite) {
+      res.status(404).json({ success: false, error: 'Suite not found' });
+      return;
+    }
+    const project = await getProjectById(suite.projectId);
+    if (!project || (project.userId !== userId && req.user!.role !== 'admin')) {
+      res.status(403).json({ success: false, error: 'Unauthorized to run this suite' });
+      return;
+    }
+
+    // AC-15.08: a suite with no scenario is rejected; no job is created.
+    const scenarios = dedupeLatestByName(await getRunnableScenariosBySuite(userId, suiteId));
+    if (scenarios.length === 0) {
+      res.status(400).json({ success: false, error: 'Suite has no scenario to run.' });
+      return;
+    }
+
+    const result = await runSuiteForSuite(userId, suiteId);
+    await addLog({ userId, username: req.user!.username, action: 'run_suite', details: `suite=${suiteId} status=${result.jobStatus}` });
+    res.json({ success: true, ...result });
+  } catch (err: unknown) {
+    const error = err as Error;
+    res.status(500).json({ success: false, error: error.message || 'Failed to run suite' });
   }
 });
 

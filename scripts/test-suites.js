@@ -53,5 +53,55 @@ function ok(name, cond) {
   ok('historyRoutes router is exported', typeof historyRoutes === 'function');
   ok('testRoutes router is exported', typeof testRoutes === 'function');
 
+  console.log('\n[5] Run Suite — computeJobStatus (AC-15.03/07/11) Model B');
+  const runSuite = require('../dist/server/services/run-suite-service.js');
+  ok('computeJobStatus is exported', typeof runSuite.computeJobStatus === 'function');
+  const cjs = runSuite.computeJobStatus;
+  // AC-15.03: semua lolos -> PASSED
+  ok('all SUCCESS -> PASSED', cjs(['SUCCESS', 'SUCCESS', 'SUCCESS']) === 'PASSED');
+  // AC-15.07/11: sebagian gagal -> PARTIAL
+  ok('mixed SUCCESS+FAILED -> PARTIAL', cjs(['SUCCESS', 'FAILED', 'SUCCESS']) === 'PARTIAL');
+  // semua gagal -> FAILED
+  ok('all FAILED -> FAILED', cjs(['FAILED', 'FAILED']) === 'FAILED');
+  // AC-15.10/11: SKIPPED tidak menggugurkan; status dari yang dijalankan
+  ok('SKIPPED ignored, rest all pass -> PASSED', cjs(['SUCCESS', 'SKIPPED', 'SUCCESS']) === 'PASSED');
+  ok('SKIPPED ignored, rest mixed -> PARTIAL', cjs(['SUCCESS', 'SKIPPED', 'FAILED']) === 'PARTIAL');
+  ok('SKIPPED ignored, rest all fail -> FAILED', cjs(['FAILED', 'SKIPPED']) === 'FAILED');
+  // tidak ada yang benar-benar dijalankan (semua SKIPPED) -> SKIPPED
+  ok('all SKIPPED -> SKIPPED', cjs(['SKIPPED', 'SKIPPED']) === 'SKIPPED');
+  // suite kosong / input kosong -> SKIPPED (tidak ada yang dijalankan)
+  ok('empty results -> SKIPPED', cjs([]) === 'SKIPPED');
+  ok('single SUCCESS -> PASSED (AC-15.12-14)', cjs(['SUCCESS']) === 'PASSED');
+  ok('single FAILED -> FAILED (AC-15.12-14)', cjs(['FAILED']) === 'FAILED');
+
+  console.log('\n[6] Run Suite — dedupeLatestByName (record terbaru per nama scenario)');
+  const dedupe = runSuite.dedupeLatestByName;
+  ok('dedupeLatestByName is exported', typeof dedupe === 'function');
+  // Dua record nama sama -> ambil timestamp terbaru; nama beda -> keduanya.
+  const recs = [
+    { id: 'a1', testSuite: 'Login', timestamp: '2026-09-10T10:00:00Z', generatedCode: 'old' },
+    { id: 'a2', testSuite: 'Login', timestamp: '2026-09-12T10:00:00Z', generatedCode: 'new' },
+    { id: 'b1', testSuite: 'Checkout', timestamp: '2026-09-11T10:00:00Z', generatedCode: 'co' }
+  ];
+  const out = dedupe(recs);
+  ok('collapses duplicates to one per name', out.length === 2);
+  ok('keeps the latest record for a repeated name', out.find(r => r.testSuite === 'Login').id === 'a2');
+  ok('keeps the only record for a unique name', out.find(r => r.testSuite === 'Checkout').id === 'b1');
+  ok('empty input -> empty', dedupe([]).length === 0);
+  ok('null input -> empty (no throw)', dedupe(null).length === 0);
+  // Urutan hasil stabil menurut kemunculan pertama nama (untuk eksekusi berurutan yang dapat diprediksi).
+  ok('order follows first appearance of each name', dedupe(recs)[0].testSuite === 'Login');
+
+  console.log('\n[7] Run Suite — service & route wiring');
+  ok('runSuiteForSuite is exported', typeof runSuite.runSuiteForSuite === 'function');
+  const hist = require('../dist/server/flow-history-store.js');
+  ok('getRunnableScenariosBySuite is exported', typeof hist.getRunnableScenariosBySuite === 'function');
+  // Endpoint POST /:suiteId/run terdaftar di suiteRoutes.
+  const suiteRouter = require('../dist/server/routes/suite-routes.js').suiteRoutes;
+  const hasRunRoute = suiteRouter.stack.some(
+    (layer) => layer.route && layer.route.path === '/:suiteId/run' && layer.route.methods && layer.route.methods.post
+  );
+  ok('POST /:suiteId/run route is registered', hasRunRoute);
+
   console.log(`\nALL PROJECT & SUITE VERIFICATIONS PASSED (${passed} assertions)\n`);
 })();

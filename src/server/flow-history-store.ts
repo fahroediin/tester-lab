@@ -207,6 +207,40 @@ export async function getScenarioCountsBySuite(
   return { counts, uncategorized };
 }
 
+/**
+ * Fetch the scenario records of one suite that carry runnable code, newest
+ * first, for Run Suite (POC). Returns a lightweight shape; the caller collapses
+ * to one per scenario name via dedupeLatestByName. Scoped to the owning user.
+ */
+export async function getRunnableScenariosBySuite(
+  userId: string,
+  suiteId: string
+): Promise<Array<{ id: string; testSuite: string; timestamp: string; generatedCode: string; language?: string; framework?: string }>> {
+  const { data, error } = await supabase
+    .from('flow_history')
+    .select('id, test_suite, timestamp, generated_code, raw_dsl')
+    .eq('user_id', userId)
+    .eq('suite_id', suiteId)
+    .order('timestamp', { ascending: false });
+
+  if (error) {
+    console.error('Failed to fetch runnable scenarios by suite:', error);
+    return [];
+  }
+  return (data || []).map((r) => {
+    const row = r as { id: string; test_suite: string; timestamp: string; generated_code: string | null; raw_dsl: Record<string, unknown> | null };
+    const dsl = (row.raw_dsl || {}) as { language?: string; framework?: string };
+    return {
+      id: row.id,
+      testSuite: row.test_suite,
+      timestamp: row.timestamp,
+      generatedCode: row.generated_code || '',
+      language: dsl.language,
+      framework: dsl.framework
+    };
+  });
+}
+
 export async function getHistoryById(id: string): Promise<FlowHistory | undefined> {
   const { data, error } = await supabase
     .from('flow_history')
