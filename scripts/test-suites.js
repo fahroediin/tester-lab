@@ -153,6 +153,12 @@ function ok(name, cond) {
     (layer) => layer.route && layer.route.path === '/:suiteId/run' && layer.route.methods && layer.route.methods.post
   );
   ok('POST /:suiteId/run route is registered', hasRunRoute);
+  const hasOrderRoute = suiteRouter.stack.some(
+    (layer) => layer.route && layer.route.path === '/:suiteId/scenario-order' && layer.route.methods && layer.route.methods.put
+  );
+  ok('PUT /:suiteId/scenario-order route is registered', hasOrderRoute);
+  ok('setScenarioOrder is exported', typeof suiteStore.setScenarioOrder === 'function');
+  ok('getScenarioOrderMap is exported', typeof suiteStore.getScenarioOrderMap === 'function');
 
   console.log(`\nALL PROJECT & SUITE VERIFICATIONS PASSED (${passed} assertions)\n`);
 })();

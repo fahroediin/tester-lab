@@ -10,6 +10,7 @@
 
 import { randomUUID } from 'crypto';
 import { getRunnableScenariosBySuite } from '../flow-history-store.js';
+import { getScenarioOrderMap } from '../suite-store.js';
 import { executePlaywrightTest } from './test-runner-service.js';
 import { checkRunnerSupport } from '../../security/runner-guard.js';
 
@@ -173,7 +174,9 @@ export interface RunSuiteResult {
 export async function runSuiteForSuite(userId: string, suiteId: string): Promise<RunSuiteResult> {
   const runBatchId = randomUUID();
   const raw = await getRunnableScenariosBySuite(userId, suiteId);
-  const scenarios = dedupeLatestByName(raw);
+  // Honor the user-defined execution order (US-15); unordered scenarios trail.
+  const orderMap = await getScenarioOrderMap(suiteId);
+  const scenarios = orderScenariosByMap(dedupeLatestByName(raw), orderMap);
 
   const results: ScenarioResult[] = [];
   for (const s of scenarios) {

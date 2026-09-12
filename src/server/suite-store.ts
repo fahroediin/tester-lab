@@ -12,6 +12,8 @@ export interface Suite {
   name: string;
   description: string;
   createdAt: string;
+  /** US-15: ordered scenario names for Run Suite execution order. */
+  scenarioOrder: string[];
 }
 
 interface SuiteRow {
@@ -20,6 +22,7 @@ interface SuiteRow {
   name: string;
   description: string | null;
   created_at: string;
+  scenario_order: string[] | null;
 }
 
 function rowToSuite(row: SuiteRow): Suite {
@@ -28,8 +31,34 @@ function rowToSuite(row: SuiteRow): Suite {
     projectId: row.project_id,
     name: row.name,
     description: row.description || '',
-    createdAt: row.created_at
+    createdAt: row.created_at,
+    scenarioOrder: Array.isArray(row.scenario_order) ? row.scenario_order : []
   };
+}
+
+/**
+ * Save the ordered scenario names for a suite (US-15 re-order). Stored in the
+ * suites.scenario_order jsonb column. Returns true on success.
+ */
+export async function setScenarioOrder(suiteId: string, orderedNames: string[]): Promise<boolean> {
+  const names = Array.isArray(orderedNames) ? orderedNames.filter((n) => typeof n === 'string') : [];
+  const { error } = await supabase
+    .from('suites')
+    .update({ scenario_order: names })
+    .eq('id', suiteId);
+  if (error) {
+    console.error('Failed to save scenario order:', error);
+    return false;
+  }
+  return true;
+}
+
+/** Read the saved scenario order for a suite as a {name -> index} map. */
+export async function getScenarioOrderMap(suiteId: string): Promise<Record<string, number>> {
+  const suite = await getSuiteById(suiteId);
+  const map: Record<string, number> = {};
+  if (suite) suite.scenarioOrder.forEach((name, i) => { map[name] = i; });
+  return map;
 }
 
 export async function getSuitesByProjectId(projectId: string): Promise<Suite[]> {

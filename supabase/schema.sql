@@ -37,11 +37,16 @@ CREATE TABLE IF NOT EXISTS suites (
   name TEXT NOT NULL,
   description TEXT NOT NULL DEFAULT '',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- US-15: ordered scenario names for Run Suite execution order (per name).
+  scenario_order JSONB NOT NULL DEFAULT '[]'::jsonb,
   -- A project cannot have two suites with the same name
   CONSTRAINT uq_suites_project_name UNIQUE (project_id, name)
 );
 
 CREATE INDEX IF NOT EXISTS idx_suites_project_id ON suites (project_id);
+
+-- Idempotent migration for existing databases (adds scenario_order if missing).
+ALTER TABLE suites ADD COLUMN IF NOT EXISTS scenario_order JSONB NOT NULL DEFAULT '[]'::jsonb;
 
 -- 2. FLOW HISTORY TABLE (test scenarios)
 CREATE TABLE IF NOT EXISTS flow_history (
