@@ -105,6 +105,41 @@ export function extractErrorSnippet(logs: string | null | undefined): string {
   return snippet;
 }
 
+/**
+ * Order scenarios by a saved per-name order map (US-15 re-order). Scenarios
+ * whose name is in the map come first, sorted by the map value; scenarios not
+ * in the map keep their original relative order and go to the end (AC-15.22).
+ * Order-only: does not change scenario independence. Never throws.
+ */
+export function orderScenariosByMap<T extends { testSuite: string }>(
+  scenarios: T[],
+  orderMap: Record<string, number> | null | undefined
+): T[] {
+  if (!Array.isArray(scenarios)) return [];
+  const map = orderMap && typeof orderMap === 'object' ? orderMap : {};
+  const inMap: T[] = [];
+  const rest: T[] = [];
+  for (const s of scenarios) {
+    if (s && Object.prototype.hasOwnProperty.call(map, s.testSuite)) inMap.push(s);
+    else rest.push(s);
+  }
+  inMap.sort((a, b) => (map[a.testSuite] ?? 0) - (map[b.testSuite] ?? 0));
+  return inMap.concat(rest);
+}
+
+/**
+ * Move an item within an array from one index to another, returning a new
+ * array. Out-of-range indices are a no-op. Length is preserved. Pure.
+ */
+export function moveItem<T>(items: T[], fromIndex: number, toIndex: number): T[] {
+  if (!Array.isArray(items)) return [];
+  const out = items.slice();
+  if (fromIndex < 0 || fromIndex >= out.length || toIndex < 0 || toIndex >= out.length) return out;
+  const moved = out.splice(fromIndex, 1)[0] as T;
+  out.splice(toIndex, 0, moved);
+  return out;
+}
+
 /** One scenario's result within a suite run. */
 export interface ScenarioResult {
   id: string;

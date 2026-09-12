@@ -114,6 +114,35 @@ function ok(name, cond) {
   // Tanpa penanda error eksplisit, kembalikan ekor log (bukan kosong) supaya tetap informatif.
   ok('no explicit Error marker -> falls back to tail', snip('some plain output line\nanother line').length > 0);
 
+  console.log('\n[6c] Run Suite — orderScenariosByMap & moveItem (US-15 re-order)');
+  const orderBy = runSuite.orderScenariosByMap;
+  const moveItem = runSuite.moveItem;
+  ok('orderScenariosByMap is exported', typeof orderBy === 'function');
+  ok('moveItem is exported', typeof moveItem === 'function');
+  if (typeof orderBy === 'function') {
+    const scn = [
+      { testSuite: 'Buat SPK' }, { testSuite: 'Login' }, { testSuite: 'Cek Nilai' }
+    ];
+    // Peta urutan: Login=0, Buat SPK=1, Cek Nilai=2 -> hasil terurut sesuai peta.
+    const map = { 'Login': 0, 'Buat SPK': 1, 'Cek Nilai': 2 };
+    const ordered = orderBy(scn, map);
+    ok('orders scenarios by the map', ordered.map(s => s.testSuite).join(',') === 'Login,Buat SPK,Cek Nilai');
+    // Nama tak ada di peta -> ke akhir, stable.
+    const scn2 = [ { testSuite: 'Baru' }, { testSuite: 'Login' }, { testSuite: 'Cek Nilai' } ];
+    const map2 = { 'Login': 0, 'Cek Nilai': 1 };
+    const ordered2 = orderBy(scn2, map2);
+    ok('unmapped scenario goes to the end (AC-15.22)', ordered2.map(s => s.testSuite).join(',') === 'Login,Cek Nilai,Baru');
+    // Peta kosong -> urutan asal.
+    ok('empty map keeps original order', orderBy(scn, {}).map(s => s.testSuite).join(',') === 'Buat SPK,Login,Cek Nilai');
+    ok('null scenarios -> empty (no throw)', Array.isArray(orderBy(null, map)) && orderBy(null, map).length === 0);
+  }
+  if (typeof moveItem === 'function') {
+    ok('moveItem moves up', moveItem(['a', 'b', 'c'], 2, 0).join(',') === 'c,a,b');
+    ok('moveItem moves down', moveItem(['a', 'b', 'c'], 0, 2).join(',') === 'b,c,a');
+    ok('moveItem out-of-range is a no-op', moveItem(['a', 'b'], 5, 0).join(',') === 'a,b');
+    ok('moveItem preserves length', moveItem(['a', 'b', 'c'], 1, 2).length === 3);
+  }
+
   console.log('\n[7] Run Suite — service & route wiring');
   ok('runSuiteForSuite is exported', typeof runSuite.runSuiteForSuite === 'function');
   const hist = require('../dist/server/flow-history-store.js');
