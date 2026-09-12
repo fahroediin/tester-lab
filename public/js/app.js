@@ -2026,12 +2026,17 @@
 
         data.resolvedSteps.forEach((s) => {
           const tr = document.createElement('tr');
+          // pageText (page-wide text search) does not score an element; show N/A.
+          const isScored = s.selectorType !== 'pageText';
           const isPassScore = s.matchScore >= 80;
+          const scoreCell = isScored
+            ? `<span style="font-weight: 600; color: ${isPassScore ? 'var(--deep-green)' : 'var(--coral)'};">${s.matchScore}</span>`
+            : `<span style="font-weight: 600; color: var(--slate);">N/A</span>`;
           tr.innerHTML = `
             <td><span style="font-family: var(--font-mono); font-weight: 500;">Step ${s.step}</span></td>
             <td><span style="font-family: var(--font-mono); color: var(--action-blue);">${s.action}</span></td>
             <td><span style="font-family: var(--font-mono);">${s.selectorType}('${s.selectorValue}')</span></td>
-            <td><span style="font-weight: 600; color: ${isPassScore ? 'var(--deep-green)' : 'var(--coral)'};">${s.matchScore}</span></td>
+            <td>${scoreCell}</td>
           `;
           summaryTableBody.appendChild(tr);
         });
@@ -3557,12 +3562,17 @@
         if (h.resolvedSteps && h.resolvedSteps.length > 0) {
           h.resolvedSteps.forEach(s => {
             const tr = document.createElement('tr');
+            // pageText (page-wide text search) does not score an element; show N/A.
+            const isScored = s.selectorType !== 'pageText';
             const isPassScore = s.matchScore >= 80;
+            const scoreCell = isScored
+              ? `<span style="font-weight: 600; color: ${isPassScore ? 'var(--deep-green)' : 'var(--coral)'};">${s.matchScore}</span>`
+              : `<span style="font-weight: 600; color: var(--slate);">N/A</span>`;
             tr.innerHTML = `
               <td><span style="font-family: var(--font-mono); font-weight: 500;">Step ${s.step}</span></td>
               <td><span style="font-family: var(--font-mono); color: var(--action-blue);">${s.action}</span></td>
               <td><span style="font-family: var(--font-mono);">${s.selectorType}('${s.selectorValue}')</span></td>
-              <td><span style="font-weight: 600; color: ${isPassScore ? 'var(--deep-green)' : 'var(--coral)'};">${s.matchScore}</span></td>
+              <td>${scoreCell}</td>
             `;
             stepsBody.appendChild(tr);
           });
