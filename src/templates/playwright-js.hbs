@@ -22,6 +22,23 @@ test('{{jsLit testSuite}}', async ({ page }) => {
     return base;
   }
 
+  // Assert a text appears anywhere on the page: as visible text OR as the
+  // value of an input/textarea/select (so "800.000" matches "Rp 800.000" in a
+  // readonly field without naming it).
+  async function assertTextOnPage(needle) {
+    const re = new RegExp(needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    for (let i = 0; i < 15; i++) {
+      if (await page.getByText(re).count() > 0) return;
+      const values = await page.locator('input, textarea, select').evaluateAll(
+        (els) => els.map((el) => el.value || '')
+      );
+      if (values.some((v) => re.test(v))) return;
+      await page.evaluate(() => window.scrollBy(0, 400));
+      await page.waitForTimeout(300);
+    }
+    throw new Error(`Text "${needle}" was not found on the page (checked visible text and field values).`);
+  }
+
   // US-07: verify a field's value contains the expected text (reads value even
   // for disabled/readonly fields). Throws AC-07.08 / AC-07.09 messages.
   async function assertFieldValue(locator, expected, fieldLabel) {
@@ -164,6 +181,8 @@ test('{{jsLit testSuite}}', async ({ page }) => {
   await expect(page.getByPlaceholder('{{jsLit selectorValue}}')).toContainText('{{jsLit expected}}');
     {{else if (eq selectorType "getByText")}}
   await expect(page.getByText('{{jsLit selectorValue}}')).toContainText('{{jsLit expected}}');
+    {{else if (eq selectorType "pageText")}}
+  await assertTextOnPage('{{jsLit selectorValue}}');
     {{else}}
   await expect(page.locator('{{jsLit selectorValue}}')).toContainText('{{jsLit expected}}');
     {{/if}}
@@ -179,6 +198,8 @@ test('{{jsLit testSuite}}', async ({ page }) => {
   await expect(page.getByPlaceholder('{{jsLit selectorValue}}')).toBeVisible();
     {{else if (eq selectorType "getByText")}}
   await expect(page.getByText('{{jsLit selectorValue}}')).toBeVisible();
+    {{else if (eq selectorType "pageText")}}
+  await assertTextOnPage('{{jsLit selectorValue}}');
     {{else}}
   await expect(page.locator('{{jsLit selectorValue}}')).toBeVisible();
     {{/if}}

@@ -119,6 +119,26 @@ export class HeuristicMatcher {
     }
 
     if (!topMatch || topMatch.score <= 0) {
+      // For text assertions with no matching element, search the page for the
+      // text itself (in a text node OR an input's value) rather than an exact
+      // text= locator that misses values like "Rp 800.000". Other actions keep
+      // the fallback text locator.
+      if (step.action === 'assert_visible' || step.action === 'assert_text') {
+        const needle = step.expected || targetLabel;
+        return {
+          step: step.step,
+          action: step.action,
+          targetLabel: step.targetLabel,
+          value: step.value,
+          expected: step.expected,
+          description: step.description,
+          selectorType: 'pageText',
+          selectorValue: needle,
+          matchScore: 0,
+          matchReason: 'Page-wide text search (text node or input value)',
+          options: step.options
+        };
+      }
       warning = `Low match score (0) for target: '${targetLabel}'. Using fallback text locator.`;
       return {
         step: step.step,

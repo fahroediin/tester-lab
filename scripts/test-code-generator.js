@@ -547,6 +547,28 @@ const gen = new CodeGenerator();
     ok('logs contain matchScore', result.logs[0].includes('score'));
   }
 
+  // ── assert_visible/text page-text search incl. input value ────
+  console.log('\n[pageText] assert_visible/text finds text in node OR input value');
+  {
+    const cfg = { ...baseConfig, framework: 'playwright', language: 'typescript' };
+    const ptSteps = [
+      { step: 1, action: 'assert_visible', targetLabel: '800.000',
+        selectorType: 'pageText', selectorValue: '800.000', matchScore: 0 },
+      { step: 2, action: 'assert_text', targetLabel: 'Welcome', expected: 'Welcome',
+        selectorType: 'pageText', selectorValue: 'Welcome', matchScore: 0 }
+    ];
+    const res = await gen.generateScript(cfg, ptSteps);
+    ok('pageText: generation succeeds', res.success === true);
+    ok('pageText: uses a page-text search helper (not text= exact)', res.code.includes('assertTextOnPage'));
+    ok('pageText: helper reads input values', res.code.includes('inputValue') || res.code.includes('.value'));
+    ok('pageText: does NOT emit exact text= locator for these', !res.code.includes(`text="800.000"`));
+    ok('pageText: carries the searched text 800.000', res.code.includes('800.000'));
+
+    const resJs = await gen.generateScript({ ...cfg, language: 'javascript' }, ptSteps);
+    ok('pageText (JS): generation succeeds', resJs.success === true);
+    ok('pageText (JS): uses assertTextOnPage helper', resJs.code.includes('assertTextOnPage'));
+  }
+
   // ── assert_value end-to-end (US-07 / AC-07.05-07.10) ────
   console.log('\n[assert_value] generateScript with assert_value action');
   {

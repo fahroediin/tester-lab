@@ -76,13 +76,14 @@ export interface DOMElementCandidate {
   };
 }
 
-export type SelectorType = 
-  | 'getByTestId' 
-  | 'getByLabel' 
-  | 'getByRole' 
-  | 'getByPlaceholder' 
-  | 'getByText' 
+export type SelectorType =
+  | 'getByTestId'
+  | 'getByLabel'
+  | 'getByRole'
+  | 'getByPlaceholder'
+  | 'getByText'
   | 'locator'
+  | 'pageText'
   | 'url';
 
 export interface ScoredCandidate {

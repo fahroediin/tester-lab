@@ -61,6 +61,24 @@ test('{{jsLit testSuite}}', async ({ page }) => {
       }
       throw new Error(`Maestro Auto-Scroll Timeout: Element not found or interactable. Last error: ${lastError?.message}`);
     },
+    // Assert a text appears anywhere on the page: as visible text OR as the
+    // value of an input/textarea/select. Lets "800.000" match "Rp 800.000"
+    // shown inside a readonly input, without the user naming the field.
+    async assertTextOnPage(needle: string): Promise<void> {
+      const re = new RegExp(needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      for (let i = 0; i < 15; i++) {
+        // 1) visible text node
+        if (await page.getByText(re).count() > 0) return;
+        // 2) value of any field
+        const values = await page.locator('input, textarea, select').evaluateAll(
+          (els) => els.map((el) => (el as HTMLInputElement).value || '')
+        );
+        if (values.some((v) => re.test(v))) return;
+        await page.evaluate(() => window.scrollBy(0, 400));
+        await page.waitForTimeout(300);
+      }
+      throw new Error(`Text "${needle}" was not found on the page (checked visible text and field values).`);
+    },
     // US-36: resolve the single row/card that contains a unique marker text.
     // Throws the not-found (AC-36.04) or not-unique (AC-36.05) message.
     scopedRow(marker: string): Locator {
@@ -212,6 +230,8 @@ test('{{jsLit testSuite}}', async ({ page }) => {
   await maestro.interact(page.getByPlaceholder(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'assert_text', undefined, '{{jsLit expected}}');
     {{else if (eq selectorType "getByText")}}
   await maestro.interact(page.getByText(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'assert_text', undefined, '{{jsLit expected}}');
+    {{else if (eq selectorType "pageText")}}
+  await maestro.assertTextOnPage('{{jsLit selectorValue}}');
     {{else}}
   await maestro.interact(page.locator('{{jsLit selectorValue}}'), 'assert_text', undefined, '{{jsLit expected}}');
     {{/if}}
@@ -228,6 +248,8 @@ test('{{jsLit testSuite}}', async ({ page }) => {
   await maestro.interact(page.getByPlaceholder(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'assert_visible');
     {{else if (eq selectorType "getByText")}}
   await maestro.interact(page.getByText(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'assert_visible');
+    {{else if (eq selectorType "pageText")}}
+  await maestro.assertTextOnPage('{{jsLit selectorValue}}');
     {{else}}
   await maestro.interact(page.locator('{{jsLit selectorValue}}'), 'assert_visible');
     {{/if}}
