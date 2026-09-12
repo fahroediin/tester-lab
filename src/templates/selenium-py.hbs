@@ -68,6 +68,9 @@ class {{{sanitizedTestSuite}}}Test(unittest.TestCase):
         {{#if (eq action "assert_text")}}
         self.assertIn("{{pyLit expected}}", driver.page_source)
         {{/if}}
+        {{#if (eq action "assert_value")}}
+        # TODO: assert_value belum didukung untuk Selenium Python. Verifikasi manual bahwa field "{{pyLit targetLabel}}" bernilai memuat "{{pyLit expected}}". Gunakan Playwright untuk assert_value otomatis.
+        {{/if}}
         {{#if (eq action "assert_visible")}}
         self.assertTrue(driver.find_element(By.CSS_SELECTOR, "{{pyLit selectorValue}}").is_displayed())
         {{/if}}

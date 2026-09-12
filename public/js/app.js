@@ -344,6 +344,10 @@
             stepObj.expected = s.value;
             stepObj.targetLabel = s.targetLabel;
           }
+          if (s.action === 'assert_value') {
+            stepObj.expected = s.value;
+            stepObj.targetLabel = s.targetLabel;
+          }
           if (s.action === 'wait') stepObj.value = s.value;
           // US-36: carry step options (e.g. within) through to generation.
           if (s.options && Object.keys(s.options).length > 0) stepObj.options = s.options;
@@ -1624,6 +1628,7 @@
               <option value="assert_url" ${step.action === 'assert_url' ? 'selected' : ''}>Assert URL</option>
               <option value="assert_text" ${step.action === 'assert_text' ? 'selected' : ''}>Assert Text</option>
               <option value="assert_visible" ${step.action === 'assert_visible' ? 'selected' : ''}>Assert Visible</option>
+              <option value="assert_value" ${step.action === 'assert_value' ? 'selected' : ''}>Assert Value</option>
               <option value="wait" ${step.action === 'wait' ? 'selected' : ''}>Wait Delay</option>
             </select>
             <div style="display: flex; gap: 4px; margin-left: auto;">
@@ -1640,10 +1645,10 @@
               <input type="text" value="${step.targetLabel || ''}" placeholder="${step.action === 'upload' ? 'e.g. Upload KTP / Document' : 'e.g. Email / Username'}" onchange="updateStep(${idx}, 'targetLabel', this.value)">
             </div>` : ''}
 
-            ${step.action === 'fill' || step.action === 'select' || step.action === 'upload' || step.action === 'assert_url' || step.action === 'assert_text' || step.action === 'wait' ? `
+            ${step.action === 'fill' || step.action === 'select' || step.action === 'upload' || step.action === 'assert_url' || step.action === 'assert_text' || step.action === 'assert_value' || step.action === 'wait' ? `
             <div class="form-group">
-              <label>${step.action === 'assert_url' ? 'Expected URL Path' : step.action === 'assert_text' ? 'Expected Text' : step.action === 'wait' ? 'Delay (ms)' : step.action === 'upload' ? 'File Path to Attach' : 'Input Value'}</label>
-              <input type="text" value="${step.value || ''}" placeholder="${step.action === 'upload' ? 'e.g. fixtures/ktp.pdf' : 'e.g. user@example.com'}" onchange="updateStep(${idx}, 'value', this.value)">
+              <label>${step.action === 'assert_url' ? 'Expected URL Path' : step.action === 'assert_text' ? 'Expected Text' : step.action === 'assert_value' ? 'Expected Value (contains)' : step.action === 'wait' ? 'Delay (ms)' : step.action === 'upload' ? 'File Path to Attach' : 'Input Value'}</label>
+              <input type="text" value="${step.value || ''}" placeholder="${step.action === 'assert_value' ? 'e.g. 800.000' : step.action === 'upload' ? 'e.g. fixtures/ktp.pdf' : 'e.g. user@example.com'}" onchange="updateStep(${idx}, 'value', this.value)">
             </div>` : ''}
           </div>
 

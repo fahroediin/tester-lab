@@ -99,6 +99,9 @@ public class {{{javaClassName}}}Test {
         {{#if (eq action "assert_text")}}
         Assert.assertTrue(driver.getPageSource().contains("{{jLit expected}}"), "Page should contain text: {{jLit expected}}");
         {{/if}}
+        {{#if (eq action "assert_value")}}
+        // TODO: assert_value belum didukung untuk Selenium Java. Verifikasi manual bahwa field "{{jLit targetLabel}}" bernilai memuat "{{jLit expected}}". Gunakan Playwright untuk assert_value otomatis.
+        {{/if}}
         {{#if (eq action "assert_visible")}}
         Assert.assertTrue(wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("{{jLit selectorValue}}"))).isDisplayed());
         {{/if}}

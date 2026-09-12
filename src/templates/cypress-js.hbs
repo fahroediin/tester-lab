@@ -48,6 +48,9 @@ describe('{{jsLit testSuite}}', () => {
     {{#if (eq action "assert_text")}}
     cy.contains('{{jsLit expected}}').should('be.visible');
     {{/if}}
+    {{#if (eq action "assert_value")}}
+    // TODO: assert_value belum didukung untuk Cypress. Verifikasi manual bahwa field "{{jsLit targetLabel}}" bernilai memuat "{{jsLit expected}}". Gunakan Playwright untuk assert_value otomatis.
+    {{/if}}
     {{#if (eq action "assert_visible")}}
     cy.get('{{jsLit selectorValue}}').should('be.visible');
     {{/if}}

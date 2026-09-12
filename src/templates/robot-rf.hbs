@@ -57,6 +57,9 @@ Execute Business Scenario
     {{#if (eq action "assert_text")}}
     Page Should Contain    {{rfText expected}}
     {{/if}}
+    {{#if (eq action "assert_value")}}
+    # TODO: assert_value belum didukung untuk Robot Framework. Verifikasi manual bahwa field "{{rfText targetLabel}}" bernilai memuat "{{rfText expected}}". Gunakan Playwright untuk assert_value otomatis.
+    {{/if}}
     {{#if (eq action "assert_visible")}}
     Element Should Be Visible    css={{rfText selectorValue}}
     {{/if}}

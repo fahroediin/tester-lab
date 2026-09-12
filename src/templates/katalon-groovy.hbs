@@ -79,6 +79,9 @@ WebUI.verifyMatch(WebUI.getUrl(), '.*' + '{{kLit selectorValue}}' + '.*', true)
 {{#if (eq action "assert_text")}}
 WebUI.verifyTextPresent('{{kLit expected}}', false)
 {{/if}}
+{{#if (eq action "assert_value")}}
+// TODO: assert_value belum didukung untuk Katalon. Verifikasi manual bahwa field '{{kLit targetLabel}}' bernilai memuat '{{kLit expected}}'. Gunakan Playwright untuk assert_value otomatis.
+{{/if}}
 {{#if (eq action "assert_visible")}}
 {{#if (eq selectorType "getByRole")}}
 WebUI.verifyElementPresent(makeTestObject("//button[contains(., '{{kLit roleName}}')] | //a[contains(., '{{kLit roleName}}')]"), 10)
