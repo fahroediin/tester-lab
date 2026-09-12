@@ -13,9 +13,10 @@ export type DSLAction =
   | 'check' 
   | 'uncheck'
   | 'upload'
-  | 'assert_text' 
-  | 'assert_url' 
-  | 'assert_visible' 
+  | 'assert_text'
+  | 'assert_url'
+  | 'assert_visible'
+  | 'assert_value'
   | 'wait';
 
 export interface StepOptions {

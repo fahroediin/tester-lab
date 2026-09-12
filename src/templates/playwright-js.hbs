@@ -22,6 +22,18 @@ test('{{jsLit testSuite}}', async ({ page }) => {
     return base;
   }
 
+  // US-07: verify a field's value contains the expected text (reads value even
+  // for disabled/readonly fields). Throws AC-07.08 / AC-07.09 messages.
+  async function assertFieldValue(locator, expected, fieldLabel) {
+    const count = await locator.count();
+    if (count === 0) throw new Error(`No field labeled "${fieldLabel || ''}" was found on the page.`);
+    const actual = await locator.first().inputValue({ timeout: 2000 });
+    const needle = (expected || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    if (!new RegExp(needle, 'i').test(actual)) {
+      throw new Error(`Field "${fieldLabel || ''}" value "${actual}" does not contain the expected "${expected || ''}".`);
+    }
+  }
+
   {{#if needsRobustHelper}}
   async function action(type, label, value) {
     const tag = type === 'select' ? 'select' : 'input';
@@ -169,6 +181,19 @@ test('{{jsLit testSuite}}', async ({ page }) => {
   await expect(page.getByText('{{jsLit selectorValue}}')).toBeVisible();
     {{else}}
   await expect(page.locator('{{jsLit selectorValue}}')).toBeVisible();
+    {{/if}}
+  {{/if}}
+  {{#if (eq action "assert_value")}}
+    {{#if (eq selectorType "getByTestId")}}
+  await assertFieldValue(page.getByTestId('{{jsLit selectorValue}}'), '{{jsLit expected}}', '{{jsLit targetLabel}}');
+    {{else if (eq selectorType "getByLabel")}}
+  await assertFieldValue(page.getByLabel('{{jsLit selectorValue}}'), '{{jsLit expected}}', '{{jsLit targetLabel}}');
+    {{else if (eq selectorType "getByRole")}}
+  await assertFieldValue(page.getByRole('{{jsLit selectorValue}}', { name: '{{jsLit roleName}}' }), '{{jsLit expected}}', '{{jsLit targetLabel}}');
+    {{else if (eq selectorType "getByPlaceholder")}}
+  await assertFieldValue(page.getByPlaceholder('{{jsLit selectorValue}}'), '{{jsLit expected}}', '{{jsLit targetLabel}}');
+    {{else}}
+  await assertFieldValue(page.locator('{{jsLit selectorValue}}'), '{{jsLit expected}}', '{{jsLit targetLabel}}');
     {{/if}}
   {{/if}}
   {{#if (eq action "wait")}}

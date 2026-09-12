@@ -547,6 +547,27 @@ const gen = new CodeGenerator();
     ok('logs contain matchScore', result.logs[0].includes('score'));
   }
 
+  // ── assert_value end-to-end (US-07 / AC-07.05-07.10) ────
+  console.log('\n[assert_value] generateScript with assert_value action');
+  {
+    const cfg = { ...baseConfig, framework: 'playwright', language: 'typescript' };
+    const avSteps = [
+      { step: 1, action: 'assert_value', targetLabel: 'Total',
+        selectorType: 'getByLabel', selectorValue: 'Total', expected: '1.500', matchScore: 90 }
+    ];
+    const res = await gen.generateScript(cfg, avSteps);
+    ok('assert_value: generation succeeds', res.success === true && typeof res.code === 'string');
+    ok('assert_value: reads the input value (inputValue)', res.code.includes('inputValue'));
+    ok('assert_value: carries expected 1.500', res.code.includes('1.500'));
+    ok('assert_value: locates field by label Total', /getByLabel\(new RegExp\('Total'/.test(res.code));
+    ok('assert_value: not-found message present', res.code.includes('was found on the page'));
+    ok('assert_value: mismatch message present', res.code.includes('does not contain the expected'));
+
+    const resJs = await gen.generateScript({ ...cfg, language: 'javascript' }, avSteps);
+    ok('assert_value (JS): generation succeeds', resJs.success === true);
+    ok('assert_value (JS): reads inputValue', resJs.code.includes('inputValue'));
+  }
+
   // ── Scoped within end-to-end (US-36 / AC-36.01, 36.06) ────
   console.log('\n[within-e2e] generateScript with options.within');
   {

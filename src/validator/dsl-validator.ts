@@ -19,6 +19,7 @@ export const DSLActionSchema = z.enum([
   'assert_text',
   'assert_url',
   'assert_visible',
+  'assert_value',
   'wait'
 ]);
 
@@ -48,6 +49,10 @@ export const DSLStepSchema = z.object({
     return false;
   }
   if (['assert_text', 'assert_visible'].includes(data.action) && !data.expected && !data.targetLabel) {
+    return false;
+  }
+  // assert_value needs a field to target AND an expected value to check for.
+  if (data.action === 'assert_value' && (!data.targetLabel || !data.expected)) {
     return false;
   }
   return true;

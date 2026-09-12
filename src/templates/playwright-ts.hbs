@@ -15,7 +15,7 @@ test('{{jsLit testSuite}}', async ({ page }) => {
 
   // Maestro-like Auto-Wait and Scroll-Until-Visible Engine
   const maestro = {
-    async interact(locator: Locator, action: 'click' | 'fill' | 'select' | 'check' | 'uncheck' | 'upload' | 'assert_visible' | 'assert_text', value?: string, expectedText?: string) {
+    async interact(locator: Locator, action: 'click' | 'fill' | 'select' | 'check' | 'uncheck' | 'upload' | 'assert_visible' | 'assert_text' | 'assert_value', value?: string, expectedText?: string, fieldLabel?: string) {
       let lastError;
       for (let i = 0; i < 15; i++) {
         try {
@@ -37,10 +37,23 @@ test('{{jsLit testSuite}}', async ({ page }) => {
             await expect(locator.first()).toBeVisible({ timeout: 2000 });
           } else if (action === 'assert_text') {
             await expect(locator.first()).toContainText(new RegExp(expectedText || '', 'i'), { timeout: 2000 });
+          } else if (action === 'assert_value') {
+            const count = await locator.count();
+            if (count === 0) { const e: any = new Error(`No field labeled "${fieldLabel || ''}" was found on the page.`); e.assertValueFinal = true; throw e; }
+            const actual = await locator.first().inputValue({ timeout: 2000 });
+            const needle = (expectedText || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            if (!new RegExp(needle, 'i').test(actual)) {
+              const e: any = new Error(`Field "${fieldLabel || ''}" value "${actual}" does not contain the expected "${expectedText || ''}".`);
+              e.assertValueFinal = true;
+              throw e;
+            }
           }
           return; // Success
-        } catch (e) {
+        } catch (e: any) {
           lastError = e;
+          // A definitive assert_value verdict must surface verbatim, not be
+          // retried into the generic timeout message.
+          if (e && e.assertValueFinal) throw e;
           // Scroll down slightly if element is not interactable or not found
           await page.evaluate(() => window.scrollBy(0, 400));
           await page.waitForTimeout(300); // Allow lazy-loaded elements to render
@@ -217,6 +230,20 @@ test('{{jsLit testSuite}}', async ({ page }) => {
   await maestro.interact(page.getByText(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'assert_visible');
     {{else}}
   await maestro.interact(page.locator('{{jsLit selectorValue}}'), 'assert_visible');
+    {{/if}}
+  {{/if}}
+
+  {{#if (eq action "assert_value")}}
+    {{#if (eq selectorType "getByTestId")}}
+  await maestro.interact(page.getByTestId('{{jsLit selectorValue}}'), 'assert_value', undefined, '{{jsLit expected}}', '{{jsLit targetLabel}}');
+    {{else if (eq selectorType "getByLabel")}}
+  await maestro.interact(page.getByLabel(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'assert_value', undefined, '{{jsLit expected}}', '{{jsLit targetLabel}}');
+    {{else if (eq selectorType "getByRole")}}
+  await maestro.interact(page.getByRole('{{jsLit selectorValue}}', { name: new RegExp('{{{escapeRegex roleName}}}', 'i') }), 'assert_value', undefined, '{{jsLit expected}}', '{{jsLit targetLabel}}');
+    {{else if (eq selectorType "getByPlaceholder")}}
+  await maestro.interact(page.getByPlaceholder(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'assert_value', undefined, '{{jsLit expected}}', '{{jsLit targetLabel}}');
+    {{else}}
+  await maestro.interact(page.locator('{{jsLit selectorValue}}'), 'assert_value', undefined, '{{jsLit expected}}', '{{jsLit targetLabel}}');
     {{/if}}
   {{/if}}
 
