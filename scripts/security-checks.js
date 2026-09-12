@@ -14,6 +14,7 @@ const { assertSafeProxyUrl, isValidHttpUrl } = require('../dist/security/url-gua
 const { validateDSL } = require('../dist/validator/dsl-validator.js');
 const { toVideoStoragePath } = require('../dist/server/lib/storage-url.js');
 const { checkRunnerSupport, RUNNER_NON_PLAYWRIGHT_MESSAGE } = require('../dist/security/runner-guard.js');
+const { validateCodeEdit } = require('../dist/server/services/history-edit-service.js');
 
 let passed = 0;
 function ok(name, cond) {
@@ -108,6 +109,23 @@ function ok(name, cond) {
   ok('blocks code with Katalon imports', checkRunnerSupport({ code: "import com.kms.katalon.core.model.FailureHandling" }).allowed === false);
   ok('blocks code with Selenium imports', checkRunnerSupport({ code: "from selenium import webdriver" }).allowed === false);
   ok('guard reason mentions only Playwright runs on server', checkRunnerSupport({ framework: 'katalon' }).reason === RUNNER_NON_PLAYWRIGHT_MESSAGE);
+
+  console.log('\n[9] history edit-code guard (PATCH /history/:id/code)');
+  // Empty / non-string code is rejected.
+  ok('rejects empty code', validateCodeEdit('').ok === false);
+  ok('rejects whitespace-only code', validateCodeEdit('   \n  ').ok === false);
+  ok('rejects non-string code', validateCodeEdit(undefined).ok === false);
+  ok('rejects non-string code (number)', validateCodeEdit(42).ok === false);
+  // Dangerous edits are blocked by the sanitizer, on the same rules as the run path.
+  ok('blocks process.env edit', validateCodeEdit('const x = process.env.SECRET;').ok === false);
+  ok('blocks child_process edit', validateCodeEdit("require('child_process').execSync('id')").ok === false);
+  ok('blocks fs.readFileSync edit', validateCodeEdit("const fs = require('fs'); fs.readFileSync('/etc/passwd');").ok === false);
+  ok('blocked edit surfaces violations', Array.isArray(validateCodeEdit('eval("1")').violations) && validateCodeEdit('eval("1")').violations.length > 0);
+  // Benign edits pass — Playwright and non-Playwright alike (saving is not gated by the runner guard).
+  ok('allows benign Playwright edit', validateCodeEdit("import { test, expect } from '@playwright/test';\nawait page.goto('https://x');").ok === true);
+  ok('allows benign Selenium (non-Playwright) edit', validateCodeEdit("from selenium import webdriver\ndriver.get('https://x')").ok === true);
+  ok('allows benign Katalon (non-Playwright) edit', validateCodeEdit("WebUI.openBrowser('')\nWebUI.navigateToUrl('https://x')").ok === true);
+  ok('accepted edit returns the trimmed code', validateCodeEdit('  await page.goto("https://x");  ').code === 'await page.goto("https://x");');
 
   console.log('\nALL SECURITY CHECKS PASSED (' + passed + ' assertions)\n');
 })().catch((e) => { console.error(e); process.exit(1); });
