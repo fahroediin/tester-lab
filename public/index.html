@@ -724,9 +724,15 @@
               <div class="console-dot dot-yellow"></div>
               <div class="console-dot dot-green"></div>
             </div>
-            <div class="console-title">Generated Playwright Code</div>
+            <div class="console-title">Generated Code</div>
+            <div style="margin-left: auto; display: flex; gap: 8px;">
+              <button id="histEditBtn" class="btn-pill-outline" onclick="startEditHistCode()" style="padding: 3px 10px; font-size: 11px; min-height: unset; height: auto;">Edit</button>
+              <button id="histSaveBtn" class="btn-primary" onclick="saveHistCode()" style="display: none; padding: 3px 10px; font-size: 11px; min-height: unset; height: auto;">Save</button>
+              <button id="histCancelBtn" class="btn-pill-outline" onclick="cancelEditHistCode()" style="display: none; padding: 3px 10px; font-size: 11px; min-height: unset; height: auto;">Cancel</button>
+            </div>
           </div>
           <div class="code-preview" id="histCode" style="max-height: 300px; overflow-y: auto;"></div>
+          <div id="histEditHint" style="display: none; padding: 6px 10px; font-size: 11px; color: var(--slate); font-family: var(--font-mono);">Editing script. Save overwrites this scenario and resets its status to GENERATED so Run Suite uses the new version.</div>
         </div>
 
         <!-- Steps Section -->

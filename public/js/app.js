@@ -3665,6 +3665,8 @@
         
         document.getElementById('histStatus').innerHTML = `<span class="${modalBadgeClass}">${h.status}</span>`;
         document.getElementById('histCode').textContent = h.generatedCode || 'No code generated';
+        // Always open the detail in read-only mode; enable Edit only when there is code to edit.
+        resetHistCodeEditUI(!!h.generatedCode);
         
         // Render Steps
         const stepsBody = document.getElementById('histStepsBody');
@@ -3708,9 +3710,90 @@
     }
 
     function closeHistoryModal() {
+      cancelEditHistCode();
       document.getElementById('historyDetailModal').style.display = 'none';
       document.getElementById('historyVideoPlayer').pause();
     }
+
+    /**
+     * Put the history code panel back to read-only. `hasCode` gates the Edit
+     * button: no script means nothing to edit.
+     */
+    function resetHistCodeEditUI(hasCode) {
+      const code = document.getElementById('histCode');
+      if (code) code.setAttribute('contenteditable', 'false');
+      const editBtn = document.getElementById('histEditBtn');
+      const saveBtn = document.getElementById('histSaveBtn');
+      const cancelBtn = document.getElementById('histCancelBtn');
+      const hint = document.getElementById('histEditHint');
+      if (editBtn) editBtn.style.display = hasCode ? 'inline-flex' : 'none';
+      if (saveBtn) saveBtn.style.display = 'none';
+      if (cancelBtn) cancelBtn.style.display = 'none';
+      if (hint) hint.style.display = 'none';
+    }
+
+    window.startEditHistCode = function() {
+      const code = document.getElementById('histCode');
+      if (!code) return;
+      code.setAttribute('contenteditable', 'true');
+      code.focus();
+      const editBtn = document.getElementById('histEditBtn');
+      const saveBtn = document.getElementById('histSaveBtn');
+      const cancelBtn = document.getElementById('histCancelBtn');
+      const hint = document.getElementById('histEditHint');
+      if (editBtn) editBtn.style.display = 'none';
+      if (saveBtn) saveBtn.style.display = 'inline-flex';
+      if (cancelBtn) cancelBtn.style.display = 'inline-flex';
+      if (hint) hint.style.display = 'block';
+    };
+
+    window.cancelEditHistCode = function() {
+      const code = document.getElementById('histCode');
+      // Restore the last-loaded script, discarding any unsaved edit.
+      if (code && currentViewedHistory) {
+        code.textContent = currentViewedHistory.generatedCode || 'No code generated';
+      }
+      resetHistCodeEditUI(!!(currentViewedHistory && currentViewedHistory.generatedCode));
+    };
+
+    window.saveHistCode = async function() {
+      if (!currentViewedHistory) return;
+      const id = currentViewedHistory.id;
+      const code = document.getElementById('histCode');
+      const newCode = code ? code.textContent : '';
+      const saveBtn = document.getElementById('histSaveBtn');
+      if (saveBtn) saveBtn.disabled = true;
+      try {
+        const response = await fetch(`/api/v1/history/${id}/code`, {
+          method: 'PATCH',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ code: newCode })
+        });
+        const data = await response.json();
+        if (!data.success) {
+          const detail = Array.isArray(data.violations) && data.violations.length
+            ? `${data.error} (${data.violations.join('; ')})`
+            : data.error;
+          showSnackbar({ type: 'error', title: 'Save Rejected', message: detail || 'Failed to save code.' });
+          return;
+        }
+        // Persist locally so Cancel/reopen shows the saved version, and reflect
+        // the status reset (GENERATED) in the badge.
+        currentViewedHistory.generatedCode = newCode.trim();
+        currentViewedHistory.status = (data.data && data.data.status) || 'GENERATED';
+        code.textContent = currentViewedHistory.generatedCode;
+        const statusEl = document.getElementById('histStatus');
+        if (statusEl) statusEl.innerHTML = `<span class="status-badge-pill status-badge-generated">${currentViewedHistory.status}</span>`;
+        resetHistCodeEditUI(true);
+        showSnackbar({ type: 'success', title: 'Saved', message: 'Scenario code updated. Run Suite will use this version.' });
+        // Refresh the list so the status badge there stays in sync.
+        if (typeof loadHistory === 'function') loadHistory();
+      } catch (err) {
+        showSnackbar({ type: 'error', title: 'Error', message: 'Failed to save code.' });
+      } finally {
+        if (saveBtn) saveBtn.disabled = false;
+      }
+    };
 
     async function loadHistoryToBuilder() {
       if (!currentViewedHistory) return;
