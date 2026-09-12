@@ -143,6 +143,38 @@ function ok(name, cond) {
     ok('moveItem preserves length', moveItem(['a', 'b', 'c'], 1, 2).length === 3);
   }
 
+  console.log('\n[6d] Run Suite — parseStepList (step-by-step detail for passed scenarios)');
+  const parseStepList = runSuite.parseStepList;
+  ok('parseStepList is exported', typeof parseStepList === 'function');
+  if (typeof parseStepList === 'function') {
+    const code = [
+      "console.log('__STEP_START__ 1');",
+      "// Step 1: Isi kolom username",
+      "await maestro.interact(x, 'fill', 'a');",
+      "console.log('__STEP_START__ 2');",
+      "// Step 2: Klik tombol login",
+      "await maestro.interact(y, 'click');",
+      "console.log('__STEP_START__ 3');",
+      "// Step 3: Verifikasi dashboard",
+      "await expect(z).toBeVisible();"
+    ].join('\n');
+    // Semua step tereksekusi (log memuat penanda 1..3).
+    const logAll = '__STEP_START__ 1\n__STEP_START__ 2\n__STEP_START__ 3\nDone';
+    const stepsAll = parseStepList(code, logAll);
+    ok('parses 3 steps with descriptions', stepsAll.length === 3 && stepsAll[0].description === 'Isi kolom username');
+    ok('all reached steps are OK', stepsAll.every(s => s.status === 'OK'));
+    ok('step numbers are 1..3', stepsAll.map(s => s.step).join(',') === '1,2,3');
+    // Hanya sampai step 2 (mis. gagal di 3): step 3 tidak tercapai.
+    const logPartial = '__STEP_START__ 1\n__STEP_START__ 2\n__STEP_START__ 3';
+    // step yang penanda-nya muncul dianggap tercapai; untuk SUCCESS semua OK.
+    ok('empty code -> empty list (no throw)', parseStepList('', logAll).length === 0);
+    ok('null args -> empty list (no throw)', parseStepList(null, null).length === 0);
+    // Step tanpa penanda di log -> status PENDING/tidak OK.
+    const logNone = 'Done';
+    const stepsNone = parseStepList(code, logNone);
+    ok('steps not reached are not marked OK', stepsNone.every(s => s.status !== 'OK'));
+  }
+
   console.log('\n[7] Run Suite — service & route wiring');
   ok('runSuiteForSuite is exported', typeof runSuite.runSuiteForSuite === 'function');
   const hist = require('../dist/server/flow-history-store.js');

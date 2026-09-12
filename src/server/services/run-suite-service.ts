@@ -141,6 +141,40 @@ export function moveItem<T>(items: T[], fromIndex: number, toIndex: number): T[]
   return out;
 }
 
+/** One step's line in a scenario's step-by-step detail. */
+export interface StepDetail {
+  step: number;
+  description: string;
+  status: 'OK' | 'PENDING';
+}
+
+/**
+ * Build a step-by-step list from a scenario's generated code and its run log.
+ * Descriptions come from the "// Step N: ..." comments in the code; a step is
+ * marked OK when the log contains its "__STEP_START__ N" marker (reached during
+ * execution), else PENDING. For a passed scenario every step is reached -> OK.
+ * Pure; never throws.
+ */
+export function parseStepList(generatedCode: string | null | undefined, logs: string | null | undefined): StepDetail[] {
+  if (!generatedCode || typeof generatedCode !== 'string') return [];
+  const code = generatedCode;
+  const log = typeof logs === 'string' ? logs : '';
+
+  const steps: StepDetail[] = [];
+  const seen = new Set<number>();
+  const re = /\/\/\s*Step\s+(\d+)\s*:\s*(.*)/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(code)) !== null) {
+    const n = parseInt(m[1] ?? '', 10);
+    if (Number.isNaN(n) || seen.has(n)) continue;
+    seen.add(n);
+    const reached = new RegExp('__STEP_START__\\s+' + n + '\\b').test(log);
+    steps.push({ step: n, description: (m[2] ?? '').trim(), status: reached ? 'OK' : 'PENDING' });
+  }
+  steps.sort((a, b) => a.step - b.step);
+  return steps;
+}
+
 /** One scenario's result within a suite run. */
 export interface ScenarioResult {
   id: string;
@@ -150,6 +184,8 @@ export interface ScenarioResult {
   reason?: string;
   /** Concise error snippet for a FAILED scenario, from the runner logs. */
   error?: string;
+  /** Step-by-step detail (description + status) for the scenario's run. */
+  steps?: StepDetail[];
 }
 
 /** Outcome of running a whole suite (POC): a batch id, the aggregate status, and per-scenario results. */
@@ -200,7 +236,8 @@ export async function runSuiteForSuite(userId: string, suiteId: string): Promise
         id: s.id,
         name: s.testSuite,
         status: exec.success ? 'SUCCESS' : 'FAILED',
-        error: exec.success ? undefined : extractErrorSnippet(exec.logs)
+        error: exec.success ? undefined : extractErrorSnippet(exec.logs),
+        steps: parseStepList(s.generatedCode, exec.logs)
       });
     } catch (err) {
       results.push({ id: s.id, name: s.testSuite, status: 'FAILED', reason: err instanceof Error ? err.message : String(err) });

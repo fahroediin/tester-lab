@@ -792,9 +792,9 @@
               description: currentDescription || `Fill ${target}`
             };
             if (isEncrypted) {
-              stepObj.warning = `Encrypted value (Katalon setEncryptedText) can't be decrypted outside Katalon — enter the real value manually.`;
+              stepObj.warning = `Encrypted value (Katalon setEncryptedText) can't be decrypted outside Katalon. Enter the real value manually.`;
             } else if (isUnquotedExpr(rawValue)) {
-              stepObj.warning = `Value is a Groovy variable "${rawValue.trim()}" — set the actual value manually.`;
+              stepObj.warning = `Value is a Groovy variable "${rawValue.trim()}". Set the actual value manually.`;
             }
           }
         } else if (line.includes('WebUI.selectOption')) {
@@ -3469,10 +3469,29 @@
                 '<pre style="margin:6px 0 0; padding:8px 10px; background:var(--surface-2); border:1px solid var(--hairline); border-radius:6px; font-family:var(--font-mono); font-size:11px; line-height:1.5; color:var(--ink); white-space:pre-wrap; word-break:break-word; max-height:180px; overflow:auto;">' + escapeHtml(r.error) + '</pre>' +
               '</details>'
             : '';
+          // Step-by-step detail (per step description + status), expandable.
+          let stepsBlock = '';
+          if (Array.isArray(r.steps) && r.steps.length > 0) {
+            const stepRows = r.steps.map(function (st) {
+              const okIcon = st.status === 'OK'
+                ? '<span style="color:var(--deep-green);">&#10003;</span>'
+                : '<span style="color:var(--slate);">&#8226;</span>';
+              return '<div style="display:flex; gap:8px; padding:3px 0; font-size:11.5px;">' +
+                '<span style="width:14px; text-align:center;">' + okIcon + '</span>' +
+                '<span style="color:var(--slate); min-width:44px;">Step ' + st.step + '</span>' +
+                '<span style="color:var(--ink); flex:1;">' + escapeHtml(st.description || '') + '</span>' +
+                '</div>';
+            }).join('');
+            const okCount = r.steps.filter(function (st) { return st.status === 'OK'; }).length;
+            stepsBlock = '<details style="margin-top:6px;">' +
+              '<summary style="font-size:11px; color:var(--action-blue); cursor:pointer;">Lihat detail langkah (' + okCount + '/' + r.steps.length + ')</summary>' +
+              '<div style="margin:6px 0 0; padding:6px 10px; background:var(--surface-2); border:1px solid var(--hairline); border-radius:6px;">' + stepRows + '</div>' +
+              '</details>';
+          }
           rows +=
             '<div style="display:flex; align-items:flex-start; gap:10px; padding:10px 0;' + (isLast ? '' : ' border-bottom:1px solid var(--hairline);') + '">' +
               '<span style="font-size:15px; line-height:1.3; width:16px; text-align:center;">' + (rowIcon[r.status] || '') + '</span>' +
-              '<div style="flex:1;"><span style="font-size:14px; color:var(--ink);">' + escapeHtml(r.name || 'Scenario') + '</span>' + reason + errorBlock + '</div>' +
+              '<div style="flex:1;"><span style="font-size:14px; color:var(--ink);">' + escapeHtml(r.name || 'Scenario') + '</span>' + reason + stepsBlock + errorBlock + '</div>' +
               '<span style="font-size:11px; font-weight:600; color:' + (rowColor[r.status] || 'var(--slate)') + ';">' + escapeHtml(r.status) + '</span>' +
             '</div>';
         });
