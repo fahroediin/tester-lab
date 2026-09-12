@@ -2992,7 +2992,11 @@
                 if (scenarios.length === 0) {
                   html += '<div style="padding:6px 14px 6px 58px; font-size:12px; color:var(--slate); font-style:italic; border-bottom:1px solid var(--hairline); background:var(--surface-2);">No scenarios in this suite yet.</div>';
                 } else {
-                  html += scenarios.map(h => scenarioRowHtml(h, 2)).join('');
+                  // Order scenarios by the suite's saved order (US-15); unordered trail.
+                  const order = Array.isArray(s.scenarioOrder) ? s.scenarioOrder : [];
+                  const rank = (name) => { const i = order.indexOf(name); return i === -1 ? Number.MAX_SAFE_INTEGER : i; };
+                  const ordered = scenarios.slice().sort((a, b) => rank(a.testSuite) - rank(b.testSuite));
+                  html += ordered.map((h, i) => scenarioRowHtml(h, 2, { suiteId: s.id, index: i, total: ordered.length })).join('');
                 }
               }
             });
@@ -3043,7 +3047,7 @@
       tree.innerHTML = html;
     }
 
-    function scenarioRowHtml(h, indentLevel) {
+    function scenarioRowHtml(h, indentLevel, reorder) {
       const padLeft = indentLevel ? (indentLevel * 24 + 14) + 'px' : '38px';
       let moveOptions = '<option value="">Move to...</option>';
       userFolders.forEach(p => {
@@ -3060,7 +3064,25 @@
         moveOptions += '<option value="none">Uncategorized (No Project)</option>';
       }
 
-      return '<div style="display:flex; align-items:center; gap:8px; padding:7px 14px 7px ' + padLeft + '; border-bottom:1px solid var(--hairline); background: var(--surface-2);">' +
+      // US-15: up/down + drag re-order, only when rendered inside a suite.
+      let reorderCtrl = '';
+      let dragAttrs = '';
+      if (reorder && typeof reorder.index === 'number') {
+        const nm = escapeHtml(h.testSuite || 'Untitled').replace(/'/g, "\\'");
+        const upDisabled = reorder.index === 0 ? 'disabled' : '';
+        const downDisabled = reorder.index === reorder.total - 1 ? 'disabled' : '';
+        reorderCtrl =
+          '<span class="drag-handle" title="Seret untuk mengurutkan" style="cursor:grab; color:var(--slate); font-size:12px;">⠿</span>' +
+          '<button class="btn-pill-outline" onclick="moveScenarioInSuite(\'' + reorder.suiteId + '\', \'' + nm + '\', -1, event)" ' + upDisabled + ' title="Naik" style="padding:1px 6px; font-size:10px; min-height:unset; height:auto;">↑</button>' +
+          '<button class="btn-pill-outline" onclick="moveScenarioInSuite(\'' + reorder.suiteId + '\', \'' + nm + '\', 1, event)" ' + downDisabled + ' title="Turun" style="padding:1px 6px; font-size:10px; min-height:unset; height:auto;">↓</button>';
+        dragAttrs = ' draggable="true"' +
+          ' ondragstart="handleScenarioDragStart(event, \'' + reorder.suiteId + '\', ' + reorder.index + ')"' +
+          ' ondragover="event.preventDefault()"' +
+          ' ondrop="handleScenarioDrop(event, \'' + reorder.suiteId + '\', ' + reorder.index + ')"';
+      }
+
+      return '<div' + dragAttrs + ' style="display:flex; align-items:center; gap:8px; padding:7px 14px 7px ' + padLeft + '; border-bottom:1px solid var(--hairline); background: var(--surface-2);">' +
+        reorderCtrl +
         '<span style="flex:1; font-size:12.5px; color: var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="' + escapeHtml(h.testSuite || 'Untitled') + '">' + escapeHtml(h.testSuite || 'Untitled') + '</span>' +
         '<span style="font-size:10px; font-family:var(--font-mono); color: var(--slate);">' + new Date(h.timestamp).toLocaleDateString() + '</span>' +
         '<select onchange="handleScenarioMove(\'' + h.id + '\', this.value)" style="font-size:11px; padding:2px 6px; max-width:140px;">' + moveOptions + '</select>' +
@@ -3259,6 +3281,75 @@
       } catch (err) {
         showSnackbar({ type: 'error', title: 'Network Error', message: 'Could not rename suite.' });
       }
+    };
+
+    // US-15: current ordered scenario names for a suite, from the saved order
+    // plus any scenarios not yet in the order (appended, stable).
+    function currentSuiteOrder(suiteId) {
+      let suite = null;
+      for (const suites of projectSuitesCache.values()) {
+        const s = suites.find(x => x.id === suiteId);
+        if (s) { suite = s; break; }
+      }
+      const saved = suite && Array.isArray(suite.scenarioOrder) ? suite.scenarioOrder.slice() : [];
+      const namesInSuite = [...new Set(allHistoryData.filter(h => h.suiteId === suiteId).map(h => h.testSuite || 'Untitled'))];
+      const rank = (name) => { const i = saved.indexOf(name); return i === -1 ? Number.MAX_SAFE_INTEGER : i; };
+      return namesInSuite.slice().sort((a, b) => rank(a) - rank(b));
+    }
+
+    async function saveSuiteScenarioOrder(suiteId, orderedNames) {
+      try {
+        const res = await fetch('/api/v1/suites/' + suiteId + '/scenario-order', {
+          method: 'PUT',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ order: orderedNames })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          showSnackbar({ type: 'error', title: 'Reorder Failed', message: data.error || 'Could not save scenario order.' });
+          return false;
+        }
+        // Reflect new order locally, then re-render the tree.
+        for (const suites of projectSuitesCache.values()) {
+          const s = suites.find(x => x.id === suiteId);
+          if (s) { s.scenarioOrder = orderedNames; break; }
+        }
+        renderFolderTree();
+        return true;
+      } catch (err) {
+        showSnackbar({ type: 'error', title: 'Network Error', message: 'Could not save scenario order.' });
+        return false;
+      }
+    }
+
+    window.moveScenarioInSuite = async function(suiteId, scenarioName, direction, event) {
+      if (event) event.stopPropagation();
+      const names = currentSuiteOrder(suiteId);
+      const from = names.indexOf(scenarioName);
+      if (from === -1) return;
+      const to = from + direction;
+      if (to < 0 || to >= names.length) return;
+      const [moved] = names.splice(from, 1);
+      names.splice(to, 0, moved);
+      await saveSuiteScenarioOrder(suiteId, names);
+    };
+
+    let scenarioDrag = null;
+    window.handleScenarioDragStart = function(event, suiteId, index) {
+      scenarioDrag = { suiteId, index };
+      if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+    };
+    window.handleScenarioDrop = async function(event, suiteId, index) {
+      event.preventDefault();
+      if (!scenarioDrag || scenarioDrag.suiteId !== suiteId) { scenarioDrag = null; return; }
+      const from = scenarioDrag.index;
+      scenarioDrag = null;
+      if (from === index) return;
+      const names = currentSuiteOrder(suiteId);
+      if (from < 0 || from >= names.length || index < 0 || index >= names.length) return;
+      const [moved] = names.splice(from, 1);
+      names.splice(index, 0, moved);
+      await saveSuiteScenarioOrder(suiteId, names);
     };
 
     window.deleteSuitePrompt = async function(suiteId, event) {
