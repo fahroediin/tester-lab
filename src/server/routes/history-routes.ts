@@ -5,6 +5,8 @@ import { getUserHistorySummaries, getHistoryById, deleteHistory, updateHistory }
 import { getProjectById } from '../folder-store.js';
 import { getSuiteById } from '../suite-store.js';
 import { signVideoUrl } from '../lib/storage-url.js';
+import { validateCodeEdit } from '../services/history-edit-service.js';
+import { addLog } from '../activity-log-store.js';
 
 export const historyRoutes = Router();
 
@@ -193,6 +195,60 @@ historyRoutes.patch('/:id/suite', authenticateJWT, requireApprovedUser, async (r
   } catch (err: unknown) {
     const error = err as Error;
     res.status(500).json({ success: false, error: error.message || 'Failed to update scenario suite' });
+  }
+});
+
+/**
+ * PATCH /api/v1/history/:id/code
+ * Edit a scenario's generated code in place so Run Suite uses the edited
+ * version without regenerating. Overwrites generated_code on the same record
+ * (no new history row) and resets status to GENERATED, since a prior run's
+ * result no longer reflects the changed script. Any framework may be edited;
+ * the code sanitizer runs on the same rules as the run path.
+ */
+historyRoutes.patch('/:id/code', authenticateJWT, requireApprovedUser, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const record = await getHistoryById(req.params.id || '');
+    if (!record) {
+      res.status(404).json({ success: false, error: 'History record not found' });
+      return;
+    }
+    if (record.userId !== userId && req.user!.role !== 'admin') {
+      res.status(403).json({ success: false, error: 'Unauthorized to modify this record' });
+      return;
+    }
+
+    const validation = validateCodeEdit(req.body?.code);
+    if (!validation.ok) {
+      // A sanitizer hit carries violations; an empty/blank edit does not.
+      if (validation.violations) {
+        await addLog({
+          userId: req.user!.id,
+          username: req.user!.username,
+          action: 'History Code Edit Blocked',
+          details: `Edit rejected: ${validation.violations.join('; ')}`
+        });
+        res.status(403).json({ success: false, error: validation.reason, violations: validation.violations });
+        return;
+      }
+      res.status(400).json({ success: false, error: validation.reason });
+      return;
+    }
+
+    const updated = await updateHistory(record.id, {
+      generatedCode: validation.code,
+      status: 'GENERATED'
+    });
+
+    if (!updated) {
+      res.status(500).json({ success: false, error: 'Failed to save edited code' });
+      return;
+    }
+    res.json({ success: true, message: 'Scenario code updated successfully', data: { id: updated.id, status: updated.status } });
+  } catch (err: unknown) {
+    const error = err as Error;
+    res.status(500).json({ success: false, error: error.message || 'Failed to save edited code' });
   }
 });
 
