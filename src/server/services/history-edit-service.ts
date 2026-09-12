@@ -59,3 +59,21 @@ export function validateCodeEdit(code: unknown): CodeEditValidation {
 
   return { ok: true, code: trimmed };
 }
+
+/**
+ * Decide a scenario's suite membership when it is moved via the /project
+ * (a.k.a. /folder) endpoint.
+ *
+ * Placing a scenario at the project level means it is NOT in any suite: the
+ * /project endpoint controls the project wrapper, the /suite endpoint controls
+ * suite membership. So moving to the project level always clears the suite,
+ * whether the destination project is a different one, the same one
+ * ("Unassigned in <project>"), or uncategorized (no project).
+ *
+ * Returns the suite_id to persist: always null here. (A dedicated helper keeps
+ * the intent explicit and unit-testable, and guards against the earlier bug
+ * where the suite was kept when the destination project was unchanged.)
+ */
+export function resolveSuiteOnProjectMove(): null {
+  return null;
+}

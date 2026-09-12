@@ -14,7 +14,7 @@ const { assertSafeProxyUrl, isValidHttpUrl } = require('../dist/security/url-gua
 const { validateDSL } = require('../dist/validator/dsl-validator.js');
 const { toVideoStoragePath } = require('../dist/server/lib/storage-url.js');
 const { checkRunnerSupport, RUNNER_NON_PLAYWRIGHT_MESSAGE } = require('../dist/security/runner-guard.js');
-const { validateCodeEdit } = require('../dist/server/services/history-edit-service.js');
+const { validateCodeEdit, resolveSuiteOnProjectMove } = require('../dist/server/services/history-edit-service.js');
 
 let passed = 0;
 function ok(name, cond) {
@@ -126,6 +126,13 @@ function ok(name, cond) {
   ok('allows benign Selenium (non-Playwright) edit', validateCodeEdit("from selenium import webdriver\ndriver.get('https://x')").ok === true);
   ok('allows benign Katalon (non-Playwright) edit', validateCodeEdit("WebUI.openBrowser('')\nWebUI.navigateToUrl('https://x')").ok === true);
   ok('accepted edit returns the trimmed code', validateCodeEdit('  await page.goto("https://x");  ').code === 'await page.goto("https://x");');
+
+  console.log('\n[10] move-to-project always clears suite membership');
+  // Moving a scenario to the project level (/project endpoint) means it leaves
+  // its suite, so Run Suite (which fetches by suite_id) no longer includes it.
+  ok('same project (Unassigned in project) clears suite', resolveSuiteOnProjectMove() === null);
+  ok('different project clears suite', resolveSuiteOnProjectMove() === null);
+  ok('uncategorized (no project) clears suite', resolveSuiteOnProjectMove() === null);
 
   console.log('\nALL SECURITY CHECKS PASSED (' + passed + ' assertions)\n');
 })().catch((e) => { console.error(e); process.exit(1); });

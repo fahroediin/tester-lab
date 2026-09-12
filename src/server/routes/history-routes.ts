@@ -5,7 +5,7 @@ import { getUserHistorySummaries, getHistoryById, deleteHistory, updateHistory }
 import { getProjectById } from '../folder-store.js';
 import { getSuiteById } from '../suite-store.js';
 import { signVideoUrl } from '../lib/storage-url.js';
-import { validateCodeEdit } from '../services/history-edit-service.js';
+import { validateCodeEdit, resolveSuiteOnProjectMove } from '../services/history-edit-service.js';
 import { addLog } from '../activity-log-store.js';
 
 export const historyRoutes = Router();
@@ -122,15 +122,15 @@ historyRoutes.patch(['/:id/folder', '/:id/project'], authenticateJWT, requireApp
       }
     }
 
-    // If moved to a different project or uncategorized, reset suiteId if current suite doesn't belong
-    let suiteId = record.suiteId;
-    if (suiteId && (!folderId || folderId !== record.folderId)) {
-      suiteId = null;
-    }
+    // Moving to the project level always leaves the suite: this endpoint owns
+    // the project wrapper, the /suite endpoint owns suite membership. Keeping
+    // the old suite when the destination project was unchanged is what made an
+    // "Unassigned in <same project>" scenario still run in that suite.
+    const suiteId = resolveSuiteOnProjectMove();
 
     const updated = await updateHistory(record.id, {
       folderId: folderId ?? null,
-      suiteId: suiteId ?? null
+      suiteId
     });
 
     if (!updated) {
