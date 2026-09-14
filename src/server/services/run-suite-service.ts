@@ -175,6 +175,26 @@ export function parseStepList(generatedCode: string | null | undefined, logs: st
   return steps;
 }
 
+/** A progress event streamed to the client while a suite runs (US-16). */
+export type ProgressEvent =
+  | { type: 'start'; total: number; scenarios: { id: string; name: string }[] }
+  | { type: 'scenario_start'; index: number; id: string; name: string }
+  | { type: 'scenario_done'; index: number; result: ScenarioResult };
+
+/**
+ * Build the "start" progress event from the ordered scenario list: how many
+ * will run and their names in execution order, so the client can render the
+ * whole checklist before anything executes (US-16, intent AC-16.01). Carries
+ * only id + name. Never throws.
+ */
+export function makeStartEvent(
+  scenarios: { id: string; testSuite: string }[] | null | undefined
+): { type: 'start'; total: number; scenarios: { id: string; name: string }[] } {
+  const list = Array.isArray(scenarios) ? scenarios : [];
+  const mapped = list.map((s) => ({ id: s.id, name: s.testSuite }));
+  return { type: 'start', total: mapped.length, scenarios: mapped };
+}
+
 /** One scenario's result within a suite run. */
 export interface ScenarioResult {
   id: string;
@@ -195,6 +215,71 @@ export interface RunSuiteResult {
   results: ScenarioResult[];
 }
 
+/** Minimal executor result shape needed to classify a scenario run. */
+export interface ScenarioExecResult {
+  success: boolean;
+  logs?: string | null;
+}
+
+/** How to actually run one scenario. Injected so the loop is testable. */
+export type ScenarioExecutor = (scenario: SuiteScenario) => Promise<ScenarioExecResult>;
+
+/**
+ * Run the given (already ordered) scenarios sequentially, emitting a progress
+ * event before and after each one (US-16, intent AC-16.01). The executor is
+ * injected so this orchestration can be tested without Supabase or Playwright.
+ *
+ * Classification is unchanged from the batch behavior (Model B):
+ * - No runnable code -> SKIPPED (AC-15.09/10), executor not called.
+ * - Unsupported runner -> SKIPPED with reason, executor not called.
+ * - Otherwise execute; SUCCESS/FAILED. Never stops early on failure (AC-15.06).
+ *
+ * `onProgress` is optional: non-streaming callers get identical results without
+ * providing one. Never throws for a single scenario failure — it is captured.
+ */
+export async function runScenariosWithProgress(
+  scenarios: SuiteScenario[],
+  execute: ScenarioExecutor,
+  onProgress?: (ev: ProgressEvent) => void
+): Promise<{ jobStatus: JobStatus; results: ScenarioResult[] }> {
+  const list = Array.isArray(scenarios) ? scenarios : [];
+  const results: ScenarioResult[] = [];
+
+  for (let i = 0; i < list.length; i++) {
+    const s = list[i] as SuiteScenario;
+    const index = i + 1; // 1-based position for the "X of N" display
+    if (onProgress) onProgress({ type: 'scenario_start', index, id: s.id, name: s.testSuite });
+
+    let result: ScenarioResult;
+    if (!s.generatedCode || !s.generatedCode.trim()) {
+      result = { id: s.id, name: s.testSuite, status: 'SKIPPED', reason: 'No script for this scenario' };
+    } else {
+      const guard = checkRunnerSupport({ framework: s.framework, language: s.language, code: s.generatedCode });
+      if (!guard.allowed) {
+        result = { id: s.id, name: s.testSuite, status: 'SKIPPED', reason: guard.reason };
+      } else {
+        try {
+          const exec = await execute(s);
+          result = {
+            id: s.id,
+            name: s.testSuite,
+            status: exec.success ? 'SUCCESS' : 'FAILED',
+            error: exec.success ? undefined : extractErrorSnippet(exec.logs),
+            steps: parseStepList(s.generatedCode, exec.logs)
+          };
+        } catch (err) {
+          result = { id: s.id, name: s.testSuite, status: 'FAILED', reason: err instanceof Error ? err.message : String(err) };
+        }
+      }
+    }
+
+    results.push(result);
+    if (onProgress) onProgress({ type: 'scenario_done', index, result });
+  }
+
+  return { jobStatus: computeJobStatus(results.map((r) => r.status)), results };
+}
+
 /**
  * Run every scenario in a suite sequentially in one batch (Model B).
  *
@@ -204,45 +289,36 @@ export interface RunSuiteResult {
  * - A scenario whose runner is unsupported on the server -> SKIPPED with reason.
  * - Otherwise execute; SUCCESS/FAILED. Never stops early on failure (AC-15.06).
  *
+ * Progress: pass `onProgress` to receive a `start` event plus per-scenario
+ * `scenario_start`/`scenario_done` events as the run advances (US-16). Callers
+ * that omit it get the same result with no streaming.
+ *
  * Persisting each result as a history record with the shared runBatchId is done
  * by the caller (route), which owns the history-store write shape.
  */
-export async function runSuiteForSuite(userId: string, suiteId: string): Promise<RunSuiteResult> {
+export async function runSuiteForSuite(
+  userId: string,
+  suiteId: string,
+  onProgress?: (ev: ProgressEvent) => void
+): Promise<RunSuiteResult> {
   const runBatchId = randomUUID();
   const raw = await getRunnableScenariosBySuite(userId, suiteId);
   // Honor the user-defined execution order (US-15); unordered scenarios trail.
   const orderMap = await getScenarioOrderMap(suiteId);
   const scenarios = orderScenariosByMap(dedupeLatestByName(raw), orderMap);
 
-  const results: ScenarioResult[] = [];
-  for (const s of scenarios) {
-    if (!s.generatedCode || !s.generatedCode.trim()) {
-      results.push({ id: s.id, name: s.testSuite, status: 'SKIPPED', reason: 'No script for this scenario' });
-      continue;
-    }
-    const guard = checkRunnerSupport({ framework: s.framework, language: s.language, code: s.generatedCode });
-    if (!guard.allowed) {
-      results.push({ id: s.id, name: s.testSuite, status: 'SKIPPED', reason: guard.reason });
-      continue;
-    }
-    try {
-      const exec = await executePlaywrightTest({
-        code: s.generatedCode,
-        mode: 'headless',
-        language: (s.language === 'javascript' ? 'javascript' : 'typescript'),
-        userId
-      });
-      results.push({
-        id: s.id,
-        name: s.testSuite,
-        status: exec.success ? 'SUCCESS' : 'FAILED',
-        error: exec.success ? undefined : extractErrorSnippet(exec.logs),
-        steps: parseStepList(s.generatedCode, exec.logs)
-      });
-    } catch (err) {
-      results.push({ id: s.id, name: s.testSuite, status: 'FAILED', reason: err instanceof Error ? err.message : String(err) });
-    }
-  }
+  if (onProgress) onProgress(makeStartEvent(scenarios));
 
-  return { runBatchId, jobStatus: computeJobStatus(results.map((r) => r.status)), results };
+  const { jobStatus, results } = await runScenariosWithProgress(
+    scenarios,
+    (s) => executePlaywrightTest({
+      code: s.generatedCode,
+      mode: 'headless',
+      language: (s.language === 'javascript' ? 'javascript' : 'typescript'),
+      userId
+    }),
+    onProgress
+  );
+
+  return { runBatchId, jobStatus, results };
 }

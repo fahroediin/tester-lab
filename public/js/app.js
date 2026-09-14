@@ -3392,8 +3392,10 @@
       }
     };
 
-    // Run every scenario in a suite sequentially (Run Suite, POC). Sets the
-    // button to a loading state while running, then shows a summary modal.
+    // Run every scenario in a suite sequentially (Run Suite, POC). Streams
+    // per-scenario progress (US-16) as newline-delimited JSON so a large suite
+    // shows which scenario is running instead of a frozen "Running...", then
+    // shows the same summary modal on completion.
     window.runSuitePrompt = async function(suiteId, suiteName, event) {
       if (event) event.stopPropagation();
 
@@ -3407,21 +3409,79 @@
         if (label) label.textContent = 'Running...';
       }
 
+      let progressOpen = false;
       try {
         const res = await fetch('/api/v1/suites/' + suiteId + '/run', {
           method: 'POST',
           headers: getAuthHeaders()
         });
-        const data = await res.json();
-        if (!res.ok || !data.success) {
-          showSnackbar({ type: 'error', title: 'Run Suite Failed', message: data.error || 'Could not run this suite.' });
+
+        // A guard rejection (empty suite, 403, etc.) is plain JSON, not a stream.
+        const contentType = res.headers.get('content-type') || '';
+        if (!res.ok || contentType.indexOf('application/x-ndjson') === -1) {
+          let msg = 'Could not run this suite.';
+          try { const data = await res.json(); msg = data.error || msg; } catch (e) {}
+          showSnackbar({ type: 'error', title: 'Run Suite Failed', message: msg });
           return;
         }
-        showRunSuiteResult(suiteName, data);
+
+        // Read the NDJSON stream line by line.
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let finalData = null;
+        let streamError = null;
+        let total = 0;
+
+        const handleEvent = function (ev) {
+          if (!ev || !ev.type) return;
+          if (ev.type === 'start') {
+            total = ev.total;
+            openSuiteProgress(suiteName, ev);
+            progressOpen = true;
+          } else if (ev.type === 'scenario_start') {
+            markScenarioRunning(ev.index, ev.name, total);
+          } else if (ev.type === 'scenario_done') {
+            markScenarioResult(ev.index, ev.result);
+          } else if (ev.type === 'done') {
+            finalData = ev;
+          } else if (ev.type === 'error') {
+            streamError = ev.error || 'Run failed mid-stream.';
+          }
+        };
+
+        for (;;) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          let nl;
+          while ((nl = buffer.indexOf('\n')) !== -1) {
+            const line = buffer.slice(0, nl).trim();
+            buffer = buffer.slice(nl + 1);
+            if (!line) continue;
+            let ev;
+            try { ev = JSON.parse(line); } catch (e) { continue; }
+            handleEvent(ev);
+          }
+        }
+
+        if (streamError) {
+          showSnackbar({ type: 'error', title: 'Run Suite Failed', message: streamError });
+          if (Swal.isVisible()) Swal.close();
+          return;
+        }
+
+        if (finalData) {
+          showRunSuiteResult(suiteName, finalData); // reuses the existing summary modal
+        } else {
+          if (Swal.isVisible()) Swal.close();
+          showSnackbar({ type: 'error', title: 'Run Suite', message: 'The run ended without a final result.' });
+        }
         // Statuses may have changed; refresh the history view.
         try { await loadAllProjectSuites(); renderFolderTree(); renderHistoryTable(); } catch (e) {}
       } catch (err) {
-        showSnackbar({ type: 'error', title: 'Network Error', message: 'Could not reach the server to run this suite.' });
+        if (progressOpen && Swal.isVisible()) Swal.close();
+        showSnackbar({ type: 'error', title: 'Network Error', message: 'Connection to the server was lost while running this suite.' });
       } finally {
         const b = document.querySelector('.btn-suite-run[data-suite-id="' + suiteId + '"]');
         if (b) {
@@ -3432,6 +3492,64 @@
         }
       }
     };
+
+    // Open the live progress modal listing every scenario in execution order,
+    // each starting as "waiting" (US-16). Rows are updated in place as events
+    // arrive; the whole thing is replaced by the summary modal on completion.
+    function openSuiteProgress(suiteName, startEvent) {
+      const scenarios = Array.isArray(startEvent.scenarios) ? startEvent.scenarios : [];
+      const total = startEvent.total || scenarios.length;
+
+      const rows = scenarios.map(function (s, i) {
+        const idx = i + 1;
+        return '<div id="suiteProgRow-' + idx + '" style="display:flex; align-items:center; gap:10px; padding:8px 0;' +
+            (i === scenarios.length - 1 ? '' : ' border-bottom:1px solid var(--hairline);') + '">' +
+            '<span id="suiteProgIcon-' + idx + '" style="width:16px; text-align:center; font-size:14px; color:var(--slate);">&#8226;</span>' +
+            '<span style="flex:1; font-size:14px; color:var(--ink);">' + escapeHtml(s.name || ('Scenario ' + idx)) + '</span>' +
+            '<span id="suiteProgStatus-' + idx + '" style="font-size:11px; font-weight:600; color:var(--slate);">menunggu</span>' +
+          '</div>';
+      }).join('');
+
+      const html =
+        '<div style="text-align:left;">' +
+          '<div id="suiteProgHead" style="font-size:12px; color:var(--slate); margin-bottom:8px;">Menyiapkan ' + total + ' scenario...</div>' +
+          '<div>' + rows + '</div>' +
+        '</div>';
+
+      Swal.fire({
+        title: 'Run Suite: ' + escapeHtml(suiteName),
+        html: html,
+        width: 480,
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false
+      });
+    }
+
+    // Mark a scenario as currently running and update the "X dari N" header.
+    function markScenarioRunning(index, name, total) {
+      const icon = document.getElementById('suiteProgIcon-' + index);
+      const status = document.getElementById('suiteProgStatus-' + index);
+      const head = document.getElementById('suiteProgHead');
+      if (icon) { icon.innerHTML = '&#8635;'; icon.style.color = 'var(--action-blue)'; }
+      if (status) { status.textContent = 'berjalan...'; status.style.color = 'var(--action-blue)'; }
+      if (head && total) head.textContent = 'Menjalankan ' + index + ' dari ' + total + ': ' + (name || '');
+    }
+
+    // Fill in a scenario's final status once it completes.
+    function markScenarioResult(index, result) {
+      if (!result) return;
+      const icon = document.getElementById('suiteProgIcon-' + index);
+      const status = document.getElementById('suiteProgStatus-' + index);
+      const map = {
+        SUCCESS: { icon: '&#10003;', color: 'var(--deep-green)' },
+        FAILED:  { icon: '&#10007;', color: 'var(--coral)' },
+        SKIPPED: { icon: '&#8211;',  color: 'var(--slate)' }
+      };
+      const m = map[result.status] || map.SKIPPED;
+      if (icon) { icon.innerHTML = m.icon; icon.style.color = m.color; }
+      if (status) { status.textContent = result.status; status.style.color = m.color; }
+    }
 
     // Render the Run Suite summary modal: job status + per-scenario status.
     function showRunSuiteResult(suiteName, data) {

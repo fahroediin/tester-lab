@@ -132,12 +132,34 @@ suiteRoutes.post('/:suiteId/run', authenticateJWT, requireApprovedUser, async (r
       return;
     }
 
-    const result = await runSuiteForSuite(userId, suiteId);
+    // Stream progress as newline-delimited JSON (US-16): one JSON object per
+    // line, flushed as the run advances so the client sees which scenario is
+    // running instead of a frozen "Running..." for large suites. The final
+    // "done" line carries the same payload the non-streaming response used, so
+    // history persistence and the summary modal are unchanged.
+    res.status(200);
+    res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('X-Accel-Buffering', 'no'); // disable proxy buffering so lines arrive live
+
+    const write = (obj: unknown) => res.write(JSON.stringify(obj) + '\n');
+
+    const result = await runSuiteForSuite(userId, suiteId, (ev) => write(ev));
+
+    write({ type: 'done', success: true, ...result });
+    res.end();
+
     await addLog({ userId, username: req.user!.username, action: 'run_suite', details: `suite=${suiteId} status=${result.jobStatus}` });
-    res.json({ success: true, ...result });
   } catch (err: unknown) {
     const error = err as Error;
-    res.status(500).json({ success: false, error: error.message || 'Failed to run suite' });
+    // If the stream is already open, headers are sent — report the error inside
+    // the stream and close it; otherwise fall back to a normal JSON error.
+    if (res.headersSent) {
+      try { res.write(JSON.stringify({ type: 'error', success: false, error: error.message || 'Failed to run suite' }) + '\n'); } catch { /* ignore */ }
+      res.end();
+    } else {
+      res.status(500).json({ success: false, error: error.message || 'Failed to run suite' });
+    }
   }
 });
 

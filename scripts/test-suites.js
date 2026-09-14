@@ -192,5 +192,59 @@ function ok(name, cond) {
   ok('setScenarioOrder is exported', typeof suiteStore.setScenarioOrder === 'function');
   ok('getScenarioOrderMap is exported', typeof suiteStore.getScenarioOrderMap === 'function');
 
+  console.log('\n[8] Run Suite — progress streaming (US-16, intent AC-16.01)');
+  // makeStartEvent: bentuk payload "start" dari daftar scenario terurut.
+  ok('makeStartEvent is exported', typeof runSuite.makeStartEvent === 'function');
+  {
+    const mk = runSuite.makeStartEvent;
+    const scn = [
+      { id: 'a', testSuite: 'Login' },
+      { id: 'b', testSuite: 'Checkout' },
+      { id: 'c', testSuite: 'Logout' }
+    ];
+    const ev = mk(scn);
+    ok('start event type is "start"', ev.type === 'start');
+    ok('start event total = jumlah scenario', ev.total === 3);
+    ok('start event scenarios preserve order', ev.scenarios.map((s) => s.name).join(',') === 'Login,Checkout,Logout');
+    ok('start event carries id + name only', ev.scenarios[0].id === 'a' && ev.scenarios[0].name === 'Login' && Object.keys(ev.scenarios[0]).sort().join(',') === 'id,name');
+    ok('empty list -> total 0, empty scenarios (no throw)', (() => { const e = mk([]); return e.total === 0 && e.scenarios.length === 0; })());
+    ok('null arg -> total 0 (no throw)', (() => { const e = mk(null); return e.total === 0 && e.scenarios.length === 0; })());
+  }
+
+  // runScenariosWithProgress: jalankan loop scenario dengan executor yang
+  // di-inject (tanpa Supabase/Playwright), memancarkan progress per scenario.
+  ok('runScenariosWithProgress is exported', typeof runSuite.runScenariosWithProgress === 'function');
+  {
+    const runWith = runSuite.runScenariosWithProgress;
+    const scn = [
+      { id: 'a', testSuite: 'Login', generatedCode: 'code-a', language: 'typescript', framework: 'playwright' },
+      { id: 'b', testSuite: 'Checkout', generatedCode: '', language: 'typescript', framework: 'playwright' },
+      { id: 'c', testSuite: 'Logout', generatedCode: 'code-c', language: 'typescript', framework: 'playwright' }
+    ];
+    // Fake executor: Login pass, Logout fail. Checkout has no code -> SKIPPED (never executed).
+    const fakeExec = async (s) => (s.testSuite === 'Login'
+      ? { success: true, logs: 'ok' }
+      : { success: false, logs: 'Error: boom' });
+    const events = [];
+    const out = await runWith(scn, fakeExec, (ev) => events.push(ev));
+
+    const starts = events.filter((e) => e.type === 'scenario_start');
+    const dones = events.filter((e) => e.type === 'scenario_done');
+    ok('emits one scenario_start per scenario', starts.length === 3);
+    ok('emits one scenario_done per scenario', dones.length === 3);
+    ok('scenario_start index is 1-based in order', starts.map((e) => e.index).join(',') === '1,2,3');
+    ok('scenario_start carries the scenario name', starts.map((e) => e.name).join(',') === 'Login,Checkout,Logout');
+    ok('start precedes done for the same index', events.findIndex((e) => e.type === 'scenario_start' && e.index === 2) < events.findIndex((e) => e.type === 'scenario_done' && e.index === 2));
+    ok('done result reflects executor: Login SUCCESS', dones.find((e) => e.index === 1).result.status === 'SUCCESS');
+    ok('no code -> SKIPPED without executing (Checkout)', dones.find((e) => e.index === 2).result.status === 'SKIPPED');
+    ok('failing executor -> FAILED (Logout)', dones.find((e) => e.index === 3).result.status === 'FAILED');
+    // Return value matches the batch shape used by the existing modal/history.
+    ok('returns results array of length 3', Array.isArray(out.results) && out.results.length === 3);
+    ok('returns computed jobStatus PARTIAL (mix pass/fail)', out.jobStatus === 'PARTIAL');
+    // Omitting onProgress must not throw (non-streaming callers).
+    const out2 = await runWith(scn, fakeExec);
+    ok('works without onProgress callback (no throw)', out2.results.length === 3);
+  }
+
   console.log(`\nALL PROJECT & SUITE VERIFICATIONS PASSED (${passed} assertions)\n`);
 })();
