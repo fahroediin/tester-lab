@@ -3664,11 +3664,14 @@
           let stepsBlock = '';
           if (Array.isArray(r.steps) && r.steps.length > 0) {
             const stepRows = r.steps.map(function (st) {
-              const okIcon = st.status === 'OK'
+              // 3-state: OK (done), FAILED (started but threw), PENDING (not reached).
+              var stepIcon = st.status === 'OK'
                 ? '<span style="color:var(--deep-green);">&#10003;</span>'
-                : '<span style="color:var(--slate);">&#8226;</span>';
+                : (st.status === 'FAILED'
+                    ? '<span style="color:var(--coral);">&#10007;</span>'
+                    : '<span style="color:var(--slate);">&#8226;</span>');
               return '<div style="display:flex; gap:8px; padding:3px 0; font-size:11.5px;">' +
-                '<span style="width:14px; text-align:center;">' + okIcon + '</span>' +
+                '<span style="width:14px; text-align:center;">' + stepIcon + '</span>' +
                 '<span style="color:var(--slate); min-width:44px;">Step ' + st.step + '</span>' +
                 '<span style="color:var(--ink); flex:1;">' + escapeHtml(st.description || '') + '</span>' +
                 '</div>';

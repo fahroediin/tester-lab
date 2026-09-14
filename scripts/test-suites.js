@@ -246,6 +246,43 @@ function ok(name, cond) {
     ok('works without onProgress callback (no throw)', out2.results.length === 3);
   }
 
+  console.log('\n[8a] parseStepList — 3-state via __STEP_DONE__ (failed step not marked OK)');
+  {
+    const psl = runSuite.parseStepList;
+    const code = [
+      "console.log('__STEP_START__ 1');",
+      "// Step 1: isi username",
+      "console.log('__STEP_DONE__ 1');",
+      "console.log('__STEP_START__ 2');",
+      "// Step 2: cari baris",
+      "console.log('__STEP_DONE__ 2');",
+      "console.log('__STEP_START__ 3');",
+      "// Step 3: klik selesai",
+      "console.log('__STEP_DONE__ 3');"
+    ].join('\n');
+    // Run reached step 3 START, but step 3 failed (no DONE 3). Steps 1,2 done.
+    const log = '__STEP_START__ 1\n__STEP_DONE__ 1\n__STEP_START__ 2\n__STEP_DONE__ 2\n__STEP_START__ 3\nError: boom';
+    const out = psl(code, log);
+    const byN = Object.fromEntries(out.map((s) => [s.step, s.status]));
+    ok('step 1 START+DONE -> OK', byN[1] === 'OK');
+    ok('step 2 START+DONE -> OK', byN[2] === 'OK');
+    ok('step 3 START without DONE -> FAILED (not OK)', byN[3] === 'FAILED');
+    // A step never reached stays PENDING.
+    const log2 = '__STEP_START__ 1\n__STEP_DONE__ 1\nError: died early';
+    const out2 = psl(code, log2);
+    const byN2 = Object.fromEntries(out2.map((s) => [s.step, s.status]));
+    ok('step 1 done -> OK', byN2[1] === 'OK');
+    ok('step 2 START missing -> FAILED only if started; here PENDING', byN2[2] === 'PENDING');
+    ok('step 3 never reached -> PENDING', byN2[3] === 'PENDING');
+    // Backward-compat: old logs without any DONE marker (legacy scenarios) must
+    // not regress to all-FAILED; when NO __STEP_DONE__ exists at all, fall back
+    // to START-means-OK so pre-fix generated code still reads sensibly.
+    const legacyLog = '__STEP_START__ 1\n__STEP_START__ 2\n__STEP_START__ 3\nError: boom';
+    const legacyOut = psl(code, legacyLog);
+    const legacyByN = Object.fromEntries(legacyOut.map((s) => [s.step, s.status]));
+    ok('legacy log (no DONE at all) -> START means OK', legacyByN[1] === 'OK' && legacyByN[3] === 'OK');
+  }
+
   console.log('\n[8b] Run Suite — resolveSlowMo (headless suite gets a pacing buffer)');
   ok('resolveSlowMo is exported', typeof runSuite.resolveSlowMo === 'function' || typeof require('../dist/server/services/test-runner-service.js').resolveSlowMo === 'function');
   {

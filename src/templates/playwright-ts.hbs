@@ -284,5 +284,6 @@ test('{{jsLit testSuite}}', async ({ page }) => {
   await page.waitForTimeout({{selectorValue}});
   {{/if}}
 
+  console.log('__STEP_DONE__ {{step}}');
   {{/each}}
 });

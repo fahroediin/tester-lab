@@ -145,20 +145,32 @@ export function moveItem<T>(items: T[], fromIndex: number, toIndex: number): T[]
 export interface StepDetail {
   step: number;
   description: string;
-  status: 'OK' | 'PENDING';
+  status: 'OK' | 'FAILED' | 'PENDING';
 }
 
 /**
  * Build a step-by-step list from a scenario's generated code and its run log.
- * Descriptions come from the "// Step N: ..." comments in the code; a step is
- * marked OK when the log contains its "__STEP_START__ N" marker (reached during
- * execution), else PENDING. For a passed scenario every step is reached -> OK.
+ * Descriptions come from the "// Step N: ..." comments in the code. A step's
+ * status is decided from two markers the generated code emits:
+ * - "__STEP_START__ N" printed BEFORE the step's action, and
+ * - "__STEP_DONE__ N"  printed AFTER the action succeeds.
+ * So: START + DONE -> OK; START without DONE -> FAILED (the step that threw);
+ * neither -> PENDING (never reached). This is what stops a failed step from
+ * showing as OK just because its START marker was already printed.
+ *
+ * Backward compatibility: scenarios generated before __STEP_DONE__ existed
+ * have only START markers. When the log contains NO __STEP_DONE__ at all, fall
+ * back to the old rule (START means OK) so those runs still read sensibly.
  * Pure; never throws.
  */
 export function parseStepList(generatedCode: string | null | undefined, logs: string | null | undefined): StepDetail[] {
   if (!generatedCode || typeof generatedCode !== 'string') return [];
   const code = generatedCode;
   const log = typeof logs === 'string' ? logs : '';
+
+  // Legacy logs (pre-__STEP_DONE__) can't distinguish OK from FAILED; keep the
+  // old behavior for them rather than marking every started step as failed.
+  const hasDoneMarkers = /__STEP_DONE__\s+\d+\b/.test(log);
 
   const steps: StepDetail[] = [];
   const seen = new Set<number>();
@@ -168,8 +180,18 @@ export function parseStepList(generatedCode: string | null | undefined, logs: st
     const n = parseInt(m[1] ?? '', 10);
     if (Number.isNaN(n) || seen.has(n)) continue;
     seen.add(n);
-    const reached = new RegExp('__STEP_START__\\s+' + n + '\\b').test(log);
-    steps.push({ step: n, description: (m[2] ?? '').trim(), status: reached ? 'OK' : 'PENDING' });
+    const started = new RegExp('__STEP_START__\\s+' + n + '\\b').test(log);
+    const done = new RegExp('__STEP_DONE__\\s+' + n + '\\b').test(log);
+
+    let status: StepDetail['status'];
+    if (!started) {
+      status = 'PENDING';
+    } else if (hasDoneMarkers) {
+      status = done ? 'OK' : 'FAILED';
+    } else {
+      status = 'OK'; // legacy: start-only log, best we can say
+    }
+    steps.push({ step: n, description: (m[2] ?? '').trim(), status });
   }
   steps.sort((a, b) => a.step - b.step);
   return steps;
