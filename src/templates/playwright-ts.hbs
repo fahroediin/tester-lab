@@ -92,9 +92,20 @@ test('{{jsLit testSuite}}', async ({ page }) => {
         getByPlaceholder: (text: RegExp | string) => byRole.or(byFilter).first().getByPlaceholder(text),
         getByLabel: (text: RegExp | string) => byRole.or(byFilter).first().getByLabel(text),
         async assertResolvable() {
-          const count = await byRole.or(byFilter).count();
+          // Poll for the row: content loaded async after navigation (e.g. an
+          // order list fetched right after login) may not be rendered yet on
+          // the first tick. A single count() then races that load and reports a
+          // false "not found". Wait until exactly one row appears, or until the
+          // window elapses, then give the honest verdict (AC-36.04/05).
+          let count = 0;
+          for (let i = 0; i < 20; i++) {
+            count = await byRole.or(byFilter).count();
+            if (count === 1) return;      // resolved to a single row
+            if (count > 1) break;         // ambiguous now; more time won't help
+            await page.waitForTimeout(300); // count === 0: give async data time to render
+          }
           if (count === 0) throw new Error(`No row containing "${marker}" was found on the page.`);
-          if (count > 1) throw new Error(`Scope marker "${marker}" matched more than one row. Use a unique value such as an ID so the step targets exactly one row.`);
+          throw new Error(`Scope marker "${marker}" matched more than one row. Use a unique value such as an ID so the step targets exactly one row.`);
         }
       } as unknown as Locator;
     }

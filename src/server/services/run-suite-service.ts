@@ -320,7 +320,11 @@ export async function runSuiteForSuite(
       code: s.generatedCode,
       mode: 'headless',
       language: (s.language === 'javascript' ? 'javascript' : 'typescript'),
-      userId
+      userId,
+      // Headless suite runs get no headed slowMo buffer, which exposes async
+      // load races between steps (a scenario that passes in the Scenario
+      // Builder then fails here). A small per-action pace restores parity.
+      slowMoMs: 300
     }),
     onProgress
   );

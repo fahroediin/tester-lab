@@ -14,6 +14,26 @@ export interface ExecuteTestOptions {
   mode?: 'headless' | 'headed';
   language?: 'typescript' | 'javascript';
   userId: string;
+  /**
+   * Per-action pacing in ms. When set, overrides the mode-derived default.
+   * Run Suite runs headless (no slowMo by default), which removes the timing
+   * buffer that headed runs get and exposes async-load races between steps;
+   * passing a small slowMo restores parity with the Scenario Builder.
+   */
+  slowMoMs?: number;
+}
+
+/**
+ * Decide the Playwright slowMo (ms) for a run. An explicit, valid slowMoMs
+ * wins; otherwise fall back to the legacy mode-derived value (headed 1000,
+ * else 0). Negative or non-numeric slowMoMs is ignored. Pure; never throws.
+ */
+export function resolveSlowMo(opts: { mode?: string; slowMoMs?: unknown }): number {
+  const raw = opts ? opts.slowMoMs : undefined;
+  if (typeof raw === 'number' && Number.isFinite(raw)) {
+    return raw < 0 ? 0 : raw;
+  }
+  return opts && opts.mode === 'headed' ? 1000 : 0;
 }
 
 export interface ExecuteTestResult {
@@ -43,6 +63,7 @@ export async function executePlaywrightTest(options: ExecuteTestOptions): Promis
   const configFilePath = path.join(tempDir, 'playwright.config.ts');
 
   const isHeaded = mode === 'headed';
+  const slowMo = resolveSlowMo(options);
   const manualTimeout = process.env.PLAYWRIGHT_TIMEOUT ? parseInt(process.env.PLAYWRIGHT_TIMEOUT, 10) : 120000;
 
   const playwrightConfig = `
@@ -56,7 +77,7 @@ export default defineConfig({
     video: 'on',
     screenshot: 'only-on-failure',
     launchOptions: {
-      slowMo: ${isHeaded ? 1000 : 0}
+      slowMo: ${slowMo}
     },
     viewport: { width: 1280, height: 720 },
   },

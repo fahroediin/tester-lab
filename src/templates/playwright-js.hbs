@@ -15,9 +15,19 @@ test('{{jsLit testSuite}}', async ({ page }) => {
     const byFilter = page.locator('tr, li, [role="row"]').filter({ hasText: marker });
     const base = byRole.or(byFilter).first();
     base.assertResolvable = async () => {
-      const count = await byRole.or(byFilter).count();
+      // Poll for the row: content loaded async after navigation may not be
+      // rendered on the first tick. A single count() races that load and
+      // reports a false "not found". Wait for a single row, or until the
+      // window elapses, then give the honest verdict (AC-36.04/05).
+      let count = 0;
+      for (let i = 0; i < 20; i++) {
+        count = await byRole.or(byFilter).count();
+        if (count === 1) return;
+        if (count > 1) break;
+        await page.waitForTimeout(300);
+      }
       if (count === 0) throw new Error(`No row containing "${marker}" was found on the page.`);
-      if (count > 1) throw new Error(`Scope marker "${marker}" matched more than one row. Use a unique value such as an ID so the step targets exactly one row.`);
+      throw new Error(`Scope marker "${marker}" matched more than one row. Use a unique value such as an ID so the step targets exactly one row.`);
     };
     return base;
   }

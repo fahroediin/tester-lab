@@ -246,6 +246,42 @@ function ok(name, cond) {
     ok('works without onProgress callback (no throw)', out2.results.length === 3);
   }
 
+  console.log('\n[8b] Run Suite — resolveSlowMo (headless suite gets a pacing buffer)');
+  ok('resolveSlowMo is exported', typeof runSuite.resolveSlowMo === 'function' || typeof require('../dist/server/services/test-runner-service.js').resolveSlowMo === 'function');
+  {
+    const runner = require('../dist/server/services/test-runner-service.js');
+    const resolve = runner.resolveSlowMo;
+    ok('resolveSlowMo exported from runner', typeof resolve === 'function');
+    // Explicit slowMoMs wins.
+    ok('explicit slowMoMs is honored', resolve({ mode: 'headless', slowMoMs: 400 }) === 400);
+    ok('explicit slowMoMs honored even when headed', resolve({ mode: 'headed', slowMoMs: 250 }) === 250);
+    // Fallback preserves the old behavior when slowMoMs is absent.
+    ok('headed without slowMoMs -> 1000 (legacy)', resolve({ mode: 'headed' }) === 1000);
+    ok('headless without slowMoMs -> 0 (legacy)', resolve({ mode: 'headless' }) === 0);
+    ok('default mode without slowMoMs -> 0', resolve({}) === 0);
+    // Guard against nonsense.
+    ok('negative slowMoMs clamped to 0', resolve({ slowMoMs: -50 }) === 0);
+    ok('non-number slowMoMs ignored -> legacy', resolve({ mode: 'headed', slowMoMs: 'x' }) === 1000);
+  }
+
+  console.log('\n[8c] scopedRow.assertResolvable polls for async-rendered rows');
+  {
+    const fs = require('fs');
+    const tsTpl = fs.readFileSync(require('path').join(process.cwd(), 'dist', 'templates', 'playwright-ts.hbs'), 'utf-8');
+    const jsTpl = fs.readFileSync(require('path').join(process.cwd(), 'dist', 'templates', 'playwright-js.hbs'), 'utf-8');
+    // The resolvable check must retry (poll) rather than count once, so a row
+    // that renders shortly after navigation is not reported as not-found.
+    const tsBlock = tsTpl.slice(tsTpl.indexOf('assertResolvable'), tsTpl.indexOf('assertResolvable') + 1400);
+    const jsBlock = jsTpl.slice(jsTpl.indexOf('assertResolvable'), jsTpl.indexOf('assertResolvable') + 1400);
+    ok('TS assertResolvable polls (has a loop)', /for\s*\(/.test(tsBlock) && /waitForTimeout/.test(tsBlock));
+    ok('JS assertResolvable polls (has a loop)', /for\s*\(/.test(jsBlock) && /waitForTimeout/.test(jsBlock));
+    // Still reports not-found and not-unique after polling (AC-36.04/05).
+    ok('TS keeps not-found message', tsBlock.includes('No row containing'));
+    ok('TS keeps not-unique message', tsBlock.includes('matched more than one row'));
+    ok('JS keeps not-found message', jsBlock.includes('No row containing'));
+    ok('JS keeps not-unique message', jsBlock.includes('matched more than one row'));
+  }
+
   console.log('\n[9] Run evidence — findScreenshotFile (snapshot on-failure, intent AC-19.03)');
   const sanitized = require('../dist/security/sanitized-env.js');
   ok('findScreenshotFile is exported', typeof sanitized.findScreenshotFile === 'function');
