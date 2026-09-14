@@ -55,3 +55,22 @@ export function findVideoFile(dir: string): string | null {
   }
   return null;
 }
+
+/**
+ * Helper to recursively search for a generated .png screenshot file (Playwright
+ * writes one on failure into the run's results dir). Mirrors findVideoFile.
+ */
+export function findScreenshotFile(dir: string): string | null {
+  if (!fs.existsSync(dir)) return null;
+  const files = fs.readdirSync(dir);
+  for (const file of files) {
+    const fullPath = path.join(dir, file);
+    if (fs.statSync(fullPath).isDirectory()) {
+      const res = findScreenshotFile(fullPath);
+      if (res) return res;
+    } else if (file.endsWith('.png')) {
+      return fullPath;
+    }
+  }
+  return null;
+}

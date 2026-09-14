@@ -246,5 +246,49 @@ function ok(name, cond) {
     ok('works without onProgress callback (no throw)', out2.results.length === 3);
   }
 
+  console.log('\n[9] Run evidence — findScreenshotFile (snapshot on-failure, intent AC-19.03)');
+  const sanitized = require('../dist/security/sanitized-env.js');
+  ok('findScreenshotFile is exported', typeof sanitized.findScreenshotFile === 'function');
+  {
+    const fs = require('fs');
+    const os = require('os');
+    const path = require('path');
+    const findPng = sanitized.findScreenshotFile;
+    const base = fs.mkdtempSync(path.join(os.tmpdir(), 'tl-shot-test-'));
+    try {
+      // Nested results dir with a video and a screenshot, like Playwright output.
+      const nested = path.join(base, 'results', 'manual_run-chromium');
+      fs.mkdirSync(nested, { recursive: true });
+      fs.writeFileSync(path.join(nested, 'video.webm'), 'x');
+      fs.writeFileSync(path.join(nested, 'trace.zip'), 'x');
+      const shot = path.join(nested, 'test-failed-1.png');
+      fs.writeFileSync(shot, 'x');
+      ok('finds the .png recursively', findPng(base) === shot);
+      ok('ignores non-png files', !findPng(base).endsWith('.webm') && !findPng(base).endsWith('.zip'));
+
+      const empty = path.join(base, 'no-shot');
+      fs.mkdirSync(empty, { recursive: true });
+      fs.writeFileSync(path.join(empty, 'only-video.webm'), 'x');
+      ok('no png -> null', findPng(empty) === null);
+      ok('missing dir -> null (no throw)', findPng(path.join(base, 'does-not-exist')) === null);
+    } finally {
+      fs.rmSync(base, { recursive: true, force: true });
+    }
+  }
+
+  // ScenarioResult carries a screenshotUrl for a FAILED scenario (from executor).
+  {
+    const runWith = runSuite.runScenariosWithProgress;
+    const scn = [
+      { id: 'x', testSuite: 'Payflow', generatedCode: 'code-x', language: 'typescript', framework: 'playwright' }
+    ];
+    const failExec = async () => ({ success: false, logs: 'Error: nope', screenshotUrl: 'https://signed/shot.png' });
+    const out = await runWith(scn, failExec);
+    ok('FAILED result carries screenshotUrl from executor', out.results[0].screenshotUrl === 'https://signed/shot.png');
+    const passExec = async () => ({ success: true, logs: 'ok' });
+    const out2 = await runWith(scn, passExec);
+    ok('SUCCESS result has no screenshotUrl', out2.results[0].screenshotUrl === undefined);
+  }
+
   console.log(`\nALL PROJECT & SUITE VERIFICATIONS PASSED (${passed} assertions)\n`);
 })();

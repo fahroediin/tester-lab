@@ -2248,6 +2248,8 @@
       const videoPlayer = document.getElementById('videoPlayer');
       if (videoContainer) videoContainer.style.display = 'none';
       if (videoPlayer) videoPlayer.src = '';
+      // Clear any previous failure snapshot too.
+      showRunSnapshot(null);
 
       // When running a scenario loaded from Flow History, treat it as repeated
       // work: ask the backend to save a NEW history record instead of
@@ -2302,6 +2304,10 @@
           terminalOutput.style.color = '#f87171';
           terminalOutput.textContent = `[FAIL] Test Execution Failed (${data.durationMs}ms)\n\n${data.logs || data.error}`;
         }
+
+        // Failure snapshot (intent AC-19.03): show a clickable thumbnail below
+        // the terminal when the runner captured one.
+        showRunSnapshot(data.screenshotUrl);
 
         if (data.videoUrl) {
           const videoContainer = document.getElementById('videoContainer');
@@ -3551,6 +3557,43 @@
       if (status) { status.textContent = result.status; status.style.color = m.color; }
     }
 
+    // Show (or hide) the single-run failure snapshot below the CLI terminal.
+    // Creates its container lazily and reuses it across runs.
+    function showRunSnapshot(url) {
+      let card = document.getElementById('runSnapshotCard');
+      if (!url) { if (card) card.style.display = 'none'; return; }
+      if (!card) {
+        card = document.createElement('div');
+        card.id = 'runSnapshotCard';
+        card.style.cssText = 'margin-top:12px;';
+        card.innerHTML =
+          '<div style="font-size:12px; color:var(--slate); margin-bottom:6px;">Snapshot saat gagal</div>' +
+          '<img id="runSnapshotImg" alt="Snapshot kegagalan" ' +
+            'style="max-width:100%; border:1px solid var(--hairline); border-radius:8px; cursor:zoom-in; display:block;" />';
+        const anchor = document.getElementById('videoContainer') || document.getElementById('cliTerminalCard');
+        if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(card, anchor.nextSibling);
+        else document.body.appendChild(card);
+        card.querySelector('#runSnapshotImg').addEventListener('click', function () {
+          openSnapshotLightbox(this.src);
+        });
+      }
+      card.querySelector('#runSnapshotImg').src = url;
+      card.style.display = 'block';
+    }
+
+    // Open a failure snapshot full-size in a lightbox (intent AC-19.01).
+    window.openSnapshotLightbox = function(src) {
+      if (!src) return;
+      Swal.fire({
+        imageUrl: src,
+        imageAlt: 'Snapshot kegagalan',
+        showConfirmButton: false,
+        showCloseButton: true,
+        width: 'auto',
+        background: 'var(--surface-1)'
+      });
+    };
+
     // Render the Run Suite summary modal: job status + per-scenario status.
     function showRunSuiteResult(suiteName, data) {
       const jobStatus = data.jobStatus || 'SKIPPED';
@@ -3587,6 +3630,15 @@
                 '<pre style="margin:6px 0 0; padding:8px 10px; background:var(--surface-2); border:1px solid var(--hairline); border-radius:6px; font-family:var(--font-mono); font-size:11px; line-height:1.5; color:var(--ink); white-space:pre-wrap; word-break:break-word; max-height:180px; overflow:auto;">' + escapeHtml(r.error) + '</pre>' +
               '</details>'
             : '';
+          // FAILED scenarios with a captured snapshot show a clickable thumbnail.
+          const shotBlock = (r.status === 'FAILED' && r.screenshotUrl)
+            ? '<div style="margin-top:6px;">' +
+                '<div style="font-size:11px; color:var(--slate); margin-bottom:4px;">Snapshot saat gagal</div>' +
+                '<img src="' + encodeURI(r.screenshotUrl) + '" alt="Snapshot kegagalan" ' +
+                  'onclick="openSnapshotLightbox(this.src)" ' +
+                  'style="max-width:100%; max-height:160px; border:1px solid var(--hairline); border-radius:6px; cursor:zoom-in; display:block;" />' +
+              '</div>'
+            : '';
           // Step-by-step detail (per step description + status), expandable.
           let stepsBlock = '';
           if (Array.isArray(r.steps) && r.steps.length > 0) {
@@ -3609,7 +3661,7 @@
           rows +=
             '<div style="display:flex; align-items:flex-start; gap:10px; padding:10px 0;' + (isLast ? '' : ' border-bottom:1px solid var(--hairline);') + '">' +
               '<span style="font-size:15px; line-height:1.3; width:16px; text-align:center;">' + (rowIcon[r.status] || '') + '</span>' +
-              '<div style="flex:1;"><span style="font-size:14px; color:var(--ink);">' + escapeHtml(r.name || 'Scenario') + '</span>' + reason + stepsBlock + errorBlock + '</div>' +
+              '<div style="flex:1;"><span style="font-size:14px; color:var(--ink);">' + escapeHtml(r.name || 'Scenario') + '</span>' + reason + stepsBlock + errorBlock + shotBlock + '</div>' +
               '<span style="font-size:11px; font-weight:600; color:' + (rowColor[r.status] || 'var(--slate)') + ';">' + escapeHtml(r.status) + '</span>' +
             '</div>';
         });

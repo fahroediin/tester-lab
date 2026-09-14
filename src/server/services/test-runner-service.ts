@@ -3,7 +3,7 @@ import os from 'os';
 import path from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
-import { getSanitizedEnv, findVideoFile } from '../../security/sanitized-env.js';
+import { getSanitizedEnv, findVideoFile, findScreenshotFile } from '../../security/sanitized-env.js';
 import { signVideoUrl } from '../lib/storage-url.js';
 import { supabase } from '../supabase-client.js';
 
@@ -23,6 +23,10 @@ export interface ExecuteTestResult {
   videoUrl?: string;
   /** Durable bucket object path to persist in history (re-signed on read). */
   videoStoragePath?: string;
+  /** Short-lived signed URL of the failure screenshot, for immediate display. */
+  screenshotUrl?: string;
+  /** Durable bucket object path of the failure screenshot (re-signed on read). */
+  screenshotStoragePath?: string;
   durationMs: number;
 }
 
@@ -50,6 +54,7 @@ export default defineConfig({
   use: {
     headless: ${!isHeaded},
     video: 'on',
+    screenshot: 'only-on-failure',
     launchOptions: {
       slowMo: ${isHeaded ? 1000 : 0}
     },
@@ -78,6 +83,8 @@ export default defineConfig({
   let success = false;
   let videoUrl: string | undefined;
   let videoStoragePath: string | undefined;
+  let screenshotUrl: string | undefined;
+  let screenshotStoragePath: string | undefined;
 
   try {
     const { stdout, stderr } = await execFileAsync(execCommand, execArgs, {
@@ -122,6 +129,34 @@ export default defineConfig({
     }
   } catch (videoErr: unknown) {
     console.warn('Video artifact extraction warning:', (videoErr as Error).message || videoErr);
+  }
+
+  // Check for a failure screenshot (Playwright writes one on failure) and upload
+  // it alongside the video (AC-19.03). Same bucket, so it re-signs identically.
+  try {
+    const foundShot = findScreenshotFile(tempDir);
+    if (foundShot) {
+      const sanitizedUserId = userId.replace(/[^a-zA-Z0-9_-]/g, '');
+      const shotName = `run_${Date.now()}.png`;
+      const storagePath = `${sanitizedUserId}/${shotName}`;
+      const fileBuffer = fs.readFileSync(foundShot);
+
+      const { error: uploadError } = await supabase.storage
+        .from('test-videos')
+        .upload(storagePath, fileBuffer, {
+          contentType: 'image/png',
+          upsert: true
+        });
+
+      if (uploadError) {
+        console.error('Failed to upload failure screenshot to Supabase Storage:', uploadError);
+      } else {
+        screenshotStoragePath = storagePath;
+        screenshotUrl = (await signVideoUrl(storagePath)) || undefined;
+      }
+    }
+  } catch (shotErr: unknown) {
+    console.warn('Screenshot artifact extraction warning:', (shotErr as Error).message || shotErr);
   } finally {
     try {
       fs.rmSync(tempDir, { recursive: true, force: true });
@@ -135,6 +170,8 @@ export default defineConfig({
     logs: logs.trim(),
     videoUrl,
     videoStoragePath,
+    screenshotUrl,
+    screenshotStoragePath,
     durationMs
   };
 }
