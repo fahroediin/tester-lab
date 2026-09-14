@@ -287,6 +287,13 @@ function ok(name, cond) {
     ok('TS tracks the searched target (currentTarget)', /currentTarget/.test(tsTpl));
     ok('JS tracks the searched target (currentTarget)', /currentTarget/.test(jsTpl));
     ok('JS overlays a not-found banner', /TIDAK DITEMUKAN/.test(jsTpl));
+    // assert_visible must pass its search text to interact so the not-found
+    // banner has a target (bug: getByText branch passed no text -> blank banner).
+    const avBlock = tsTpl.slice(tsTpl.indexOf('(eq action "assert_visible")'), tsTpl.indexOf('(eq action "assert_visible")') + 1600);
+    // Every assert_visible interact() branch must pass a 4th arg (the search
+    // text) so currentTarget is set for the not-found banner.
+    ok('assert_visible getByText passes target text', avBlock.includes("getByText(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'assert_visible', undefined, '{{jsLit selectorValue}}'"));
+    ok('assert_visible getByRole passes role name', avBlock.includes("'assert_visible', undefined, '{{jsLit roleName}}'"));
   }
 
   console.log('\n[8d] success snapshot with assert highlight (Opsi A)');

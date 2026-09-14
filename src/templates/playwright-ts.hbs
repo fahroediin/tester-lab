@@ -351,19 +351,19 @@ test('{{jsLit testSuite}}', async ({ page }) => {
 
   {{#if (eq action "assert_visible")}}
     {{#if (eq selectorType "getByTestId")}}
-  await maestro.interact(page.getByTestId('{{jsLit selectorValue}}'), 'assert_visible');
+  await maestro.interact(page.getByTestId('{{jsLit selectorValue}}'), 'assert_visible', undefined, '{{jsLit selectorValue}}');
     {{else if (eq selectorType "getByLabel")}}
-  await maestro.interact(page.getByLabel(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'assert_visible');
+  await maestro.interact(page.getByLabel(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'assert_visible', undefined, '{{jsLit selectorValue}}');
     {{else if (eq selectorType "getByRole")}}
-  await maestro.interact(page.getByRole('{{jsLit selectorValue}}', { name: new RegExp('{{{escapeRegex roleName}}}', 'i') }), 'assert_visible');
+  await maestro.interact(page.getByRole('{{jsLit selectorValue}}', { name: new RegExp('{{{escapeRegex roleName}}}', 'i') }), 'assert_visible', undefined, '{{jsLit roleName}}');
     {{else if (eq selectorType "getByPlaceholder")}}
-  await maestro.interact(page.getByPlaceholder(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'assert_visible');
+  await maestro.interact(page.getByPlaceholder(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'assert_visible', undefined, '{{jsLit selectorValue}}');
     {{else if (eq selectorType "getByText")}}
-  await maestro.interact(page.getByText(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'assert_visible');
+  await maestro.interact(page.getByText(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'assert_visible', undefined, '{{jsLit selectorValue}}');
     {{else if (eq selectorType "pageText")}}
   await maestro.assertTextOnPage('{{jsLit selectorValue}}');
     {{else}}
-  await maestro.interact(page.locator('{{jsLit selectorValue}}'), 'assert_visible');
+  await maestro.interact(page.locator('{{jsLit selectorValue}}'), 'assert_visible', undefined, '{{jsLit selectorValue}}');
     {{/if}}
   {{/if}}
 
