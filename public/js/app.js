@@ -3584,14 +3584,35 @@
     // Open a failure snapshot full-size in a lightbox (intent AC-19.01).
     window.openSnapshotLightbox = function(src) {
       if (!src) return;
-      Swal.fire({
-        imageUrl: src,
-        imageAlt: 'Snapshot kegagalan',
-        showConfirmButton: false,
-        showCloseButton: true,
-        width: 'auto',
-        background: 'var(--surface-1)'
-      });
+      // Own overlay (not Swal): SweetAlert2 is single-instance, so opening a
+      // second Swal would replace the Run Suite modal instead of layering over
+      // it. A dedicated overlay sits ABOVE the modal and, when closed, leaves
+      // the modal untouched underneath.
+      let ov = document.getElementById('snapshotLightbox');
+      if (!ov) {
+        ov = document.createElement('div');
+        ov.id = 'snapshotLightbox';
+        ov.style.cssText =
+          'position:fixed; inset:0; z-index:20000; display:flex; align-items:center; justify-content:center;' +
+          'background:rgba(0,0,0,0.78); padding:32px; box-sizing:border-box; cursor:zoom-out;';
+        ov.innerHTML =
+          '<img id="snapshotLightboxImg" alt="Snapshot kegagalan" ' +
+            'style="max-width:95vw; max-height:90vh; border-radius:8px; box-shadow:0 8px 40px rgba(0,0,0,0.5); cursor:default;" />' +
+          '<button id="snapshotLightboxClose" aria-label="Tutup" ' +
+            'style="position:absolute; top:18px; right:22px; width:38px; height:38px; border:none; border-radius:50%;' +
+            'background:rgba(255,255,255,0.9); color:#111; font-size:20px; line-height:1; cursor:pointer;">&times;</button>';
+        document.body.appendChild(ov);
+        const close = function () { ov.style.display = 'none'; };
+        // Click on the backdrop (not the image) closes; so does the button and Esc.
+        ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
+        ov.querySelector('#snapshotLightboxClose').addEventListener('click', close);
+        ov.querySelector('#snapshotLightboxImg').addEventListener('click', function (e) { e.stopPropagation(); });
+        document.addEventListener('keydown', function (e) {
+          if (e.key === 'Escape' && ov.style.display !== 'none') close();
+        });
+      }
+      ov.querySelector('#snapshotLightboxImg').src = src;
+      ov.style.display = 'flex';
     };
 
     // Render the Run Suite summary modal: job status + per-scenario status.
@@ -3636,7 +3657,7 @@
                 '<div style="font-size:11px; color:var(--slate); margin-bottom:4px;">Snapshot saat gagal</div>' +
                 '<img src="' + encodeURI(r.screenshotUrl) + '" alt="Snapshot kegagalan" ' +
                   'onclick="openSnapshotLightbox(this.src)" ' +
-                  'style="max-width:100%; max-height:160px; border:1px solid var(--hairline); border-radius:6px; cursor:zoom-in; display:block;" />' +
+                  'style="max-width:100%; max-height:220px; border:1px solid var(--hairline); border-radius:6px; cursor:zoom-in; display:block;" />' +
               '</div>'
             : '';
           // Step-by-step detail (per step description + status), expandable.
@@ -3668,12 +3689,12 @@
       }
 
       const html =
-        '<div style="text-align:left;">' +
-          '<div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:4px;">' +
-            '<span style="font-size:12px; color:var(--slate);">' + escapeHtml(subtitle) + '</span>' +
-            '<span style="display:inline-block; padding:3px 12px; border:1px solid; border-radius:12px; font-size:12px; font-weight:600; ' + jobStyle + '">' + escapeHtml(jobStatus) + '</span>' +
+        '<div style="text-align:left; padding:0 4px;">' +
+          '<div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; padding-bottom:10px; border-bottom:1px solid var(--hairline);">' +
+            '<span style="font-size:13px; color:var(--slate);">' + escapeHtml(subtitle) + '</span>' +
+            '<span style="display:inline-block; padding:4px 14px; border:1px solid; border-radius:12px; font-size:12px; font-weight:600; ' + jobStyle + '">' + escapeHtml(jobStatus) + '</span>' +
           '</div>' +
-          '<div style="margin-top:8px;">' + rows + '</div>' +
+          '<div style="max-height:60vh; overflow-y:auto; padding-right:4px;">' + rows + '</div>' +
         '</div>';
 
       Swal.fire({
@@ -3681,7 +3702,8 @@
         html: html,
         confirmButtonText: 'Tutup',
         confirmButtonColor: '#005bbf',
-        width: 480
+        width: 640,
+        padding: '1.75em'
       });
     }
 
