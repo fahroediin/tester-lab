@@ -233,6 +233,8 @@ export interface ScenarioResult {
    * no snapshot was produced.
    */
   screenshotUrl?: string;
+  /** Per-step evidence screenshots (US-19): signed URL per step number. */
+  stepShots?: { step: number; url: string }[];
   /** Step-by-step detail (description + status) for the scenario's run. */
   steps?: StepDetail[];
 }
@@ -250,6 +252,8 @@ export interface ScenarioExecResult {
   logs?: string | null;
   /** Signed URL of a failure screenshot, when the runner captured one. */
   screenshotUrl?: string;
+  /** Per-step evidence screenshots (US-19). */
+  stepShots?: { step: number; url: string }[];
 }
 
 /** How to actually run one scenario. Injected so the loop is testable. */
@@ -299,6 +303,7 @@ export async function runScenariosWithProgress(
             // Snapshot now exists for both outcomes: success = the highlighted
             // match, failure = the on-failure capture (Opsi A).
             screenshotUrl: exec.screenshotUrl,
+            stepShots: exec.stepShots,
             steps: parseStepList(s.generatedCode, exec.logs)
           };
         } catch (err) {

@@ -3662,6 +3662,11 @@
                   'style="max-width:100%; max-height:220px; border:1px solid var(--hairline); border-radius:6px; cursor:zoom-in; display:block;" />' +
               '</div>'
             : '';
+          // Per-step snapshots (US-19): map step number -> signed url.
+          var shotByStep = {};
+          if (Array.isArray(r.stepShots)) {
+            r.stepShots.forEach(function (s) { if (s && typeof s.step === 'number') shotByStep[s.step] = s.url; });
+          }
           // Step-by-step detail (per step description + status), expandable.
           let stepsBlock = '';
           if (Array.isArray(r.steps) && r.steps.length > 0) {
@@ -3672,10 +3677,19 @@
                 : (st.status === 'FAILED'
                     ? '<span style="color:var(--coral);">&#10007;</span>'
                     : '<span style="color:var(--slate);">&#8226;</span>');
-              return '<div style="display:flex; gap:8px; padding:3px 0; font-size:11.5px;">' +
+              // Thumbnail for this step, if a snapshot exists. Failed step gets a red border.
+              var shotUrl = shotByStep[st.step];
+              var thumb = shotUrl
+                ? '<img src="' + encodeURI(shotUrl) + '" alt="Snapshot step ' + st.step + '" ' +
+                    'onclick="openSnapshotLightbox(this.src)" ' +
+                    'style="width:52px; height:34px; object-fit:cover; border-radius:4px; cursor:zoom-in; ' +
+                    'border:2px solid ' + (st.status === 'FAILED' ? 'var(--coral)' : 'var(--hairline)') + ';" />'
+                : '';
+              return '<div style="display:flex; align-items:center; gap:8px; padding:4px 0; font-size:11.5px;">' +
                 '<span style="width:14px; text-align:center;">' + stepIcon + '</span>' +
                 '<span style="color:var(--slate); min-width:44px;">Step ' + st.step + '</span>' +
                 '<span style="color:var(--ink); flex:1;">' + escapeHtml(st.description || '') + '</span>' +
+                thumb +
                 '</div>';
             }).join('');
             const okCount = r.steps.filter(function (st) { return st.status === 'OK'; }).length;

@@ -3,7 +3,7 @@ import os from 'os';
 import path from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
-import { getSanitizedEnv, findVideoFile, findScreenshotFile } from '../../security/sanitized-env.js';
+import { getSanitizedEnv, findVideoFile, findScreenshotFile, collectStepScreenshots } from '../../security/sanitized-env.js';
 import { signVideoUrl } from '../lib/storage-url.js';
 import { supabase } from '../supabase-client.js';
 
@@ -47,6 +47,8 @@ export interface ExecuteTestResult {
   screenshotUrl?: string;
   /** Durable bucket object path of the failure screenshot (re-signed on read). */
   screenshotStoragePath?: string;
+  /** Per-step evidence screenshots (US-19), signed URLs keyed by step number. */
+  stepShots?: { step: number; url: string; storagePath: string }[];
   durationMs: number;
 }
 
@@ -59,18 +61,26 @@ export async function executePlaywrightTest(options: ExecuteTestOptions): Promis
   const startTime = Date.now();
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'playwright-ui-run-'));
   const fileExt = language === 'javascript' ? '.spec.js' : '.spec.ts';
-  const testFilePath = path.join(tempDir, `manual_run${fileExt}`);
+  const testFileName = `manual_run${fileExt}`;
+  const testFilePath = path.join(tempDir, testFileName);
   const configFilePath = path.join(tempDir, 'playwright.config.ts');
 
   const isHeaded = mode === 'headed';
   const slowMo = resolveSlowMo(options);
   const manualTimeout = process.env.PLAYWRIGHT_TIMEOUT ? parseInt(process.env.PLAYWRIGHT_TIMEOUT, 10) : 120000;
 
+  // testDir/outputDir are RELATIVE and the runner is launched with cwd=tempDir.
+  // Playwright 1.62+ fails to discover tests when testDir is an absolute path
+  // like this temp dir ("No tests found"); a relative './' from the temp dir
+  // works. See the run-from-tempDir cwd below.
   const playwrightConfig = `
 import { defineConfig } from '@playwright/test';
 export default defineConfig({
-  testDir: '${tempDir.replace(/\\/g, '/')}',
-  outputDir: '${tempDir.replace(/\\/g, '/')}/results',
+  testDir: '.',
+  // Only the generated spec is a test; without this Playwright also tries to
+  // load playwright.config.ts as a test file ("test() called here").
+  testMatch: '${testFileName}',
+  outputDir: './results',
   timeout: ${manualTimeout},
   use: {
     headless: ${!isHeaded},
@@ -87,17 +97,32 @@ export default defineConfig({
   fs.writeFileSync(testFilePath, code, 'utf-8');
   fs.writeFileSync(configFilePath, playwrightConfig, 'utf-8');
 
-  const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-  const args = ['playwright', 'test', testFilePath, `--config=${configFilePath}`];
+  // Invoke the PROJECT's Playwright binary directly, not `npx`. With cwd set to
+  // the temp dir (needed so the relative testDir './' resolves), `npx playwright`
+  // would look for Playwright under the temp dir and may fetch a DIFFERENT
+  // version, causing "Playwright Test did not expect test() to be called here"
+  // (two @playwright/test versions). An absolute path to the installed binary
+  // pins the project's version.
+  const pwBin = path.join(
+    process.cwd(),
+    'node_modules',
+    '.bin',
+    process.platform === 'win32' ? 'playwright.cmd' : 'playwright'
+  );
+  // Pass the test file by its BASENAME (not an absolute path). Playwright treats
+  // a positional arg as a regex over test paths; an absolute Windows path
+  // (backslashes, drive colon) matches nothing -> "No tests found". A relative
+  // basename, resolved from cwd=tempDir, matches correctly.
+  const args = ['test', testFileName, `--config=playwright.config.ts`];
   if (isHeaded) {
     args.push('--headed');
   }
 
-  let execCommand = npxCmd;
+  let execCommand = pwBin;
   let execArgs = args;
   if (isHeaded && process.platform === 'linux' && !process.env.DISPLAY) {
     execCommand = 'xvfb-run';
-    execArgs = ['-a', npxCmd, ...args];
+    execArgs = ['-a', pwBin, ...args];
   }
 
   let logs = '';
@@ -106,13 +131,17 @@ export default defineConfig({
   let videoStoragePath: string | undefined;
   let screenshotUrl: string | undefined;
   let screenshotStoragePath: string | undefined;
+  let stepShots: { step: number; url: string; storagePath: string }[] | undefined;
 
   try {
     const { stdout, stderr } = await execFileAsync(execCommand, execArgs, {
-      cwd: process.cwd(),
+      // Run FROM the temp dir so the relative testDir './' resolves to it.
+      cwd: tempDir,
       shell: process.platform === 'win32',
       env: {
         ...getSanitizedEnv(),
+        // NODE_PATH stays absolute so @playwright/test resolves from the
+        // project's node_modules even though cwd is the temp dir.
         NODE_PATH: path.join(process.cwd(), 'node_modules')
       }
     });
@@ -152,28 +181,50 @@ export default defineConfig({
     console.warn('Video artifact extraction warning:', (videoErr as Error).message || videoErr);
   }
 
-  // Check for a failure screenshot (Playwright writes one on failure) and upload
-  // it alongside the video (AC-19.03). Same bucket, so it re-signs identically.
+  // Upload per-step evidence screenshots (US-19): step_<N>.png in step order.
+  // Same bucket as video so they re-sign identically. Best-effort per file.
   try {
-    const foundShot = findScreenshotFile(tempDir);
-    if (foundShot) {
-      const sanitizedUserId = userId.replace(/[^a-zA-Z0-9_-]/g, '');
-      const shotName = `run_${Date.now()}.png`;
-      const storagePath = `${sanitizedUserId}/${shotName}`;
-      const fileBuffer = fs.readFileSync(foundShot);
-
-      const { error: uploadError } = await supabase.storage
+    const sanitizedUserId = userId.replace(/[^a-zA-Z0-9_-]/g, '');
+    const runStamp = Date.now();
+    const shots = collectStepScreenshots(tempDir);
+    const uploaded: { step: number; url: string; storagePath: string }[] = [];
+    for (const shot of shots) {
+      const storagePath = `${sanitizedUserId}/run_${runStamp}_step_${shot.step}.png`;
+      const fileBuffer = fs.readFileSync(shot.path);
+      const { error: upErr } = await supabase.storage
         .from('test-videos')
-        .upload(storagePath, fileBuffer, {
-          contentType: 'image/png',
-          upsert: true
-        });
+        .upload(storagePath, fileBuffer, { contentType: 'image/png', upsert: true });
+      if (upErr) {
+        console.error(`Failed to upload step ${shot.step} screenshot:`, upErr);
+        continue;
+      }
+      const url = (await signVideoUrl(storagePath)) || undefined;
+      if (url) uploaded.push({ step: shot.step, url, storagePath });
+    }
+    if (uploaded.length > 0) {
+      stepShots = uploaded;
+      // Backward-compat single url: the last step's shot (the failing step on a
+      // failure, or the final state on success). Falls back below if absent.
+      const last = uploaded[uploaded.length - 1];
+      if (last) { screenshotUrl = last.url; screenshotStoragePath = last.storagePath; }
+    }
 
-      if (uploadError) {
-        console.error('Failed to upload failure screenshot to Supabase Storage:', uploadError);
-      } else {
-        screenshotStoragePath = storagePath;
-        screenshotUrl = (await signVideoUrl(storagePath)) || undefined;
+    // Fallback for scenarios generated before per-step evidence existed, or with
+    // no step shots: use Playwright's on-failure / success snapshot (one png).
+    if (!screenshotUrl) {
+      const foundShot = findScreenshotFile(tempDir);
+      if (foundShot) {
+        const storagePath = `${sanitizedUserId}/run_${runStamp}.png`;
+        const fileBuffer = fs.readFileSync(foundShot);
+        const { error: upErr } = await supabase.storage
+          .from('test-videos')
+          .upload(storagePath, fileBuffer, { contentType: 'image/png', upsert: true });
+        if (upErr) {
+          console.error('Failed to upload failure screenshot to Supabase Storage:', upErr);
+        } else {
+          screenshotStoragePath = storagePath;
+          screenshotUrl = (await signVideoUrl(storagePath)) || undefined;
+        }
       }
     }
   } catch (shotErr: unknown) {
@@ -193,6 +244,7 @@ export default defineConfig({
     videoStoragePath,
     screenshotUrl,
     screenshotStoragePath,
+    stepShots,
     durationMs
   };
 }

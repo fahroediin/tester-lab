@@ -246,6 +246,43 @@ function ok(name, cond) {
     ok('works without onProgress callback (no throw)', out2.results.length === 3);
   }
 
+  console.log('\n[8e] collectStepScreenshots — per-step evidence (US-19)');
+  {
+    const sanitized = require('../dist/security/sanitized-env.js');
+    ok('collectStepScreenshots is exported', typeof sanitized.collectStepScreenshots === 'function');
+    const collect = sanitized.collectStepScreenshots;
+    const fs = require('fs'); const os = require('os'); const path = require('path');
+    const base = fs.mkdtempSync(path.join(os.tmpdir(), 'tl-steps-'));
+    try {
+      const nested = path.join(base, 'results', 'run-x');
+      fs.mkdirSync(nested, { recursive: true });
+      // Out-of-order + a non-step png + a video: only step_N.png in numeric order.
+      fs.writeFileSync(path.join(nested, 'step_10.png'), 'x');
+      fs.writeFileSync(path.join(nested, 'step_2.png'), 'x');
+      fs.writeFileSync(path.join(nested, 'step_1.png'), 'x');
+      fs.writeFileSync(path.join(nested, 'video.webm'), 'x');
+      fs.writeFileSync(path.join(nested, 'test-failed-1.png'), 'x'); // playwright's own, ignore
+      const out = collect(base);
+      ok('returns array of step shots', Array.isArray(out));
+      ok('picks up all 3 step_N.png', out.length === 3);
+      ok('sorted numerically 1,2,10 (not lexical)', out.map((s) => s.step).join(',') === '1,2,10');
+      ok('each entry has step + path', out[0].step === 1 && typeof out[0].path === 'string' && out[0].path.endsWith('step_1.png'));
+      ok('ignores non step_N png (test-failed-1)', out.every((s) => /step_\d+\.png$/.test(s.path)));
+      // Empty / missing dir -> [] (no throw).
+      ok('missing dir -> [] no throw', collect(path.join(base, 'nope')).length === 0);
+      ok('null -> [] no throw', collect(null).length === 0);
+    } finally {
+      fs.rmSync(base, { recursive: true, force: true });
+    }
+    // Templates must emit per-step screenshots + a first-failure capture.
+    const tsTpl = fs.readFileSync(path.join(process.cwd(), 'dist', 'templates', 'playwright-ts.hbs'), 'utf-8');
+    const jsTpl = fs.readFileSync(path.join(process.cwd(), 'dist', 'templates', 'playwright-js.hbs'), 'utf-8');
+    ok('TS emits step_<N>.png per step', /step_'?\s*\+\s*\{\{step\}\}|step_\{\{step\}\}|captureStep\(\{\{step\}\}\)/.test(tsTpl));
+    ok('JS emits step_<N>.png per step', /captureStep\(\{\{step\}\}\)/.test(jsTpl));
+    ok('TS captures failure at first fail (captureStepFailure)', /captureStepFailure/.test(tsTpl));
+    ok('TS sets currentStep before each step', /maestro\.currentStep = \{\{step\}\}/.test(tsTpl));
+  }
+
   console.log('\n[8d] success snapshot with assert highlight (Opsi A)');
   {
     const fs = require('fs'); const path = require('path');
@@ -390,6 +427,11 @@ function ok(name, cond) {
     const passNoShot = async () => ({ success: true, logs: 'ok' });
     const out3 = await runWith(scn, passNoShot);
     ok('SUCCESS without snapshot -> undefined', out3.results[0].screenshotUrl === undefined);
+    // Per-step evidence (US-19): stepShots array flows through to the result.
+    const stepExec = async () => ({ success: true, logs: 'ok', screenshotUrl: 'https://signed/s3.png', stepShots: [ { step: 1, url: 'https://s/1.png' }, { step: 2, url: 'https://s/2.png' } ] });
+    const out4 = await runWith(scn, stepExec);
+    ok('result carries stepShots array', Array.isArray(out4.results[0].stepShots) && out4.results[0].stepShots.length === 2);
+    ok('stepShots preserve step + url', out4.results[0].stepShots[1].step === 2 && out4.results[0].stepShots[1].url === 'https://s/2.png');
   }
 
   console.log(`\nALL PROJECT & SUITE VERIFICATIONS PASSED (${passed} assertions)\n`);

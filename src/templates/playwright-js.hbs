@@ -29,6 +29,13 @@ test('{{jsLit testSuite}}', async ({ page }) => {
         const shotPath = test.info().outputPath('success-snapshot.png');
         await page.screenshot({ path: shotPath, fullPage: false }).catch(() => {});
       } catch (e) { /* evidence is best-effort */ }
+    },
+    // Per-step evidence (US-19): one screenshot per step (step_<N>.png), taken
+    // after the step's action. Best-effort; never fails the run.
+    async captureStep(n) {
+      try {
+        await page.screenshot({ path: test.info().outputPath('step_' + n + '.png'), fullPage: false }).catch(() => {});
+      } catch (e) { /* best-effort */ }
     }
   };
 
@@ -256,6 +263,7 @@ test('{{jsLit testSuite}}', async ({ page }) => {
   {{/if}}
 
   console.log('__STEP_DONE__ {{step}}');
+  await maestro.captureStep({{step}});
   {{/each}}
 
   // All steps passed: capture the success snapshot (highlights the last match).
