@@ -226,7 +226,12 @@ export interface ScenarioResult {
   reason?: string;
   /** Concise error snippet for a FAILED scenario, from the runner logs. */
   error?: string;
-  /** Short-lived signed URL of the failure screenshot, if one was captured (AC-19.03). */
+  /**
+   * Short-lived signed URL of the scenario's snapshot. On failure it is the
+   * on-failure capture (AC-19.03); on success it is the end-of-run snapshot
+   * with the last asserted/matched element highlighted (Opsi A). Absent when
+   * no snapshot was produced.
+   */
   screenshotUrl?: string;
   /** Step-by-step detail (description + status) for the scenario's run. */
   steps?: StepDetail[];
@@ -291,7 +296,9 @@ export async function runScenariosWithProgress(
             name: s.testSuite,
             status: exec.success ? 'SUCCESS' : 'FAILED',
             error: exec.success ? undefined : extractErrorSnippet(exec.logs),
-            screenshotUrl: exec.success ? undefined : exec.screenshotUrl,
+            // Snapshot now exists for both outcomes: success = the highlighted
+            // match, failure = the on-failure capture (Opsi A).
+            screenshotUrl: exec.screenshotUrl,
             steps: parseStepList(s.generatedCode, exec.logs)
           };
         } catch (err) {

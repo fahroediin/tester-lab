@@ -3651,11 +3651,13 @@
                 '<pre style="margin:6px 0 0; padding:8px 10px; background:var(--surface-2); border:1px solid var(--hairline); border-radius:6px; font-family:var(--font-mono); font-size:11px; line-height:1.5; color:var(--ink); white-space:pre-wrap; word-break:break-word; max-height:180px; overflow:auto;">' + escapeHtml(r.error) + '</pre>' +
               '</details>'
             : '';
-          // FAILED scenarios with a captured snapshot show a clickable thumbnail.
-          const shotBlock = (r.status === 'FAILED' && r.screenshotUrl)
+          // Snapshot thumbnail for BOTH outcomes (Opsi A): success shows the
+          // highlighted match; failure shows the on-failure capture.
+          var shotLabel = r.status === 'FAILED' ? 'Snapshot saat gagal' : 'Snapshot hasil (elemen yang cocok disorot)';
+          const shotBlock = ((r.status === 'FAILED' || r.status === 'SUCCESS') && r.screenshotUrl)
             ? '<div style="margin-top:6px;">' +
-                '<div style="font-size:11px; color:var(--slate); margin-bottom:4px;">Snapshot saat gagal</div>' +
-                '<img src="' + encodeURI(r.screenshotUrl) + '" alt="Snapshot kegagalan" ' +
+                '<div style="font-size:11px; color:var(--slate); margin-bottom:4px;">' + shotLabel + '</div>' +
+                '<img src="' + encodeURI(r.screenshotUrl) + '" alt="Snapshot ' + (r.status === 'FAILED' ? 'kegagalan' : 'hasil') + '" ' +
                   'onclick="openSnapshotLightbox(this.src)" ' +
                   'style="max-width:100%; max-height:220px; border:1px solid var(--hairline); border-radius:6px; cursor:zoom-in; display:block;" />' +
               '</div>'

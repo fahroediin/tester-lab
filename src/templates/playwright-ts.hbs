@@ -15,6 +15,33 @@ test('{{jsLit testSuite}}', async ({ page }) => {
 
   // Maestro-like Auto-Wait and Scroll-Until-Visible Engine
   const maestro = {
+    // The last element an assert confirmed; highlighted in the success snapshot
+    // so a viewer sees exactly what was found and matched.
+    lastAssertLocator: null as Locator | null,
+    // On a passing run, capture one snapshot at the end. If an assert ran,
+    // outline that element first so the match is visible; otherwise capture the
+    // final page state plainly. Never throws (evidence must not fail a run).
+    async captureSuccess() {
+      try {
+        const target = this.lastAssertLocator;
+        if (target) {
+          await target.evaluate((el: Element) => {
+            const h = el as HTMLElement;
+            h.style.outline = '3px solid #ff5b5b';
+            h.style.outlineOffset = '2px';
+            h.style.boxShadow = '0 0 0 4px rgba(255,91,91,0.35)';
+            h.style.backgroundColor = 'rgba(255, 235, 59, 0.35)'; // fill so the block reads clearly
+            // Table rows ignore background on <tr> in some engines; tint cells too.
+            h.querySelectorAll('td, th').forEach((c) => { (c as HTMLElement).style.backgroundColor = 'rgba(255, 235, 59, 0.35)'; });
+            h.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
+          }).catch(() => {});
+        }
+        // Write into the test's output dir so the runner's findScreenshotFile
+        // (which scans the temp results tree for a .png) picks it up.
+        const shotPath = test.info().outputPath('success-snapshot.png');
+        await page.screenshot({ path: shotPath, fullPage: false }).catch(() => {});
+      } catch { /* evidence is best-effort */ }
+    },
     async interact(locator: Locator, action: 'click' | 'fill' | 'select' | 'check' | 'uncheck' | 'upload' | 'assert_visible' | 'assert_text' | 'assert_value', value?: string, expectedText?: string, fieldLabel?: string) {
       let lastError;
       for (let i = 0; i < 15; i++) {
@@ -35,8 +62,10 @@ test('{{jsLit testSuite}}', async ({ page }) => {
             await locator.first().setInputFiles(value!, { timeout: 2000 });
           } else if (action === 'assert_visible') {
             await expect(locator.first()).toBeVisible({ timeout: 2000 });
+            this.lastAssertLocator = locator.first(); // remember for the success snapshot
           } else if (action === 'assert_text') {
             await expect(locator.first()).toContainText(new RegExp(expectedText || '', 'i'), { timeout: 2000 });
+            this.lastAssertLocator = locator.first();
           } else if (action === 'assert_value') {
             const count = await locator.count();
             if (count === 0) { const e: any = new Error(`No field labeled "${fieldLabel || ''}" was found on the page.`); e.assertValueFinal = true; throw e; }
@@ -47,6 +76,7 @@ test('{{jsLit testSuite}}', async ({ page }) => {
               e.assertValueFinal = true;
               throw e;
             }
+            this.lastAssertLocator = locator.first();
           }
           return; // Success
         } catch (e: any) {
@@ -100,7 +130,7 @@ test('{{jsLit testSuite}}', async ({ page }) => {
           let count = 0;
           for (let i = 0; i < 20; i++) {
             count = await byRole.or(byFilter).count();
-            if (count === 1) return;      // resolved to a single row
+            if (count === 1) { maestro.lastAssertLocator = byRole.or(byFilter).first(); return; } // matched row -> highlight it
             if (count > 1) break;         // ambiguous now; more time won't help
             await page.waitForTimeout(300); // count === 0: give async data time to render
           }
@@ -286,4 +316,7 @@ test('{{jsLit testSuite}}', async ({ page }) => {
 
   console.log('__STEP_DONE__ {{step}}');
   {{/each}}
+
+  // All steps passed: capture the success snapshot (highlights the last assert).
+  await maestro.captureSuccess();
 });

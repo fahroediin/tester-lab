@@ -246,6 +246,30 @@ function ok(name, cond) {
     ok('works without onProgress callback (no throw)', out2.results.length === 3);
   }
 
+  console.log('\n[8d] success snapshot with assert highlight (Opsi A)');
+  {
+    const fs = require('fs'); const path = require('path');
+    const tsTpl = fs.readFileSync(path.join(process.cwd(), 'dist', 'templates', 'playwright-ts.hbs'), 'utf-8');
+    const jsTpl = fs.readFileSync(path.join(process.cwd(), 'dist', 'templates', 'playwright-js.hbs'), 'utf-8');
+    // Engine remembers the last asserted locator so the success snapshot can
+    // highlight it (only when the scenario has an assert).
+    ok('TS engine tracks lastAssertLocator', /lastAssertLocator/.test(tsTpl));
+    ok('JS engine tracks lastAssertLocator', /lastAssertLocator/.test(jsTpl));
+    // A captureSuccess routine highlights + screenshots on success.
+    ok('TS has captureSuccess', /captureSuccess/.test(tsTpl));
+    ok('JS has captureSuccess', /captureSuccess/.test(jsTpl));
+    ok('TS captureSuccess takes a manual screenshot', /captureSuccess[\s\S]{0,1200}page\.screenshot/.test(tsTpl));
+    ok('JS captureSuccess takes a manual screenshot', /captureSuccess[\s\S]{0,1200}page\.screenshot/.test(jsTpl));
+    ok('TS highlights via outline', /outline/.test(tsTpl));
+    ok('JS highlights via outline', /outline/.test(jsTpl));
+    // captureSuccess is invoked once at the very end of the test.
+    ok('TS calls captureSuccess at end', /await\s+maestro\.captureSuccess\(\)/.test(tsTpl));
+    ok('JS calls captureSuccess at end', /await\s+maestro\.captureSuccess\(\)/.test(jsTpl));
+    // The success PNG must be named so the runner can find it (results dir).
+    ok('TS screenshots into a success png path', /success[\w-]*\.png|__success__/.test(tsTpl));
+    ok('JS screenshots into a success png path', /success[\w-]*\.png|__success__/.test(jsTpl));
+  }
+
   console.log('\n[8a] parseStepList — 3-state via __STEP_DONE__ (failed step not marked OK)');
   {
     const psl = runSuite.parseStepList;
@@ -355,12 +379,17 @@ function ok(name, cond) {
     const scn = [
       { id: 'x', testSuite: 'Payflow', generatedCode: 'code-x', language: 'typescript', framework: 'playwright' }
     ];
-    const failExec = async () => ({ success: false, logs: 'Error: nope', screenshotUrl: 'https://signed/shot.png' });
+    const failExec = async () => ({ success: false, logs: 'Error: nope', screenshotUrl: 'https://signed/fail.png' });
     const out = await runWith(scn, failExec);
-    ok('FAILED result carries screenshotUrl from executor', out.results[0].screenshotUrl === 'https://signed/shot.png');
-    const passExec = async () => ({ success: true, logs: 'ok' });
+    ok('FAILED result carries screenshotUrl from executor', out.results[0].screenshotUrl === 'https://signed/fail.png');
+    // Opsi A: a passing scenario now also carries a (success) snapshot url.
+    const passExec = async () => ({ success: true, logs: 'ok', screenshotUrl: 'https://signed/success.png' });
     const out2 = await runWith(scn, passExec);
-    ok('SUCCESS result has no screenshotUrl', out2.results[0].screenshotUrl === undefined);
+    ok('SUCCESS result carries success screenshotUrl', out2.results[0].screenshotUrl === 'https://signed/success.png');
+    // No snapshot produced -> undefined, not a crash.
+    const passNoShot = async () => ({ success: true, logs: 'ok' });
+    const out3 = await runWith(scn, passNoShot);
+    ok('SUCCESS without snapshot -> undefined', out3.results[0].screenshotUrl === undefined);
   }
 
   console.log(`\nALL PROJECT & SUITE VERIFICATIONS PASSED (${passed} assertions)\n`);

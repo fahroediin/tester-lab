@@ -8,6 +8,30 @@ test('{{jsLit testSuite}}', async ({ page }) => {
   await page.goto('{{jsLit targetUrl}}');
   await page.waitForLoadState('networkidle');
 
+  // Success-snapshot engine: remembers the last asserted/matched element and,
+  // on a passing run, captures one snapshot with that element outlined so a
+  // viewer sees what was found and matched. Never throws (evidence best-effort).
+  const maestro = {
+    lastAssertLocator: null,
+    async captureSuccess() {
+      try {
+        const target = this.lastAssertLocator;
+        if (target) {
+          await target.evaluate((el) => {
+            el.style.outline = '3px solid #ff5b5b';
+            el.style.outlineOffset = '2px';
+            el.style.boxShadow = '0 0 0 4px rgba(255,91,91,0.35)';
+            el.style.backgroundColor = 'rgba(255, 235, 59, 0.35)';
+            el.querySelectorAll('td, th').forEach((c) => { c.style.backgroundColor = 'rgba(255, 235, 59, 0.35)'; });
+            el.scrollIntoView({ block: 'center', behavior: 'instant' });
+          }).catch(() => {});
+        }
+        const shotPath = test.info().outputPath('success-snapshot.png');
+        await page.screenshot({ path: shotPath, fullPage: false }).catch(() => {});
+      } catch (e) { /* evidence is best-effort */ }
+    }
+  };
+
   // US-36: resolve the single row/card that contains a unique marker text.
   // Throws the not-found (AC-36.04) or not-unique (AC-36.05) message.
   function scopedRow(marker) {
@@ -22,7 +46,7 @@ test('{{jsLit testSuite}}', async ({ page }) => {
       let count = 0;
       for (let i = 0; i < 20; i++) {
         count = await byRole.or(byFilter).count();
-        if (count === 1) return;
+        if (count === 1) { maestro.lastAssertLocator = byRole.or(byFilter).first(); return; } // matched row -> highlight it
         if (count > 1) break;
         await page.waitForTimeout(300);
       }
@@ -233,4 +257,7 @@ test('{{jsLit testSuite}}', async ({ page }) => {
 
   console.log('__STEP_DONE__ {{step}}');
   {{/each}}
+
+  // All steps passed: capture the success snapshot (highlights the last match).
+  await maestro.captureSuccess();
 });
