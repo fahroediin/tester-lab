@@ -281,6 +281,12 @@ function ok(name, cond) {
     ok('JS emits step_<N>.png per step', /captureStep\(\{\{step\}\}\)/.test(jsTpl));
     ok('TS captures failure at first fail (captureStepFailure)', /captureStepFailure/.test(tsTpl));
     ok('TS sets currentStep before each step', /maestro\.currentStep = \{\{step\}\}/.test(tsTpl));
+    // When the asserted element is absent, overlay a "not found" banner naming
+    // the searched target (deterministic; no fuzzy guessing).
+    ok('TS overlays a not-found banner when element absent', /TIDAK DITEMUKAN/.test(tsTpl));
+    ok('TS tracks the searched target (currentTarget)', /currentTarget/.test(tsTpl));
+    ok('JS tracks the searched target (currentTarget)', /currentTarget/.test(jsTpl));
+    ok('JS overlays a not-found banner', /TIDAK DITEMUKAN/.test(jsTpl));
   }
 
   console.log('\n[8d] success snapshot with assert highlight (Opsi A)');

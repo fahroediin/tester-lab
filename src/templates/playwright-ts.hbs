@@ -56,9 +56,11 @@ test('{{jsLit testSuite}}', async ({ page }) => {
     // sees what was checked; otherwise the page state at failure is captured.
     async captureStepFailure(n: number, locator: Locator | null) {
       try {
+        let outlined = false;
         if (locator) {
           const found = await locator.first().count().catch(() => 0);
           if (found > 0) {
+            outlined = true;
             await locator.first().evaluate((el: Element) => {
               const h = el as HTMLElement;
               h.style.outline = '3px solid #ff5b5b';
@@ -68,6 +70,19 @@ test('{{jsLit testSuite}}', async ({ page }) => {
             }).catch(() => {});
           }
         }
+        // Nothing to outline (the asserted text/element is absent): overlay a
+        // deterministic banner naming what was searched for, so the snapshot
+        // says why it failed without guessing at a similar element.
+        if (!outlined && this.currentTarget) {
+          await page.evaluate((target: string) => {
+            const b = document.createElement('div');
+            b.textContent = 'Dicari: ' + target + ' — TIDAK DITEMUKAN';
+            b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:2147483647;' +
+              'background:#ff5b5b;color:#fff;font:600 14px/1.4 system-ui,sans-serif;' +
+              'padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.3);';
+            document.body.appendChild(b);
+          }, this.currentTarget).catch(() => {});
+        }
         await page.screenshot({ path: test.info().outputPath('step_' + n + '.png'), fullPage: false }).catch(() => {});
       } catch { /* best-effort */ }
     },
@@ -75,9 +90,15 @@ test('{{jsLit testSuite}}', async ({ page }) => {
     // step so interact() can name this step's evidence without threading the
     // number through every generated call.
     currentStep: 0 as number,
+    // What the current step is looking for (assert target / value), used to
+    // label the failure snapshot when the element is absent.
+    currentTarget: '' as string,
     async interact(locator: Locator, action: 'click' | 'fill' | 'select' | 'check' | 'uncheck' | 'upload' | 'assert_visible' | 'assert_text' | 'assert_value', value?: string, expectedText?: string, fieldLabel?: string) {
       let lastError;
       let failureCaptured = false;
+      // What this step searches for, for the failure banner: the asserted text
+      // (assert_text/value), else the filled value, else the field label.
+      this.currentTarget = expectedText || value || fieldLabel || '';
       for (let i = 0; i < 15; i++) {
         try {
           await locator.first().waitFor({ state: 'attached', timeout: 1500 });
@@ -135,7 +156,9 @@ test('{{jsLit testSuite}}', async ({ page }) => {
     // value of an input/textarea/select. Lets "800.000" match "Rp 800.000"
     // shown inside a readonly input, without the user naming the field.
     async assertTextOnPage(needle: string): Promise<void> {
+      this.currentTarget = needle; // for the not-found failure banner
       const re = new RegExp(needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      let failureCaptured = false;
       for (let i = 0; i < 15; i++) {
         // 1) visible text node
         if (await page.getByText(re).count() > 0) return;
@@ -144,6 +167,13 @@ test('{{jsLit testSuite}}', async ({ page }) => {
           (els) => els.map((el) => (el as HTMLInputElement).value || '')
         );
         if (values.some((v) => re.test(v))) return;
+        // First miss: capture this step's evidence now (before the scroll/retry
+        // loop changes the page) with a "not found" banner. locator is null so
+        // captureStepFailure overlays the banner instead of outlining.
+        if (!failureCaptured && this.currentStep > 0) {
+          failureCaptured = true;
+          await this.captureStepFailure(this.currentStep, null);
+        }
         await page.evaluate(() => window.scrollBy(0, 400));
         await page.waitForTimeout(300);
       }
