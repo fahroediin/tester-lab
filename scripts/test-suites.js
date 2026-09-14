@@ -440,5 +440,34 @@ function ok(name, cond) {
     ok('stepShots preserve step + url', out4.results[0].stepShots[1].step === 2 && out4.results[0].stepShots[1].url === 'https://s/2.png');
   }
 
+  console.log('\n[10] regen-service — pure guards for scenario regeneration');
+  {
+    const regen = require('../dist/server/services/regen-service.js');
+    ok('canRegenerate is exported', typeof regen.canRegenerate === 'function');
+    ok('toGeneratorInput is exported', typeof regen.toGeneratorInput === 'function');
+    const cr = regen.canRegenerate;
+    // Regeneratable: has non-empty resolvedSteps.
+    ok('record with resolvedSteps -> can regen', cr({ resolvedSteps: [{ step: 1 }], rawDsl: {} }).ok === true);
+    // Not regeneratable: no resolved steps (nothing to render from).
+    ok('no resolvedSteps -> cannot regen', cr({ resolvedSteps: [], rawDsl: {} }).ok === false);
+    ok('missing resolvedSteps -> cannot regen', cr({ rawDsl: {} }).ok === false);
+    ok('cannot-regen carries a reason', typeof cr({ resolvedSteps: [] }).reason === 'string' && cr({ resolvedSteps: [] }).reason.length > 0);
+    // toGeneratorInput pulls framework/language/targetUrl/testSuite from rawDsl.
+    const inp = regen.toGeneratorInput({
+      testSuite: 'Login',
+      resolvedSteps: [{ step: 1, action: 'click' }],
+      rawDsl: { framework: 'playwright', language: 'typescript', targetUrl: 'https://x.test' }
+    });
+    ok('config carries framework', inp.config.framework === 'playwright');
+    ok('config carries language', inp.config.language === 'typescript');
+    ok('config carries targetUrl', inp.config.targetUrl === 'https://x.test');
+    ok('config carries testSuite', inp.config.testSuite === 'Login');
+    ok('resolvedSteps passed through', Array.isArray(inp.resolvedSteps) && inp.resolvedSteps.length === 1);
+    // Defaults when rawDsl misses fields.
+    const inp2 = regen.toGeneratorInput({ testSuite: 'S', resolvedSteps: [{ step: 1 }], rawDsl: {} });
+    ok('defaults framework to playwright', inp2.config.framework === 'playwright');
+    ok('defaults language to typescript', inp2.config.language === 'typescript');
+  }
+
   console.log(`\nALL PROJECT & SUITE VERIFICATIONS PASSED (${passed} assertions)\n`);
 })();
