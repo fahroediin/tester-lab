@@ -44,17 +44,25 @@ test('{{jsLit testSuite}}', async ({ page }) => {
     // (the JS asserts run inline, so there is no element to outline here).
     async captureStepFailure(n) {
       try {
+        let banner = false;
         if (this.currentTarget) {
           await page.evaluate((target) => {
             const b = document.createElement('div');
+            b.id = '__tl_fail_banner';
             b.textContent = 'Dicari: ' + target + ' — TIDAK DITEMUKAN';
             b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:2147483647;' +
               'background:#ff5b5b;color:#fff;font:600 14px/1.4 system-ui,sans-serif;' +
               'padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.3);';
             document.body.appendChild(b);
           }, this.currentTarget).catch(() => {});
+          banner = true;
         }
         await page.screenshot({ path: test.info().outputPath('step_' + n + '.png'), fullPage: false }).catch(() => {});
+        // Remove the banner immediately: it contains the searched text, so a
+        // lingering banner would make the next retry match itself (false pass).
+        if (banner) {
+          await page.evaluate(() => { const b = document.getElementById('__tl_fail_banner'); if (b) b.remove(); }).catch(() => {});
+        }
       } catch (e) { /* best-effort */ }
     }
   };

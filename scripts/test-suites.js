@@ -294,6 +294,11 @@ function ok(name, cond) {
     // text) so currentTarget is set for the not-found banner.
     ok('assert_visible getByText passes target text', avBlock.includes("getByText(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'assert_visible', undefined, '{{jsLit selectorValue}}'"));
     ok('assert_visible getByRole passes role name', avBlock.includes("'assert_visible', undefined, '{{jsLit roleName}}'"));
+    // BUG FIX: the not-found banner must be REMOVED after the screenshot, or its
+    // text (which includes the searched target) makes the next retry's
+    // getByText() match the banner itself -> false pass.
+    ok('TS removes the failure banner after screenshot', /remove\(\)|removeChild|__tl_fail_banner/.test(tsTpl));
+    ok('JS removes the failure banner after screenshot', /remove\(\)|removeChild|__tl_fail_banner/.test(jsTpl));
   }
 
   console.log('\n[8d] success snapshot with assert highlight (Opsi A)');

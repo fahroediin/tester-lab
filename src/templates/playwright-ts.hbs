@@ -73,17 +73,26 @@ test('{{jsLit testSuite}}', async ({ page }) => {
         // Nothing to outline (the asserted text/element is absent): overlay a
         // deterministic banner naming what was searched for, so the snapshot
         // says why it failed without guessing at a similar element.
+        let banner = false;
         if (!outlined && this.currentTarget) {
           await page.evaluate((target: string) => {
             const b = document.createElement('div');
+            b.id = '__tl_fail_banner';
             b.textContent = 'Dicari: ' + target + ' — TIDAK DITEMUKAN';
             b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:2147483647;' +
               'background:#ff5b5b;color:#fff;font:600 14px/1.4 system-ui,sans-serif;' +
               'padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.3);';
             document.body.appendChild(b);
           }, this.currentTarget).catch(() => {});
+          banner = true;
         }
         await page.screenshot({ path: test.info().outputPath('step_' + n + '.png'), fullPage: false }).catch(() => {});
+        // Remove the banner right away: it contains the searched text, so if it
+        // lingered the next retry's getByText() would match the banner itself
+        // and the assertion would pass falsely.
+        if (banner) {
+          await page.evaluate(() => { const b = document.getElementById('__tl_fail_banner'); if (b) b.remove(); }).catch(() => {});
+        }
       } catch { /* best-effort */ }
     },
     // The step number currently executing; set by the test body before each
