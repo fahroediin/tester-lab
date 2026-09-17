@@ -192,6 +192,9 @@ test('{{jsLit testSuite}}', async ({ page }) => {
     {{else}}
   await {{{scopedLocJs (concat "page.locator('" (jsLit selectorValue) "')") options.within}}}.click({ force: true });
     {{/if}}
+  // AC-07.12: a click may trigger a full-page navigation; wait for the page to
+  // settle before the next step. Guarded so a non-navigating click just proceeds.
+  await page.waitForLoadState('domcontentloaded', { timeout: 3000 }).catch(() => {});
   {{/if}}
   {{#if (eq action "select")}}
     {{#if (eq selectorType "getByTestId")}}
@@ -264,20 +267,22 @@ test('{{jsLit testSuite}}', async ({ page }) => {
     {{/if}}
   {{/if}}
   {{#if (eq action "assert_visible")}}
+    {{! AC-07.11: filter to a visible match first so a hidden twin element with }}
+    {{! the same text/label does not fail the assertion falsely. }}
     {{#if (eq selectorType "getByTestId")}}
-  await expect(page.getByTestId('{{jsLit selectorValue}}')).toBeVisible();
+  await expect(page.getByTestId('{{jsLit selectorValue}}').filter({ visible: true }).first()).toBeVisible();
     {{else if (eq selectorType "getByLabel")}}
-  await expect(page.getByLabel('{{jsLit selectorValue}}')).toBeVisible();
+  await expect(page.getByLabel('{{jsLit selectorValue}}').filter({ visible: true }).first()).toBeVisible();
     {{else if (eq selectorType "getByRole")}}
-  await expect(page.getByRole('{{jsLit selectorValue}}', { name: '{{jsLit roleName}}' })).toBeVisible();
+  await expect(page.getByRole('{{jsLit selectorValue}}', { name: '{{jsLit roleName}}' }).filter({ visible: true }).first()).toBeVisible();
     {{else if (eq selectorType "getByPlaceholder")}}
-  await expect(page.getByPlaceholder('{{jsLit selectorValue}}')).toBeVisible();
+  await expect(page.getByPlaceholder('{{jsLit selectorValue}}').filter({ visible: true }).first()).toBeVisible();
     {{else if (eq selectorType "getByText")}}
-  await expect(page.getByText('{{jsLit selectorValue}}')).toBeVisible();
+  await expect(page.getByText('{{jsLit selectorValue}}').filter({ visible: true }).first()).toBeVisible();
     {{else if (eq selectorType "pageText")}}
   await assertTextOnPage('{{jsLit selectorValue}}');
     {{else}}
-  await expect(page.locator('{{jsLit selectorValue}}')).toBeVisible();
+  await expect(page.locator('{{jsLit selectorValue}}').filter({ visible: true }).first()).toBeVisible();
     {{/if}}
   {{/if}}
   {{#if (eq action "assert_value")}}

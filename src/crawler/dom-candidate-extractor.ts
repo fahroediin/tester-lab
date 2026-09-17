@@ -119,7 +119,17 @@ export async function extractCandidatesFromPage(
           const labelEl = doc.querySelector(`label[for="${id}"]`);
           if (labelEl) {
             labelText = (labelEl.textContent || '').trim();
-            hasDirectLabel = true;
+            // Only trust label[for] as a getByLabel-valid association when the id
+            // is unambiguous. Playwright's getByLabel resolves the label's `for`
+            // via getElementById, which returns the FIRST element with that id.
+            // On malformed markup (duplicate ids: e.g. a <div> and an <input>
+            // sharing id="first_name"), that first element may not be this input,
+            // so getByLabel matches 0 elements. Keep labelText for scoring, but do
+            // not claim a direct label unless the id resolves back to this element.
+            const idIsUnique = doc.querySelectorAll(`[id="${id}"]`).length === 1;
+            if (idIsUnique && doc.getElementById(id) === htmlEl) {
+              hasDirectLabel = true;
+            }
           }
         }
         if (!labelText && htmlEl.closest('label')) {
