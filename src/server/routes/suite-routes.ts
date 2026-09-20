@@ -7,6 +7,9 @@ import { getScenarioCountsBySuite, getRunnableScenariosBySuite } from '../flow-h
 import { dedupeLatestByName } from '../services/run-suite-service.js';
 import { runSuiteForSuite } from '../services/run-suite-service.js';
 import { addLog } from '../activity-log-store.js';
+import { addSuiteRun, getSuiteRunById, getSuiteRunsBySuite } from '../suite-run-store.js';
+import { buildSuiteReport } from '../services/suite-report-service.js';
+import { exportSuiteReport } from '../services/suite-report-export.js';
 
 export const suiteRoutes = Router();
 
@@ -146,7 +149,25 @@ suiteRoutes.post('/:suiteId/run', authenticateJWT, requireApprovedUser, async (r
 
     const result = await runSuiteForSuite(userId, suiteId, (ev) => write(ev));
 
-    write({ type: 'done', success: true, ...result });
+    // Persist the run so its suite-level report can be rebuilt later. A failure
+    // to save must not fail the run the user just watched succeed, so the id is
+    // best-effort; the summary payload still carries the full result.
+    let suiteRunId: string | undefined;
+    try {
+      const saved = await addSuiteRun({
+        userId,
+        suiteId,
+        suiteName: suite.name,
+        targetUrl: '',
+        jobStatus: result.jobStatus,
+        results: result.results
+      });
+      suiteRunId = saved.id;
+    } catch (persistErr: unknown) {
+      console.error('Failed to persist suite run:', persistErr instanceof Error ? persistErr.message : persistErr);
+    }
+
+    write({ type: 'done', success: true, suiteRunId, ...result });
     res.end();
 
     await addLog({ userId, username: req.user!.username, action: 'run_suite', details: `suite=${suiteId} status=${result.jobStatus}` });
@@ -160,6 +181,85 @@ suiteRoutes.post('/:suiteId/run', authenticateJWT, requireApprovedUser, async (r
     } else {
       res.status(500).json({ success: false, error: error.message || 'Failed to run suite' });
     }
+  }
+});
+
+/** Reject a suite the caller does not own; returns the suite or null after replying. */
+async function requireOwnedSuite(req: AuthenticatedRequest, res: Response, suiteId: string) {
+  const suite = await getSuiteById(suiteId);
+  if (!suite) {
+    res.status(404).json({ success: false, error: 'Suite not found' });
+    return null;
+  }
+  const project = await getProjectById(suite.projectId);
+  if (!project || (project.userId !== req.user!.id && req.user!.role !== 'admin')) {
+    res.status(403).json({ success: false, error: 'Unauthorized to view this suite' });
+    return null;
+  }
+  return suite;
+}
+
+/**
+ * GET /api/v1/suites/:suiteId/runs
+ * List persisted Run Suite results for a suite, newest first.
+ */
+suiteRoutes.get('/:suiteId/runs', authenticateJWT, requireApprovedUser, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const suiteId = typeof req.params.suiteId === 'string' ? req.params.suiteId.trim() : '';
+    if (!suiteId || !(await requireOwnedSuite(req, res, suiteId))) return;
+    const runs = await getSuiteRunsBySuite(suiteId);
+    res.json({
+      success: true,
+      runs: runs.map((r) => ({ id: r.id, jobStatus: r.jobStatus, createdAt: r.createdAt, count: r.results.length }))
+    });
+  } catch (err: unknown) {
+    const error = err as Error;
+    res.status(500).json({ success: false, error: error.message || 'Failed to list suite runs' });
+  }
+});
+
+/**
+ * GET /api/v1/suites/:suiteId/report(.html|.pdf)?
+ * Suite-level report for a suite's latest Run Suite, or for ?runId=<id>.
+ * No extension returns JSON; .html and .pdf return the rendered document.
+ */
+suiteRoutes.get('/:suiteId/report:format(\\.html|\\.pdf)?', authenticateJWT, requireApprovedUser, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const suiteId = typeof req.params.suiteId === 'string' ? req.params.suiteId.trim() : '';
+    if (!suiteId) {
+      res.status(400).json({ success: false, error: 'suiteId is required' });
+      return;
+    }
+    const suite = await requireOwnedSuite(req, res, suiteId);
+    if (!suite) return;
+
+    const runId = typeof req.query.runId === 'string' ? req.query.runId.trim() : '';
+    const run = runId
+      ? await getSuiteRunById(runId)
+      : (await getSuiteRunsBySuite(suiteId))[0];
+
+    if (!run || run.suiteId !== suiteId) {
+      res.status(404).json({ success: false, error: 'No run found for this suite. Run the suite first.' });
+      return;
+    }
+
+    const report = buildSuiteReport(
+      { runBatchId: run.id, jobStatus: run.jobStatus, results: run.results },
+      { suiteName: run.suiteName || suite.name, targetUrl: run.targetUrl, generatedAt: run.createdAt }
+    );
+
+    const format = (req.params.format || '').replace('.', '');
+    if (format === 'html' || format === 'pdf') {
+      const out = await exportSuiteReport(report, format);
+      res.setHeader('Content-Type', out.contentType);
+      res.setHeader('Content-Disposition', `attachment; filename="${out.filename}"`);
+      res.send(out.buffer);
+      return;
+    }
+    res.json({ success: true, report });
+  } catch (err: unknown) {
+    const error = err as Error;
+    res.status(500).json({ success: false, error: error.message || 'Failed to build suite report' });
   }
 });
 

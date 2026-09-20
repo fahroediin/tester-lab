@@ -3478,7 +3478,7 @@
         }
 
         if (finalData) {
-          showRunSuiteResult(suiteName, finalData); // reuses the existing summary modal
+          showRunSuiteResult(suiteName, finalData, suiteId); // reuses the existing summary modal
         } else {
           if (Swal.isVisible()) Swal.close();
           showSnackbar({ type: 'error', title: 'Run Suite', message: 'The run ended without a final result.' });
@@ -3616,7 +3616,7 @@
     };
 
     // Render the Run Suite summary modal: job status + per-scenario status.
-    function showRunSuiteResult(suiteName, data) {
+    function showRunSuiteResult(suiteName, data, suiteId) {
       const jobStatus = data.jobStatus || 'SKIPPED';
       const results = Array.isArray(data.results) ? data.results : [];
 
@@ -3716,14 +3716,63 @@
           '<div style="max-height:60vh; overflow-y:auto; padding-right:4px;">' + rows + '</div>' +
         '</div>';
 
+      // Export is available only for a persisted run (data.suiteRunId). The
+      // endpoints stream an attachment, so a plain anchor download is enough.
+      const exportFooter = data.suiteRunId
+        ? '<div style="display:flex; align-items:center; gap:10px; font-size:13px;">' +
+            '<span style="color:var(--slate);">Export report:</span>' +
+            '<button type="button" id="btnExportSuiteHtml" class="btn-pill-outline">HTML</button>' +
+            '<button type="button" id="btnExportSuitePdf" class="btn-pill-outline">PDF</button>' +
+          '</div>'
+        : undefined;
+
       Swal.fire({
         title: 'Run Suite: ' + escapeHtml(suiteName),
         html: html,
         confirmButtonText: 'Tutup',
         confirmButtonColor: '#005bbf',
         width: 640,
-        padding: '1.75em'
+        padding: '1.75em',
+        footer: exportFooter,
+        didOpen: () => {
+          if (!data.suiteRunId || !suiteId) return;
+          const download = (format) => downloadSuiteReport(suiteId, data.suiteRunId, suiteName, format);
+          const htmlBtn = document.getElementById('btnExportSuiteHtml');
+          const pdfBtn = document.getElementById('btnExportSuitePdf');
+          if (htmlBtn) htmlBtn.addEventListener('click', () => download('html'));
+          if (pdfBtn) pdfBtn.addEventListener('click', () => download('pdf'));
+        }
       });
+    }
+
+    // Fetch a suite report export with the JWT and hand the browser a download.
+    // A link cannot carry the Authorization header, so fetch the blob first.
+    async function downloadSuiteReport(suiteId, runId, suiteName, format) {
+      const btnId = format === 'pdf' ? 'btnExportSuitePdf' : 'btnExportSuiteHtml';
+      const btn = document.getElementById(btnId);
+      const label = btn ? btn.textContent : '';
+      if (btn) { btn.disabled = true; btn.textContent = 'Menyiapkan...'; }
+      try {
+        const res = await fetch('/api/v1/suites/' + encodeURIComponent(suiteId) +
+          '/report.' + format + '?runId=' + encodeURIComponent(runId), {
+          headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        if (!res.ok) throw new Error('Export failed (' + res.status + ')');
+        const blob = await res.blob();
+        const safe = (suiteName || 'suite').replace(/[^a-zA-Z0-9]+/g, '_');
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = safe + '_report.' + format;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        showSnackbar({ type: 'error', title: 'Export gagal', message: err.message || 'Tidak dapat mengunduh report.' });
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = label; }
+      }
     }
 
     function renderHistoryTable() {
