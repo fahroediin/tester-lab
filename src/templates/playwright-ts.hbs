@@ -200,28 +200,49 @@ test('{{jsLit testSuite}}', async ({ page }) => {
       }
       throw new Error(`Text "${needle}" was not found on the page (checked visible text and field values).`);
     },
-    // US-36: resolve the single row/card that contains a unique marker text.
-    // Throws the not-found (AC-36.04) or not-unique (AC-36.05) message.
+    // US-36 (extended): resolve one control inside the smallest container that
+    // carries a unique marker text. The container is a table row, a list item,
+    // or a form group (div/section/fieldset) — whichever holds both the marker
+    // and the target. This lets a step target one control among identical
+    // siblings (e.g. an anonymous "Edit" button repeated per form field) by
+    // naming a nearby label. Throws not-found (AC-36.04)/not-unique (AC-36.05).
     scopedRow(marker: string): Locator {
-      const byRole = page.getByRole('row', { name: new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') });
-      const byFilter = page.locator('tr, li, [role="row"]').filter({ hasText: marker });
+      const escaped = marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const rowByRole = page.getByRole('row', { name: new RegExp(escaped, 'i') });
+      const containerSel = 'tr, li, [role="row"], div, section, fieldset';
+
+      // The scope for a given target: a real row first, else the deepest (i.e.
+      // smallest) container that holds both the marker and that very target.
+      // filter({ has }) discards the page-wide ancestors (<form>/<body>) that
+      // contain the marker only because they contain everything.
+      const scope = (buildTarget: (root: Page | Locator) => Locator): Locator => {
+        const container = page.locator(containerSel).filter({ hasText: marker }).filter({ has: buildTarget(page) });
+        return buildTarget(rowByRole.or(container.last()).first());
+      };
+
       return {
-        locator: (sel: string) => byRole.or(byFilter).first().locator(sel),
-        getByRole: (role: string, opts?: { name?: RegExp | string }) => byRole.or(byFilter).first().getByRole(role as Parameters<Locator['getByRole']>[0], opts as Parameters<Locator['getByRole']>[1]),
-        getByText: (text: RegExp | string) => byRole.or(byFilter).first().getByText(text),
-        getByTestId: (id: string) => byRole.or(byFilter).first().getByTestId(id),
-        getByPlaceholder: (text: RegExp | string) => byRole.or(byFilter).first().getByPlaceholder(text),
-        getByLabel: (text: RegExp | string) => byRole.or(byFilter).first().getByLabel(text),
+        locator: (sel: string) => scope((r) => (r as Locator).locator(sel)),
+        getByRole: (role: string, opts?: { name?: RegExp | string }) => scope((r) => r.getByRole(role as Parameters<Locator['getByRole']>[0], opts as Parameters<Locator['getByRole']>[1])),
+        getByText: (text: RegExp | string) => scope((r) => r.getByText(text)),
+        getByTestId: (id: string) => scope((r) => r.getByTestId(id)),
+        getByPlaceholder: (text: RegExp | string) => scope((r) => r.getByPlaceholder(text)),
+        getByLabel: (text: RegExp | string) => scope((r) => r.getByLabel(text)),
         async assertResolvable() {
-          // Poll for the row: content loaded async after navigation (e.g. an
-          // order list fetched right after login) may not be rendered yet on
-          // the first tick. A single count() then races that load and reports a
-          // false "not found". Wait until exactly one row appears, or until the
-          // window elapses, then give the honest verdict (AC-36.04/05).
+          // Poll for the scope: content loaded async after navigation may not be
+          // rendered on the first tick. A single count() races that load and
+          // reports a false "not found". Wait until the marker appears, then give
+          // the honest verdict (AC-36.04 not-found / AC-36.05 not-unique).
+          //
+          // Uniqueness is judged by how many places carry the marker text, not by
+          // container count: nested <div>s inflate the container count even when
+          // the marker names one field, so counting the text is the true signal.
+          const carrier = rowByRole.or(page.locator(containerSel).filter({ hasText: marker }).last());
+          const markerText = page.getByText(marker, { exact: false });
           let count = 0;
           for (let i = 0; i < 20; i++) {
-            count = await byRole.or(byFilter).count();
-            if (count === 1) { maestro.lastAssertLocator = byRole.or(byFilter).first(); return; } // matched row -> highlight it
+            const rows = await rowByRole.count();
+            count = rows > 0 ? rows : await markerText.count();
+            if (count === 1) { maestro.lastAssertLocator = carrier.first(); return; }
             if (count > 1) break;         // ambiguous now; more time won't help
             await page.waitForTimeout(300); // count === 0: give async data time to render
           }

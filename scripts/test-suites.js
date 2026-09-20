@@ -387,15 +387,18 @@ function ok(name, cond) {
     const jsTpl = fs.readFileSync(require('path').join(process.cwd(), 'dist', 'templates', 'playwright-js.hbs'), 'utf-8');
     // The resolvable check must retry (poll) rather than count once, so a row
     // that renders shortly after navigation is not reported as not-found.
-    const tsBlock = tsTpl.slice(tsTpl.indexOf('assertResolvable'), tsTpl.indexOf('assertResolvable') + 1400);
-    const jsBlock = jsTpl.slice(jsTpl.indexOf('assertResolvable'), jsTpl.indexOf('assertResolvable') + 1400);
+    // The poll loop lives in the assertResolvable body; scope the loop check to a
+    // window after it, but check the verdict messages across the whole template
+    // (they sit at the end of the body, which now varies in length).
+    const tsBlock = tsTpl.slice(tsTpl.indexOf('async assertResolvable'), tsTpl.indexOf('async assertResolvable') + 1600);
+    const jsBlock = jsTpl.slice(jsTpl.indexOf('base.assertResolvable'), jsTpl.indexOf('base.assertResolvable') + 1600);
     ok('TS assertResolvable polls (has a loop)', /for\s*\(/.test(tsBlock) && /waitForTimeout/.test(tsBlock));
     ok('JS assertResolvable polls (has a loop)', /for\s*\(/.test(jsBlock) && /waitForTimeout/.test(jsBlock));
     // Still reports not-found and not-unique after polling (AC-36.04/05).
-    ok('TS keeps not-found message', tsBlock.includes('No row containing'));
-    ok('TS keeps not-unique message', tsBlock.includes('matched more than one row'));
-    ok('JS keeps not-found message', jsBlock.includes('No row containing'));
-    ok('JS keeps not-unique message', jsBlock.includes('matched more than one row'));
+    ok('TS keeps not-found message', tsTpl.includes('No row containing'));
+    ok('TS keeps not-unique message', tsTpl.includes('matched more than one row'));
+    ok('JS keeps not-found message', jsTpl.includes('No row containing'));
+    ok('JS keeps not-unique message', jsTpl.includes('matched more than one row'));
   }
 
   console.log('\n[9] Run evidence — findScreenshotFile (snapshot on-failure, intent AC-19.03)');

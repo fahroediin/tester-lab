@@ -92,7 +92,17 @@ export async function extractCandidatesFromPage(
       }
 
       const innerText = (htmlEl.innerText || htmlEl.textContent || '').trim().replace(/\s+/g, ' ');
-      
+
+      // An icon-only control (e.g. <button title="Edit field ini"><svg></svg></button>)
+      // has no text and no aria-label; the browser uses `title` as its accessible
+      // name (ARIA name fallback). Map it to ariaLabel so scoring can match it and
+      // the resolver emits getByRole(name)/getByLabel instead of a text= locator
+      // that never matches (the text lives in the attribute, not the content).
+      if (!ariaLabel && !innerText) {
+        const title = (htmlEl.getAttribute('title') || '').trim();
+        if (title) ariaLabel = title;
+      }
+
       let role = htmlEl.getAttribute('role') || '';
       if (!role) {
         if (tagName === 'button' || (tagName === 'input' && ['button', 'submit', 'reset'].includes(htmlEl.getAttribute('type') || ''))) {

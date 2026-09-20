@@ -70,18 +70,22 @@ test('{{jsLit testSuite}}', async ({ page }) => {
   // US-36: resolve the single row/card that contains a unique marker text.
   // Throws the not-found (AC-36.04) or not-unique (AC-36.05) message.
   function scopedRow(marker) {
+    // US-36 (extended): a table row, list item, or form group (div/section/
+    // fieldset) carrying the marker text. The deepest match is the smallest
+    // container, so a marker label scopes to its own field group, not the page.
     const byRole = page.getByRole('row', { name: new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') });
-    const byFilter = page.locator('tr, li, [role="row"]').filter({ hasText: marker });
+    const byFilter = page.locator('tr, li, [role="row"], div, section, fieldset').filter({ hasText: marker }).last();
     const base = byRole.or(byFilter).first();
     base.assertResolvable = async () => {
-      // Poll for the row: content loaded async after navigation may not be
-      // rendered on the first tick. A single count() races that load and
-      // reports a false "not found". Wait for a single row, or until the
-      // window elapses, then give the honest verdict (AC-36.04/05).
+      // Poll for the scope; give the honest verdict (AC-36.04 not-found /
+      // AC-36.05 not-unique). Uniqueness is judged by how many places carry the
+      // marker text, since nested <div>s inflate the container count.
+      const markerText = page.getByText(marker, { exact: false });
       let count = 0;
       for (let i = 0; i < 20; i++) {
-        count = await byRole.or(byFilter).count();
-        if (count === 1) { maestro.lastAssertLocator = byRole.or(byFilter).first(); return; } // matched row -> highlight it
+        const rows = await byRole.count();
+        count = rows > 0 ? rows : await markerText.count();
+        if (count === 1) { maestro.lastAssertLocator = base; return; } // matched -> highlight it
         if (count > 1) break;
         await page.waitForTimeout(300);
       }
