@@ -2979,8 +2979,10 @@
               const isSExpanded = !!expandedSuites[s.id];
               const isSActive = historySuiteFilter === s.id;
               const sCaret = '<span onclick="toggleSuiteExpand(\'' + s.id + '\', event)" style="cursor:pointer; width:16px; display:inline-block; text-align:center; color: var(--slate); font-size:11px;">' + (isSExpanded ? '&#9662;' : '&#9656;') + '</span>';
+              const sNameJs = escapeHtml(s.name).replace(/'/g, "\\'");
               const sActions =
-                '<button class="btn-suite-run" data-suite-id="' + s.id + '" onclick="runSuitePrompt(\'' + s.id + '\', \'' + escapeHtml(s.name).replace(/'/g, "\\'") + '\', event)" style="padding:2px 8px; font-size:9.5px; min-height:unset; height:auto;"><span class="run-label">Run</span></button>' +
+                '<button class="btn-suite-run" data-suite-id="' + s.id + '" onclick="runSuitePrompt(\'' + s.id + '\', \'' + sNameJs + '\', event)" style="padding:2px 8px; font-size:9.5px; min-height:unset; height:auto;"><span class="run-label">Run</span></button>' +
+                '<button class="btn-pill-outline" onclick="showSuiteRunHistory(\'' + s.id + '\', \'' + sNameJs + '\', event)" style="padding:2px 6px; font-size:9.5px; min-height:unset; height:auto;">Run History</button>' +
                 '<button class="btn-pill-outline" onclick="renameSuitePrompt(\'' + s.id + '\', event)" style="padding:2px 6px; font-size:9.5px; min-height:unset; height:auto;">Rename</button>' +
                 '<button class="btn-pill-outline" onclick="deleteSuitePrompt(\'' + s.id + '\', event)" style="padding:2px 6px; font-size:9.5px; min-height:unset; height:auto; color:var(--coral); border-color:var(--coral);">Delete</button>';
 
@@ -3719,8 +3721,9 @@
       // Export is available only for a persisted run (data.suiteRunId). The
       // endpoints stream an attachment, so a plain anchor download is enough.
       const exportFooter = data.suiteRunId
-        ? '<div style="display:flex; align-items:center; gap:10px; font-size:13px;">' +
-            '<span style="color:var(--slate);">Export report:</span>' +
+        ? '<div style="display:flex; align-items:center; gap:10px; font-size:13px; flex-wrap:wrap;">' +
+            '<button type="button" id="btnViewSuiteHtml" class="btn-pill-outline">View Report</button>' +
+            '<span style="color:var(--slate);">Export:</span>' +
             '<button type="button" id="btnExportSuiteHtml" class="btn-pill-outline">HTML</button>' +
             '<button type="button" id="btnExportSuitePdf" class="btn-pill-outline">PDF</button>' +
           '</div>'
@@ -3737,8 +3740,10 @@
         didOpen: () => {
           if (!data.suiteRunId || !suiteId) return;
           const download = (format) => downloadSuiteReport(suiteId, data.suiteRunId, suiteName, format);
+          const viewBtn = document.getElementById('btnViewSuiteHtml');
           const htmlBtn = document.getElementById('btnExportSuiteHtml');
           const pdfBtn = document.getElementById('btnExportSuitePdf');
+          if (viewBtn) viewBtn.addEventListener('click', () => viewSuiteReport(suiteId, data.suiteRunId));
           if (htmlBtn) htmlBtn.addEventListener('click', () => download('html'));
           if (pdfBtn) pdfBtn.addEventListener('click', () => download('pdf'));
         }
@@ -3774,6 +3779,92 @@
         if (btn) { btn.disabled = false; btn.textContent = label; }
       }
     }
+
+    // Open the HTML report in a new tab. window.open cannot carry the JWT header,
+    // so fetch the HTML with auth, then open it as a blob URL (always displayed,
+    // never forced to download). Open the tab synchronously before the await so
+    // the browser does not treat it as a popup.
+    async function viewSuiteReport(suiteId, runId) {
+      const tab = window.open('', '_blank');
+      try {
+        const res = await fetch('/api/v1/suites/' + encodeURIComponent(suiteId) +
+          '/report.html?runId=' + encodeURIComponent(runId), {
+          headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        if (!res.ok) throw new Error('View failed (' + res.status + ')');
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        if (tab) { tab.location = url; } else { window.open(url, '_blank'); }
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+      } catch (err) {
+        if (tab) tab.close();
+        showSnackbar({ type: 'error', title: 'Gagal menampilkan report', message: err.message || 'Tidak dapat membuka report.' });
+      }
+    }
+
+    const SUITE_RUN_STATUS_STYLE = {
+      PASSED:  'background:var(--pale-green); color:var(--deep-green); border-color:var(--deep-green);',
+      PARTIAL: 'background:#faeeda; color:#854f0b; border-color:#ef9f27;',
+      FAILED:  'background:var(--coral-soft); color:#993c1d; border-color:var(--coral);',
+      SKIPPED: 'background:var(--surface-2); color:var(--slate); border-color:var(--hairline);'
+    };
+
+    // Run Suite history: list persisted runs for a suite, each with a report export.
+    window.showSuiteRunHistory = async function(suiteId, suiteName, event) {
+      if (event) event.stopPropagation();
+      try {
+        const res = await fetch('/api/v1/suites/' + encodeURIComponent(suiteId) + '/runs', {
+          headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.error || 'Gagal memuat riwayat run.');
+
+        const runs = Array.isArray(data.runs) ? data.runs : [];
+        let body;
+        if (runs.length === 0) {
+          body = '<div style="padding:24px 8px; color:var(--slate); font-size:13px; text-align:center;">Belum ada Run Suite tersimpan. Jalankan suite ini untuk membuat riwayat.</div>';
+        } else {
+          const rows = runs.map((r) => {
+            const style = SUITE_RUN_STATUS_STYLE[r.jobStatus] || SUITE_RUN_STATUS_STYLE.SKIPPED;
+            const when = new Date(r.createdAt).toLocaleString();
+            return '<div style="display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--hairline);">' +
+              '<span style="display:inline-block; padding:2px 10px; border:1px solid; border-radius:12px; font-size:11px; font-weight:600; ' + style + '">' + escapeHtml(r.jobStatus) + '</span>' +
+              '<div style="flex:1; min-width:0;">' +
+                '<div style="font-size:13px; color:var(--ink);">' + escapeHtml(when) + '</div>' +
+                '<div style="font-size:11px; color:var(--slate);">' + r.count + ' scenario</div>' +
+              '</div>' +
+              '<button type="button" class="btn-pill-outline btn-run-view" data-run-id="' + r.id + '" style="padding:3px 12px; font-size:11px;">View</button>' +
+              '<button type="button" class="btn-pill-outline btn-run-report" data-run-id="' + r.id + '" data-format="html" style="padding:3px 12px; font-size:11px;">HTML</button>' +
+              '<button type="button" class="btn-pill-outline btn-run-report" data-run-id="' + r.id + '" data-format="pdf" style="padding:3px 12px; font-size:11px;">PDF</button>' +
+            '</div>';
+          }).join('');
+          body = '<div style="text-align:left; max-height:60vh; overflow-y:auto; padding:0 4px;">' + rows + '</div>';
+        }
+
+        Swal.fire({
+          title: 'Riwayat Run Suite: ' + escapeHtml(suiteName),
+          html: body,
+          confirmButtonText: 'Tutup',
+          confirmButtonColor: '#005bbf',
+          width: 620,
+          padding: '1.75em',
+          didOpen: () => {
+            document.querySelectorAll('.btn-run-view').forEach((btn) => {
+              btn.addEventListener('click', () => {
+                viewSuiteReport(suiteId, btn.getAttribute('data-run-id'));
+              });
+            });
+            document.querySelectorAll('.btn-run-report').forEach((btn) => {
+              btn.addEventListener('click', () => {
+                downloadSuiteReport(suiteId, btn.getAttribute('data-run-id'), suiteName, btn.getAttribute('data-format'));
+              });
+            });
+          }
+        });
+      } catch (err) {
+        showSnackbar({ type: 'error', title: 'Riwayat Run Suite', message: err.message || 'Gagal memuat riwayat.' });
+      }
+    };
 
     function renderHistoryTable() {
       const tbody = document.getElementById('historyTableBody');

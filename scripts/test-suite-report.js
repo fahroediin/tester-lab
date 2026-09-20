@@ -25,7 +25,7 @@ function ok(name, cond) {
       {
         id: 's1', name: 'Login berhasil', status: 'SUCCESS',
         screenshotUrl: 'https://x/ok.png',
-        stepShots: [{ step: 1, url: 'https://x/s1.png' }],
+        stepShots: [{ step: 1, url: 'https://x/s1.png' }, { step: 2, url: 'https://x/s2.png' }],
         steps: [
           { step: 1, description: 'fill Email', status: 'OK' },
           { step: 2, description: 'click Login', status: 'OK' }
@@ -66,6 +66,9 @@ function ok(name, cond) {
   const s1 = report.scenarios[0];
   ok('scenario SUCCESS bawa steps', Array.isArray(s1.steps) && s1.steps.length === 2);
   ok('scenario SUCCESS bawa screenshotUrl', s1.screenshotUrl === 'https://x/ok.png');
+  // Per-step snapshot: stepShots dipetakan ke step yang cocok.
+  ok('step 1 punya screenshotUrl dari stepShots', s1.steps[0].screenshotUrl === 'https://x/s1.png');
+  ok('step 2 punya screenshotUrl dari stepShots', s1.steps[1].screenshotUrl === 'https://x/s2.png');
   const s2 = report.scenarios[1];
   ok('scenario FAILED bawa error', s2.error === 'Timeout on Submit');
   ok('step FAILED tercermin', s2.steps.some((st) => st.status === 'FAILED'));
@@ -74,13 +77,19 @@ function ok(name, cond) {
 
   // --- renderSuiteReportHtml ---
   console.log('\n[suite-report] renderSuiteReportHtml');
-  const images = new Map([['https://x/ok.png', 'data:image/png;base64,AAAA']]);
+  const images = new Map([
+    ['https://x/ok.png', 'data:image/png;base64,AAAA'],
+    ['https://x/s1.png', 'data:image/png;base64,STEP1']
+  ]);
   const html = renderSuiteReportHtml(report, images);
+  ok('HTML render snapshot per-step (embedded step 1)', html.includes('data:image/png;base64,STEP1'));
   ok('HTML dokumen lengkap', html.startsWith('<!doctype html>') && html.includes('</html>'));
   ok('HTML memuat nama suite', html.includes('Auth Suite'));
   ok('HTML menampilkan totals', html.includes('>3<') && html.includes('Total'));
   ok('HTML tanpa istilah US/AC', !/acceptance criteria|user story|coverage|criterion/i.test(html));
-  ok('HTML meng-embed screenshot yang tersedia', html.includes('data:image/png;base64,AAAA'));
+  // Scenario s1 punya snapshot per-step, jadi snapshot scenario-level (AAAA)
+  // sengaja tidak diulang; bukti yang tampil adalah per-step (STEP1, dicek di atas).
+  ok('HTML meng-embed screenshot per-step, tak duplikasi scenario-level', !html.includes('data:image/png;base64,AAAA'));
   ok('HTML meng-escape agar aman', !/<script>/.test(html));
   ok('HTML tampilkan error scenario FAILED', html.includes('Timeout on Submit'));
 

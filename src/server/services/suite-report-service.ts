@@ -10,6 +10,7 @@ export interface SuiteReportStep {
   step: number;
   description: string;
   status: StepDetail['status'];
+  screenshotUrl?: string;
 }
 
 export interface SuiteReportScenario {
@@ -62,16 +63,24 @@ export function buildSuiteReport(run: RunSuiteResult, options: BuildOptions): Su
     jobStatus: run.jobStatus,
     generatedAt: options.generatedAt || new Date().toISOString(),
     totals: totalsFrom(results),
-    scenarios: results.map((r) => ({
-      id: r.id,
-      name: r.name,
-      status: r.status,
-      reason: r.reason,
-      error: r.error,
-      screenshotUrl: r.screenshotUrl,
-      stepShots: r.stepShots,
-      steps: (r.steps || []).map((s) => ({ step: s.step, description: s.description, status: s.status }))
-    }))
+    scenarios: results.map((r) => {
+      const shotByStep = new Map((r.stepShots || []).map((s) => [s.step, s.url]));
+      return {
+        id: r.id,
+        name: r.name,
+        status: r.status,
+        reason: r.reason,
+        error: r.error,
+        screenshotUrl: r.screenshotUrl,
+        stepShots: r.stepShots,
+        steps: (r.steps || []).map((s) => ({
+          step: s.step,
+          description: s.description,
+          status: s.status,
+          screenshotUrl: shotByStep.get(s.step)
+        }))
+      };
+    })
   };
 }
 
@@ -105,10 +114,10 @@ function evidenceCell(url: string | undefined, images: EmbeddedImages): string {
   return '<span class="note">Screenshot omitted to keep this export within its size limit</span>';
 }
 
-function stepRows(scenario: SuiteReportScenario): string {
+function stepRows(scenario: SuiteReportScenario, images: EmbeddedImages): string {
   const steps = scenario.steps;
   if (steps.length === 0) {
-    return '<tr><td colspan="3" class="note">No per-step detail was recorded for this scenario.</td></tr>';
+    return '<tr><td colspan="4" class="note">No per-step detail was recorded for this scenario.</td></tr>';
   }
   return steps
     .map((s) => {
@@ -117,6 +126,7 @@ function stepRows(scenario: SuiteReportScenario): string {
         <td class="mono">${s.step}</td>
         <td>${esc(s.description || '&mdash;')}</td>
         <td><span class="pill ${stepPill(s.status)}">${label}</span></td>
+        <td class="ev">${evidenceCell(s.screenshotUrl, images)}</td>
       </tr>`;
     })
     .join('');
@@ -129,7 +139,10 @@ function scenarioBlock(scenario: SuiteReportScenario, images: EmbeddedImages): s
   const skip = scenario.status === 'SKIPPED' && scenario.reason
     ? `<div class="note">Skipped: ${esc(scenario.reason)}</div>`
     : '';
-  const shot = scenario.status !== 'SKIPPED'
+  const anyStepShot = scenario.steps.some((s) => s.screenshotUrl);
+  // Show the scenario-level snapshot only when steps carry none of their own,
+  // so the report does not repeat the same picture.
+  const shot = scenario.status !== 'SKIPPED' && !anyStepShot
     ? `<div class="evidence">${evidenceCell(scenario.screenshotUrl, images)}</div>`
     : '';
   return `<section class="scenario">
@@ -139,8 +152,8 @@ function scenarioBlock(scenario: SuiteReportScenario, images: EmbeddedImages): s
     </div>
     ${skip}${failure}
     <table class="steps">
-      <thead><tr><th>#</th><th>Step</th><th>Status</th></tr></thead>
-      <tbody>${stepRows(scenario)}</tbody>
+      <thead><tr><th>#</th><th>Step</th><th>Status</th><th>Evidence</th></tr></thead>
+      <tbody>${stepRows(scenario, images)}</tbody>
     </table>
     ${shot}
   </section>`;
@@ -179,6 +192,8 @@ export function renderSuiteReportHtml(report: SuiteReport, images: EmbeddedImage
   .err pre { margin: 0; white-space: pre-wrap; font-size: 12px; }
   .evidence { margin-top: 8px; }
   .shot { max-width: 100%; border: 1px solid var(--line); border-radius: 6px; }
+  td.ev { width: 200px; }
+  td.ev .shot { max-width: 180px; cursor: zoom-in; }
 </style>
 </head>
 <body>
