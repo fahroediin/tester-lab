@@ -3781,21 +3781,26 @@
     }
 
     // Open the HTML report in a new tab. window.open cannot carry the JWT header,
-    // so fetch the HTML with auth, then open it as a blob URL (always displayed,
-    // never forced to download). Open the tab synchronously before the await so
-    // the browser does not treat it as a popup.
+    // so fetch the HTML with auth, then open it as a blob URL. The report is
+    // requested with disposition=inline so the browser displays it (and runs its
+    // lightbox script) instead of downloading; a blob URL loads it as a real
+    // document, which document.write into about:blank does not (scripts there do
+    // not run). The tab is opened synchronously so it is not treated as a popup.
     async function viewSuiteReport(suiteId, runId) {
       const tab = window.open('', '_blank');
+      if (tab) {
+        try { tab.document.write('<!doctype html><title>Loading report…</title><p style="font:14px system-ui;padding:24px">Menyiapkan report…</p>'); } catch (e) {}
+      }
       try {
         const res = await fetch('/api/v1/suites/' + encodeURIComponent(suiteId) +
-          '/report.html?runId=' + encodeURIComponent(runId), {
+          '/report.html?disposition=inline&runId=' + encodeURIComponent(runId), {
           headers: { 'Authorization': `Bearer ${authToken}` }
         });
         if (!res.ok) throw new Error('View failed (' + res.status + ')');
         const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        if (tab) { tab.location = url; } else { window.open(url, '_blank'); }
-        setTimeout(() => URL.revokeObjectURL(url), 60000);
+        const url = URL.createObjectURL(new Blob([blob], { type: 'text/html' }));
+        if (tab) { tab.location.href = url; } else { window.open(url, '_blank'); }
+        setTimeout(() => URL.revokeObjectURL(url), 120000);
       } catch (err) {
         if (tab) tab.close();
         showSnackbar({ type: 'error', title: 'Gagal menampilkan report', message: err.message || 'Tidak dapat membuka report.' });

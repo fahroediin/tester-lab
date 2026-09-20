@@ -191,9 +191,12 @@ export function renderSuiteReportHtml(report: SuiteReport, images: EmbeddedImage
   .err .t { color: var(--fail); font-weight: 600; font-size: 12px; margin-bottom: 4px; }
   .err pre { margin: 0; white-space: pre-wrap; font-size: 12px; }
   .evidence { margin-top: 8px; }
-  .shot { max-width: 100%; border: 1px solid var(--line); border-radius: 6px; }
+  .shot { max-width: 100%; border: 1px solid var(--line); border-radius: 6px; cursor: zoom-in; }
   td.ev { width: 200px; }
-  td.ev .shot { max-width: 180px; cursor: zoom-in; }
+  td.ev .shot { max-width: 180px; }
+  #lightbox { display: none; position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.85); align-items: center; justify-content: center; cursor: zoom-out; }
+  #lightbox.on { display: flex; }
+  #lightbox img { max-width: 96vw; max-height: 96vh; box-shadow: 0 8px 40px rgba(0,0,0,0.5); }
 </style>
 </head>
 <body>
@@ -209,6 +212,29 @@ export function renderSuiteReportHtml(report: SuiteReport, images: EmbeddedImage
     <div class="tile"><div class="n">${t.skipped}</div><div class="l">Skipped</div></div>
   </div>
   ${scenarios}
+  <div id="lightbox"><img alt="evidence"></div>
+  <script>
+    (function () {
+      var box = document.getElementById('lightbox');
+      var big = box.querySelector('img');
+      document.addEventListener('click', function (e) {
+        var t = e.target;
+        if (t && t.classList && t.classList.contains('shot')) {
+          big.src = t.src;
+          box.classList.add('on');
+        } else if (box.classList.contains('on')) {
+          box.classList.remove('on');
+          big.src = '';
+        }
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && box.classList.contains('on')) {
+          box.classList.remove('on');
+          big.src = '';
+        }
+      });
+    })();
+  </script>
 </body>
 </html>`;
 }

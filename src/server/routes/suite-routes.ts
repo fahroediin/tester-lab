@@ -251,8 +251,11 @@ suiteRoutes.get('/:suiteId/report:format(\\.html|\\.pdf)?', authenticateJWT, req
     const format = (req.params.format || '').replace('.', '');
     if (format === 'html' || format === 'pdf') {
       const out = await exportSuiteReport(report, format);
+      // inline lets the browser display an HTML report (and run its lightbox
+      // script) in a tab; attachment (default) makes HTML/PDF download.
+      const inline = format === 'html' && req.query.disposition === 'inline';
       res.setHeader('Content-Type', out.contentType);
-      res.setHeader('Content-Disposition', `attachment; filename="${out.filename}"`);
+      res.setHeader('Content-Disposition', `${inline ? 'inline' : 'attachment'}; filename="${out.filename}"`);
       res.send(out.buffer);
       return;
     }

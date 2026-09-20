@@ -83,6 +83,7 @@ function ok(name, cond) {
   ]);
   const html = renderSuiteReportHtml(report, images);
   ok('HTML render snapshot per-step (embedded step 1)', html.includes('data:image/png;base64,STEP1'));
+  ok('HTML punya lightbox untuk zoom snapshot', html.includes('id="lightbox"') && html.includes("classList.add('on')"));
   ok('HTML dokumen lengkap', html.startsWith('<!doctype html>') && html.includes('</html>'));
   ok('HTML memuat nama suite', html.includes('Auth Suite'));
   ok('HTML menampilkan totals', html.includes('>3<') && html.includes('Total'));
@@ -90,7 +91,15 @@ function ok(name, cond) {
   // Scenario s1 punya snapshot per-step, jadi snapshot scenario-level (AAAA)
   // sengaja tidak diulang; bukti yang tampil adalah per-step (STEP1, dicek di atas).
   ok('HTML meng-embed screenshot per-step, tak duplikasi scenario-level', !html.includes('data:image/png;base64,AAAA'));
-  ok('HTML meng-escape agar aman', !/<script>/.test(html));
+  // Data user yang mengandung HTML harus ter-escape (bukan disuntik mentah).
+  // Report memang punya <script> lightbox sendiri; yang diuji adalah escaping input.
+  const xssReport = buildSuiteReport(
+    { runBatchId: 'b', jobStatus: 'FAILED', results: [{ id: 'x', name: '<script>alert(1)</script>', status: 'FAILED', error: '<img src=x onerror=alert(2)>', steps: [] }] },
+    { suiteName: '<b>bold</b>' }
+  );
+  const xssHtml = renderSuiteReportHtml(xssReport);
+  ok('HTML meng-escape data user (nama scenario)', xssHtml.includes('&lt;script&gt;') && !xssHtml.includes('<script>alert(1)'));
+  ok('HTML meng-escape data user (suite name)', xssHtml.includes('&lt;b&gt;bold'));
   ok('HTML tampilkan error scenario FAILED', html.includes('Timeout on Submit'));
 
   console.log('\nAll suite-report tests passed: ' + passed);
