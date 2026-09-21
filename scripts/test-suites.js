@@ -313,8 +313,8 @@ function ok(name, cond) {
     // A captureSuccess routine highlights + screenshots on success.
     ok('TS has captureSuccess', /captureSuccess/.test(tsTpl));
     ok('JS has captureSuccess', /captureSuccess/.test(jsTpl));
-    ok('TS captureSuccess takes a manual screenshot', /captureSuccess[\s\S]{0,1200}page\.screenshot/.test(tsTpl));
-    ok('JS captureSuccess takes a manual screenshot', /captureSuccess[\s\S]{0,1200}page\.screenshot/.test(jsTpl));
+    ok('TS captureSuccess takes a manual screenshot', /captureSuccess[\s\S]{0,1200}activePage\.screenshot/.test(tsTpl));
+    ok('JS captureSuccess takes a manual screenshot', /captureSuccess[\s\S]{0,1200}activePage\.screenshot/.test(jsTpl));
     ok('TS highlights via outline', /outline/.test(tsTpl));
     ok('JS highlights via outline', /outline/.test(jsTpl));
     // captureSuccess is invoked once at the very end of the test.

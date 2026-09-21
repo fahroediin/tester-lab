@@ -611,8 +611,8 @@ const gen = new CodeGenerator();
     ok('within step 1 is row-scoped', /scopedRow\(\s*'260911-0003'\s*\)/.test(res.code));
     ok('within step 1 keeps the inner target (getByRole)', res.code.includes('getByRole'));
     ok('within step 1 asserts the row is resolvable', res.code.includes('assertResolvable'));
-    // Step 2 has no within: its getByText('Selesai') click must be page-rooted, not scoped.
-    ok('within step 2 (no within) uses a page-rooted locator', /maestro\.interact\(page\.getByText\(new RegExp\('Selesai'/.test(res.code));
+    // Step 2 has no within: its getByText('Selesai') click must be active-page-rooted, not scoped.
+    ok('within step 2 (no within) uses an active-page-rooted locator', /maestro\.interact\(activePage\.getByText\(new RegExp\('Selesai'/.test(res.code));
     ok('scopedRow definition + one scoped step = marker appears for step 1 only', (res.code.match(/scopedRow\('260911-0003'\)/g) || []).length >= 1);
     ok('scopedRow helper is defined in output', res.code.includes('scopedRow(marker'));
 
@@ -620,7 +620,7 @@ const gen = new CodeGenerator();
     const resJs = await gen.generateScript({ ...cfg, language: 'javascript' }, withinSteps);
     ok('within (JS): generation succeeds', resJs.success === true);
     ok('within (JS) step 1 is row-scoped', /scopedRow\(\s*'260911-0003'\s*\)/.test(resJs.code));
-    ok('within (JS) step 2 (no within) is page-rooted', /await page\.getByText\('Selesai'\)/.test(resJs.code));
+    ok('within (JS) step 2 (no within) is active-page-rooted', /clickAndAdopt\(activePage\.getByText\('Selesai'\)/.test(resJs.code));
     ok('within (JS) scopedRow helper defined', resJs.code.includes('scopedRow(marker'));
   }
 

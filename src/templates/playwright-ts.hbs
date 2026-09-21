@@ -13,6 +13,11 @@ test('{{jsLit testSuite}}', async ({ page }) => {
   await page.goto('{{jsLit targetUrl}}');
   await page.waitForLoadState('networkidle');
 
+  // The tab steps currently act on. A click may open a new tab (target=_blank /
+  // window.open) — e.g. a print/voucher page; the run then switches here so the
+  // next step acts on that tab instead of hanging with an unhandled popup.
+  let activePage = page;
+
   // Maestro-like Auto-Wait and Scroll-Until-Visible Engine
   const maestro = {
     // The last element an assert confirmed; highlighted in the success snapshot
@@ -39,7 +44,7 @@ test('{{jsLit testSuite}}', async ({ page }) => {
         // Write into the test's output dir so the runner's findScreenshotFile
         // (which scans the temp results tree for a .png) picks it up.
         const shotPath = test.info().outputPath('success-snapshot.png');
-        await page.screenshot({ path: shotPath, fullPage: false }).catch(() => {});
+        await activePage.screenshot({ path: shotPath, fullPage: false }).catch(() => {});
       } catch { /* evidence is best-effort */ }
     },
     // Per-step evidence (US-19): one screenshot per step, named step_<N>.png so
@@ -47,7 +52,7 @@ test('{{jsLit testSuite}}', async ({ page }) => {
     // a step's action succeeds, so it shows what that step did. Best-effort.
     async captureStep(n: number) {
       try {
-        await page.screenshot({ path: test.info().outputPath('step_' + n + '.png'), fullPage: false }).catch(() => {});
+        await activePage.screenshot({ path: test.info().outputPath('step_' + n + '.png'), fullPage: false }).catch(() => {});
       } catch { /* best-effort */ }
     },
     // A step's evidence at the MOMENT it first fails — taken before the retry
@@ -75,7 +80,7 @@ test('{{jsLit testSuite}}', async ({ page }) => {
         // says why it failed without guessing at a similar element.
         let banner = false;
         if (!outlined && this.currentTarget) {
-          await page.evaluate((target: string) => {
+          await activePage.evaluate((target: string) => {
             const b = document.createElement('div');
             b.id = '__tl_fail_banner';
             b.textContent = 'Dicari: ' + target + ' — TIDAK DITEMUKAN';
@@ -86,12 +91,12 @@ test('{{jsLit testSuite}}', async ({ page }) => {
           }, this.currentTarget).catch(() => {});
           banner = true;
         }
-        await page.screenshot({ path: test.info().outputPath('step_' + n + '.png'), fullPage: false }).catch(() => {});
+        await activePage.screenshot({ path: test.info().outputPath('step_' + n + '.png'), fullPage: false }).catch(() => {});
         // Remove the banner right away: it contains the searched text, so if it
         // lingered the next retry's getByText() would match the banner itself
         // and the assertion would pass falsely.
         if (banner) {
-          await page.evaluate(() => { const b = document.getElementById('__tl_fail_banner'); if (b) b.remove(); }).catch(() => {});
+          await activePage.evaluate(() => { const b = document.getElementById('__tl_fail_banner'); if (b) b.remove(); }).catch(() => {});
         }
       } catch { /* best-effort */ }
     },
@@ -113,12 +118,22 @@ test('{{jsLit testSuite}}', async ({ page }) => {
           await locator.first().waitFor({ state: 'attached', timeout: 1500 });
           
           if (action === 'click') {
+            // A click may open a new tab (target=_blank / window.open). Listen for
+            // it before clicking, so a popup is captured rather than left dangling
+            // (an unhandled popup can hang the run). If one opens, switch the
+            // active tab to it so the next step acts on the new page.
+            const popupPromise = activePage.context().waitForEvent('page', { timeout: 3000 }).catch(() => null);
             await locator.first().click({ force: true, timeout: 2000 });
-            // AC-07.12: a click on a link/button may trigger a full-page
-            // navigation. Wait for the page to settle before the next step runs,
-            // so a following fill/assert does not execute on the old page. Guarded
-            // so a click that does NOT navigate simply proceeds without hanging.
-            await page.waitForLoadState('domcontentloaded', { timeout: 3000 }).catch(() => {});
+            const popup = await popupPromise;
+            if (popup) {
+              await popup.waitForLoadState('domcontentloaded', { timeout: 3000 }).catch(() => {});
+              activePage = popup;
+            } else {
+              // AC-07.12: a same-tab click may trigger a full-page navigation.
+              // Wait for the page to settle before the next step runs. Guarded so
+              // a click that does NOT navigate simply proceeds without hanging.
+              await activePage.waitForLoadState('domcontentloaded', { timeout: 3000 }).catch(() => {});
+            }
           } else if (action === 'fill') {
             await locator.first().fill(value!, { force: true, timeout: 2000 });
           } else if (action === 'select') {
@@ -167,8 +182,8 @@ test('{{jsLit testSuite}}', async ({ page }) => {
           }
           if (e && e.assertValueFinal) throw e;
           // Scroll down slightly if element is not interactable or not found
-          await page.evaluate(() => window.scrollBy(0, 400));
-          await page.waitForTimeout(300); // Allow lazy-loaded elements to render
+          await activePage.evaluate(() => window.scrollBy(0, 400));
+          await activePage.waitForTimeout(300); // Allow lazy-loaded elements to render
         }
       }
       throw new Error(`Maestro Auto-Scroll Timeout: Element not found or interactable. Last error: ${lastError?.message}`);
@@ -182,9 +197,9 @@ test('{{jsLit testSuite}}', async ({ page }) => {
       let failureCaptured = false;
       for (let i = 0; i < 15; i++) {
         // 1) visible text node
-        if (await page.getByText(re).count() > 0) return;
+        if (await activePage.getByText(re).count() > 0) return;
         // 2) value of any field
-        const values = await page.locator('input, textarea, select').evaluateAll(
+        const values = await activePage.locator('input, textarea, select').evaluateAll(
           (els) => els.map((el) => (el as HTMLInputElement).value || '')
         );
         if (values.some((v) => re.test(v))) return;
@@ -195,8 +210,8 @@ test('{{jsLit testSuite}}', async ({ page }) => {
           failureCaptured = true;
           await this.captureStepFailure(this.currentStep, null);
         }
-        await page.evaluate(() => window.scrollBy(0, 400));
-        await page.waitForTimeout(300);
+        await activePage.evaluate(() => window.scrollBy(0, 400));
+        await activePage.waitForTimeout(300);
       }
       throw new Error(`Text "${needle}" was not found on the page (checked visible text and field values).`);
     },
@@ -208,7 +223,7 @@ test('{{jsLit testSuite}}', async ({ page }) => {
     // naming a nearby label. Throws not-found (AC-36.04)/not-unique (AC-36.05).
     scopedRow(marker: string): Locator {
       const escaped = marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const rowByRole = page.getByRole('row', { name: new RegExp(escaped, 'i') });
+      const rowByRole = activePage.getByRole('row', { name: new RegExp(escaped, 'i') });
       const containerSel = 'tr, li, [role="row"], div, section, fieldset';
 
       // The scope for a given target: a real row first, else the deepest (i.e.
@@ -216,7 +231,7 @@ test('{{jsLit testSuite}}', async ({ page }) => {
       // filter({ has }) discards the page-wide ancestors (<form>/<body>) that
       // contain the marker only because they contain everything.
       const scope = (buildTarget: (root: Page | Locator) => Locator): Locator => {
-        const container = page.locator(containerSel).filter({ hasText: marker }).filter({ has: buildTarget(page) });
+        const container = activePage.locator(containerSel).filter({ hasText: marker }).filter({ has: buildTarget(activePage) });
         return buildTarget(rowByRole.or(container.last()).first());
       };
 
@@ -236,15 +251,15 @@ test('{{jsLit testSuite}}', async ({ page }) => {
           // Uniqueness is judged by how many places carry the marker text, not by
           // container count: nested <div>s inflate the container count even when
           // the marker names one field, so counting the text is the true signal.
-          const carrier = rowByRole.or(page.locator(containerSel).filter({ hasText: marker }).last());
-          const markerText = page.getByText(marker, { exact: false });
+          const carrier = rowByRole.or(activePage.locator(containerSel).filter({ hasText: marker }).last());
+          const markerText = activePage.getByText(marker, { exact: false });
           let count = 0;
           for (let i = 0; i < 20; i++) {
             const rows = await rowByRole.count();
             count = rows > 0 ? rows : await markerText.count();
             if (count === 1) { maestro.lastAssertLocator = carrier.first(); return; }
             if (count > 1) break;         // ambiguous now; more time won't help
-            await page.waitForTimeout(300); // count === 0: give async data time to render
+            await activePage.waitForTimeout(300); // count === 0: give async data time to render
           }
           if (count === 0) throw new Error(`No row containing "${marker}" was found on the page.`);
           throw new Error(`Scope marker "${marker}" matched more than one row. Use a unique value such as an ID so the step targets exactly one row.`);
@@ -259,7 +274,7 @@ test('{{jsLit testSuite}}', async ({ page }) => {
     const tag = type === 'select' ? 'select' : 'input';
     const escapedLabel = label.replace(/'/g, "\\'");
     const xpath = `xpath=((//*[normalize-space(.)='${escapedLabel}' or normalize-space(.)='${escapedLabel} *' or normalize-space(.)='${escapedLabel}*'])[1]/following::${tag}[1] | (//*[normalize-space(.)='${escapedLabel}' or normalize-space(.)='${escapedLabel} *' or normalize-space(.)='${escapedLabel}*'])[1]//${tag})[1]`;
-    const target = page.locator(xpath);
+    const target = activePage.locator(xpath);
     await maestro.interact(target, type, value);
   }
   {{/if}}
@@ -274,24 +289,24 @@ test('{{jsLit testSuite}}', async ({ page }) => {
   
   {{#if (eq action "fill")}}
     {{#if (eq selectorType "getByTestId")}}
-  await maestro.interact(page.getByTestId('{{jsLit selectorValue}}'), 'fill', '{{jsLit value}}');
+  await maestro.interact(activePage.getByTestId('{{jsLit selectorValue}}'), 'fill', '{{jsLit value}}');
     {{else if (eq selectorType "getByLabel")}}
-  await maestro.interact(page.getByLabel(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'fill', '{{jsLit value}}');
+  await maestro.interact(activePage.getByLabel(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'fill', '{{jsLit value}}');
     {{else if (eq selectorType "getByRole")}}
-  await maestro.interact(page.getByRole('{{jsLit selectorValue}}', { name: new RegExp('{{{escapeRegex roleName}}}', 'i') }), 'fill', '{{jsLit value}}');
+  await maestro.interact(activePage.getByRole('{{jsLit selectorValue}}', { name: new RegExp('{{{escapeRegex roleName}}}', 'i') }), 'fill', '{{jsLit value}}');
     {{else if (eq selectorType "getByPlaceholder")}}
-  await maestro.interact(page.getByPlaceholder(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'fill', '{{jsLit value}}');
+  await maestro.interact(activePage.getByPlaceholder(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'fill', '{{jsLit value}}');
     {{else if (eq selectorType "getByText")}}
-  await maestro.interact(page.getByText(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'fill', '{{jsLit value}}');
+  await maestro.interact(activePage.getByText(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'fill', '{{jsLit value}}');
     {{else}}
       {{#if ../needsRobustHelper}}
         {{#if targetLabel}}
   await legacyAction('fill', '{{jsLit targetLabel}}', '{{jsLit value}}');
         {{else}}
-  await maestro.interact(page.locator('{{jsLit selectorValue}}'), 'fill', '{{jsLit value}}');
+  await maestro.interact(activePage.locator('{{jsLit selectorValue}}'), 'fill', '{{jsLit value}}');
         {{/if}}
       {{else}}
-  await maestro.interact(page.locator('{{jsLit selectorValue}}'), 'fill', '{{jsLit value}}');
+  await maestro.interact(activePage.locator('{{jsLit selectorValue}}'), 'fill', '{{jsLit value}}');
       {{/if}}
     {{/if}}
   {{/if}}
@@ -301,71 +316,71 @@ test('{{jsLit testSuite}}', async ({ page }) => {
   await maestro.scopedRow('{{jsLit options.within}}').assertResolvable();
     {{/if}}
     {{#if (eq selectorType "getByTestId")}}
-  await maestro.interact({{{scopedLoc (concat "page.getByTestId('" (jsLit selectorValue) "')") options.within}}}, 'click');
+  await maestro.interact({{{scopedLoc (concat "activePage.getByTestId('" (jsLit selectorValue) "')") options.within}}}, 'click');
     {{else if (eq selectorType "getByLabel")}}
-  await maestro.interact({{{scopedLoc (concat "page.getByLabel(new RegExp('" (escapeRegex selectorValue) "', 'i'))") options.within}}}, 'click');
+  await maestro.interact({{{scopedLoc (concat "activePage.getByLabel(new RegExp('" (escapeRegex selectorValue) "', 'i'))") options.within}}}, 'click');
     {{else if (eq selectorType "getByRole")}}
-  await maestro.interact({{{scopedLoc (concat "page.getByRole('" (jsLit selectorValue) "', { name: new RegExp('" (escapeRegex roleName) "', 'i') })") options.within}}}, 'click');
+  await maestro.interact({{{scopedLoc (concat "activePage.getByRole('" (jsLit selectorValue) "', { name: new RegExp('" (escapeRegex roleName) "', 'i') })") options.within}}}, 'click');
     {{else if (eq selectorType "getByPlaceholder")}}
-  await maestro.interact({{{scopedLoc (concat "page.getByPlaceholder(new RegExp('" (escapeRegex selectorValue) "', 'i'))") options.within}}}, 'click');
+  await maestro.interact({{{scopedLoc (concat "activePage.getByPlaceholder(new RegExp('" (escapeRegex selectorValue) "', 'i'))") options.within}}}, 'click');
     {{else if (eq selectorType "getByText")}}
-  await maestro.interact({{{scopedLoc (concat "page.getByText(new RegExp('" (escapeRegex selectorValue) "', 'i'))") options.within}}}, 'click');
+  await maestro.interact({{{scopedLoc (concat "activePage.getByText(new RegExp('" (escapeRegex selectorValue) "', 'i'))") options.within}}}, 'click');
     {{else}}
-  await maestro.interact({{{scopedLoc (concat "page.locator('" (jsLit selectorValue) "')") options.within}}}, 'click');
+  await maestro.interact({{{scopedLoc (concat "activePage.locator('" (jsLit selectorValue) "')") options.within}}}, 'click');
     {{/if}}
   {{/if}}
 
   {{#if (eq action "select")}}
     {{#if (eq selectorType "getByTestId")}}
-  await maestro.interact(page.getByTestId('{{jsLit selectorValue}}'), 'select', '{{jsLit value}}');
+  await maestro.interact(activePage.getByTestId('{{jsLit selectorValue}}'), 'select', '{{jsLit value}}');
     {{else if (eq selectorType "getByLabel")}}
-  await maestro.interact(page.getByLabel(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'select', '{{jsLit value}}');
+  await maestro.interact(activePage.getByLabel(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'select', '{{jsLit value}}');
     {{else}}
       {{#if ../needsRobustHelper}}
         {{#if targetLabel}}
   await legacyAction('select', '{{jsLit targetLabel}}', '{{jsLit value}}');
         {{else}}
-  await maestro.interact(page.locator('{{jsLit selectorValue}}'), 'select', '{{jsLit value}}');
+  await maestro.interact(activePage.locator('{{jsLit selectorValue}}'), 'select', '{{jsLit value}}');
         {{/if}}
       {{else}}
-  await maestro.interact(page.locator('{{jsLit selectorValue}}'), 'select', '{{jsLit value}}');
+  await maestro.interact(activePage.locator('{{jsLit selectorValue}}'), 'select', '{{jsLit value}}');
       {{/if}}
     {{/if}}
   {{/if}}
 
   {{#if (eq action "check")}}
     {{#if (eq selectorType "getByTestId")}}
-  await maestro.interact(page.getByTestId('{{jsLit selectorValue}}'), 'check');
+  await maestro.interact(activePage.getByTestId('{{jsLit selectorValue}}'), 'check');
     {{else if (eq selectorType "getByLabel")}}
-  await maestro.interact(page.getByLabel(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'check');
+  await maestro.interact(activePage.getByLabel(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'check');
     {{else if (eq selectorType "getByRole")}}
-  await maestro.interact(page.getByRole('{{jsLit selectorValue}}', { name: new RegExp('{{{escapeRegex roleName}}}', 'i') }), 'check');
+  await maestro.interact(activePage.getByRole('{{jsLit selectorValue}}', { name: new RegExp('{{{escapeRegex roleName}}}', 'i') }), 'check');
     {{else}}
-  await maestro.interact(page.locator('{{jsLit selectorValue}}'), 'check');
+  await maestro.interact(activePage.locator('{{jsLit selectorValue}}'), 'check');
     {{/if}}
   {{/if}}
 
   {{#if (eq action "uncheck")}}
     {{#if (eq selectorType "getByTestId")}}
-  await maestro.interact(page.getByTestId('{{jsLit selectorValue}}'), 'uncheck');
+  await maestro.interact(activePage.getByTestId('{{jsLit selectorValue}}'), 'uncheck');
     {{else if (eq selectorType "getByLabel")}}
-  await maestro.interact(page.getByLabel(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'uncheck');
+  await maestro.interact(activePage.getByLabel(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'uncheck');
     {{else}}
-  await maestro.interact(page.locator('{{jsLit selectorValue}}'), 'uncheck');
+  await maestro.interact(activePage.locator('{{jsLit selectorValue}}'), 'uncheck');
     {{/if}}
   {{/if}}
 
   {{#if (eq action "upload")}}
     {{#if (eq selectorType "getByTestId")}}
-  await maestro.interact(page.getByTestId('{{jsLit selectorValue}}'), 'upload', '{{jsLit value}}');
+  await maestro.interact(activePage.getByTestId('{{jsLit selectorValue}}'), 'upload', '{{jsLit value}}');
     {{else if (eq selectorType "getByLabel")}}
-  await maestro.interact(page.getByLabel(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'upload', '{{jsLit value}}');
+  await maestro.interact(activePage.getByLabel(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'upload', '{{jsLit value}}');
     {{else if (eq selectorType "getByRole")}}
-  await maestro.interact(page.getByRole('{{jsLit selectorValue}}', { name: new RegExp('{{{escapeRegex roleName}}}', 'i') }), 'upload', '{{jsLit value}}');
+  await maestro.interact(activePage.getByRole('{{jsLit selectorValue}}', { name: new RegExp('{{{escapeRegex roleName}}}', 'i') }), 'upload', '{{jsLit value}}');
     {{else if (eq selectorType "getByPlaceholder")}}
-  await maestro.interact(page.getByPlaceholder(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'upload', '{{jsLit value}}');
+  await maestro.interact(activePage.getByPlaceholder(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'upload', '{{jsLit value}}');
     {{else}}
-  await maestro.interact(page.locator('{{jsLit selectorValue}}'), 'upload', '{{jsLit value}}');
+  await maestro.interact(activePage.locator('{{jsLit selectorValue}}'), 'upload', '{{jsLit value}}');
     {{/if}}
   {{/if}}
 
@@ -375,56 +390,56 @@ test('{{jsLit testSuite}}', async ({ page }) => {
 
   {{#if (eq action "assert_text")}}
     {{#if (eq selectorType "getByTestId")}}
-  await maestro.interact(page.getByTestId('{{jsLit selectorValue}}'), 'assert_text', undefined, '{{jsLit expected}}');
+  await maestro.interact(activePage.getByTestId('{{jsLit selectorValue}}'), 'assert_text', undefined, '{{jsLit expected}}');
     {{else if (eq selectorType "getByLabel")}}
-  await maestro.interact(page.getByLabel(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'assert_text', undefined, '{{jsLit expected}}');
+  await maestro.interact(activePage.getByLabel(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'assert_text', undefined, '{{jsLit expected}}');
     {{else if (eq selectorType "getByRole")}}
-  await maestro.interact(page.getByRole('{{jsLit selectorValue}}', { name: new RegExp('{{{escapeRegex roleName}}}', 'i') }), 'assert_text', undefined, '{{jsLit expected}}');
+  await maestro.interact(activePage.getByRole('{{jsLit selectorValue}}', { name: new RegExp('{{{escapeRegex roleName}}}', 'i') }), 'assert_text', undefined, '{{jsLit expected}}');
     {{else if (eq selectorType "getByPlaceholder")}}
-  await maestro.interact(page.getByPlaceholder(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'assert_text', undefined, '{{jsLit expected}}');
+  await maestro.interact(activePage.getByPlaceholder(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'assert_text', undefined, '{{jsLit expected}}');
     {{else if (eq selectorType "getByText")}}
-  await maestro.interact(page.getByText(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'assert_text', undefined, '{{jsLit expected}}');
+  await maestro.interact(activePage.getByText(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'assert_text', undefined, '{{jsLit expected}}');
     {{else if (eq selectorType "pageText")}}
   await maestro.assertTextOnPage('{{jsLit selectorValue}}');
     {{else}}
-  await maestro.interact(page.locator('{{jsLit selectorValue}}'), 'assert_text', undefined, '{{jsLit expected}}');
+  await maestro.interact(activePage.locator('{{jsLit selectorValue}}'), 'assert_text', undefined, '{{jsLit expected}}');
     {{/if}}
   {{/if}}
 
   {{#if (eq action "assert_visible")}}
     {{#if (eq selectorType "getByTestId")}}
-  await maestro.interact(page.getByTestId('{{jsLit selectorValue}}'), 'assert_visible', undefined, '{{jsLit selectorValue}}');
+  await maestro.interact(activePage.getByTestId('{{jsLit selectorValue}}'), 'assert_visible', undefined, '{{jsLit selectorValue}}');
     {{else if (eq selectorType "getByLabel")}}
-  await maestro.interact(page.getByLabel(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'assert_visible', undefined, '{{jsLit selectorValue}}');
+  await maestro.interact(activePage.getByLabel(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'assert_visible', undefined, '{{jsLit selectorValue}}');
     {{else if (eq selectorType "getByRole")}}
-  await maestro.interact(page.getByRole('{{jsLit selectorValue}}', { name: new RegExp('{{{escapeRegex roleName}}}', 'i') }), 'assert_visible', undefined, '{{jsLit roleName}}');
+  await maestro.interact(activePage.getByRole('{{jsLit selectorValue}}', { name: new RegExp('{{{escapeRegex roleName}}}', 'i') }), 'assert_visible', undefined, '{{jsLit roleName}}');
     {{else if (eq selectorType "getByPlaceholder")}}
-  await maestro.interact(page.getByPlaceholder(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'assert_visible', undefined, '{{jsLit selectorValue}}');
+  await maestro.interact(activePage.getByPlaceholder(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'assert_visible', undefined, '{{jsLit selectorValue}}');
     {{else if (eq selectorType "getByText")}}
-  await maestro.interact(page.getByText(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'assert_visible', undefined, '{{jsLit selectorValue}}');
+  await maestro.interact(activePage.getByText(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'assert_visible', undefined, '{{jsLit selectorValue}}');
     {{else if (eq selectorType "pageText")}}
   await maestro.assertTextOnPage('{{jsLit selectorValue}}');
     {{else}}
-  await maestro.interact(page.locator('{{jsLit selectorValue}}'), 'assert_visible', undefined, '{{jsLit selectorValue}}');
+  await maestro.interact(activePage.locator('{{jsLit selectorValue}}'), 'assert_visible', undefined, '{{jsLit selectorValue}}');
     {{/if}}
   {{/if}}
 
   {{#if (eq action "assert_value")}}
     {{#if (eq selectorType "getByTestId")}}
-  await maestro.interact(page.getByTestId('{{jsLit selectorValue}}'), 'assert_value', undefined, '{{jsLit expected}}', '{{jsLit targetLabel}}');
+  await maestro.interact(activePage.getByTestId('{{jsLit selectorValue}}'), 'assert_value', undefined, '{{jsLit expected}}', '{{jsLit targetLabel}}');
     {{else if (eq selectorType "getByLabel")}}
-  await maestro.interact(page.getByLabel(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'assert_value', undefined, '{{jsLit expected}}', '{{jsLit targetLabel}}');
+  await maestro.interact(activePage.getByLabel(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'assert_value', undefined, '{{jsLit expected}}', '{{jsLit targetLabel}}');
     {{else if (eq selectorType "getByRole")}}
-  await maestro.interact(page.getByRole('{{jsLit selectorValue}}', { name: new RegExp('{{{escapeRegex roleName}}}', 'i') }), 'assert_value', undefined, '{{jsLit expected}}', '{{jsLit targetLabel}}');
+  await maestro.interact(activePage.getByRole('{{jsLit selectorValue}}', { name: new RegExp('{{{escapeRegex roleName}}}', 'i') }), 'assert_value', undefined, '{{jsLit expected}}', '{{jsLit targetLabel}}');
     {{else if (eq selectorType "getByPlaceholder")}}
-  await maestro.interact(page.getByPlaceholder(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'assert_value', undefined, '{{jsLit expected}}', '{{jsLit targetLabel}}');
+  await maestro.interact(activePage.getByPlaceholder(new RegExp('{{{escapeRegex selectorValue}}}', 'i')), 'assert_value', undefined, '{{jsLit expected}}', '{{jsLit targetLabel}}');
     {{else}}
-  await maestro.interact(page.locator('{{jsLit selectorValue}}'), 'assert_value', undefined, '{{jsLit expected}}', '{{jsLit targetLabel}}');
+  await maestro.interact(activePage.locator('{{jsLit selectorValue}}'), 'assert_value', undefined, '{{jsLit expected}}', '{{jsLit targetLabel}}');
     {{/if}}
   {{/if}}
 
   {{#if (eq action "wait")}}
-  await page.waitForTimeout({{selectorValue}});
+  await activePage.waitForTimeout({{selectorValue}});
   {{/if}}
 
   console.log('__STEP_DONE__ {{step}}');

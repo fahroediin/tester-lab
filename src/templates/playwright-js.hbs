@@ -8,6 +8,19 @@ test('{{jsLit testSuite}}', async ({ page }) => {
   await page.goto('{{jsLit targetUrl}}');
   await page.waitForLoadState('networkidle');
 
+  // Active tab; a click may open a new tab (window.open/target=_blank) and the
+  // run switches to it so the next step acts there instead of hanging.
+  let activePage = page;
+
+  // Click, then adopt a popup tab if one opened; else wait for same-tab nav.
+  async function clickAndAdopt(locator) {
+    const popupPromise = activePage.context().waitForEvent('page', { timeout: 3000 }).catch(() => null);
+    await locator.click({ force: true });
+    const popup = await popupPromise;
+    if (popup) { await popup.waitForLoadState('domcontentloaded', { timeout: 3000 }).catch(() => {}); activePage = popup; }
+    else { await activePage.waitForLoadState('domcontentloaded', { timeout: 3000 }).catch(() => {}); }
+  }
+
   // Success-snapshot engine: remembers the last asserted/matched element and,
   // on a passing run, captures one snapshot with that element outlined so a
   // viewer sees what was found and matched. Never throws (evidence best-effort).
@@ -27,14 +40,14 @@ test('{{jsLit testSuite}}', async ({ page }) => {
           }).catch(() => {});
         }
         const shotPath = test.info().outputPath('success-snapshot.png');
-        await page.screenshot({ path: shotPath, fullPage: false }).catch(() => {});
+        await activePage.screenshot({ path: shotPath, fullPage: false }).catch(() => {});
       } catch (e) { /* evidence is best-effort */ }
     },
     // Per-step evidence (US-19): one screenshot per step (step_<N>.png), taken
     // after the step's action. Best-effort; never fails the run.
     async captureStep(n) {
       try {
-        await page.screenshot({ path: test.info().outputPath('step_' + n + '.png'), fullPage: false }).catch(() => {});
+        await activePage.screenshot({ path: test.info().outputPath('step_' + n + '.png'), fullPage: false }).catch(() => {});
       } catch (e) { /* best-effort */ }
     },
     // The step number and searched target for a failure banner.
@@ -46,7 +59,7 @@ test('{{jsLit testSuite}}', async ({ page }) => {
       try {
         let banner = false;
         if (this.currentTarget) {
-          await page.evaluate((target) => {
+          await activePage.evaluate((target) => {
             const b = document.createElement('div');
             b.id = '__tl_fail_banner';
             b.textContent = 'Dicari: ' + target + ' — TIDAK DITEMUKAN';
@@ -57,11 +70,11 @@ test('{{jsLit testSuite}}', async ({ page }) => {
           }, this.currentTarget).catch(() => {});
           banner = true;
         }
-        await page.screenshot({ path: test.info().outputPath('step_' + n + '.png'), fullPage: false }).catch(() => {});
+        await activePage.screenshot({ path: test.info().outputPath('step_' + n + '.png'), fullPage: false }).catch(() => {});
         // Remove the banner immediately: it contains the searched text, so a
         // lingering banner would make the next retry match itself (false pass).
         if (banner) {
-          await page.evaluate(() => { const b = document.getElementById('__tl_fail_banner'); if (b) b.remove(); }).catch(() => {});
+          await activePage.evaluate(() => { const b = document.getElementById('__tl_fail_banner'); if (b) b.remove(); }).catch(() => {});
         }
       } catch (e) { /* best-effort */ }
     }
@@ -73,21 +86,21 @@ test('{{jsLit testSuite}}', async ({ page }) => {
     // US-36 (extended): a table row, list item, or form group (div/section/
     // fieldset) carrying the marker text. The deepest match is the smallest
     // container, so a marker label scopes to its own field group, not the page.
-    const byRole = page.getByRole('row', { name: new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') });
-    const byFilter = page.locator('tr, li, [role="row"], div, section, fieldset').filter({ hasText: marker }).last();
+    const byRole = activePage.getByRole('row', { name: new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') });
+    const byFilter = activePage.locator('tr, li, [role="row"], div, section, fieldset').filter({ hasText: marker }).last();
     const base = byRole.or(byFilter).first();
     base.assertResolvable = async () => {
       // Poll for the scope; give the honest verdict (AC-36.04 not-found /
       // AC-36.05 not-unique). Uniqueness is judged by how many places carry the
       // marker text, since nested <div>s inflate the container count.
-      const markerText = page.getByText(marker, { exact: false });
+      const markerText = activePage.getByText(marker, { exact: false });
       let count = 0;
       for (let i = 0; i < 20; i++) {
         const rows = await byRole.count();
         count = rows > 0 ? rows : await markerText.count();
         if (count === 1) { maestro.lastAssertLocator = base; return; } // matched -> highlight it
         if (count > 1) break;
-        await page.waitForTimeout(300);
+        await activePage.waitForTimeout(300);
       }
       if (count === 0) throw new Error(`No row containing "${marker}" was found on the page.`);
       throw new Error(`Scope marker "${marker}" matched more than one row. Use a unique value such as an ID so the step targets exactly one row.`);
@@ -103,8 +116,8 @@ test('{{jsLit testSuite}}', async ({ page }) => {
     const re = new RegExp(needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
     let failureCaptured = false;
     for (let i = 0; i < 15; i++) {
-      if (await page.getByText(re).count() > 0) return;
-      const values = await page.locator('input, textarea, select').evaluateAll(
+      if (await activePage.getByText(re).count() > 0) return;
+      const values = await activePage.locator('input, textarea, select').evaluateAll(
         (els) => els.map((el) => el.value || '')
       );
       if (values.some((v) => re.test(v))) return;
@@ -112,8 +125,8 @@ test('{{jsLit testSuite}}', async ({ page }) => {
         failureCaptured = true;
         await maestro.captureStepFailure(maestro.currentStep);
       }
-      await page.evaluate(() => window.scrollBy(0, 400));
-      await page.waitForTimeout(300);
+      await activePage.evaluate(() => window.scrollBy(0, 400));
+      await activePage.waitForTimeout(300);
     }
     throw new Error(`Text "${needle}" was not found on the page (checked visible text and field values).`);
   }
@@ -138,7 +151,7 @@ test('{{jsLit testSuite}}', async ({ page }) => {
     // Standard XPath targeting following elements or descendants (handles labels wrapping inputs)
     const xpath = `xpath=((//*[normalize-space(.)='${escapedLabel}' or normalize-space(.)='${escapedLabel} *' or normalize-space(.)='${escapedLabel}*'])[1]/following::${tag}[1] | (//*[normalize-space(.)='${escapedLabel}' or normalize-space(.)='${escapedLabel} *' or normalize-space(.)='${escapedLabel}*'])[1]//${tag})[1]`;
     
-    const target = page.locator(xpath);
+    const target = activePage.locator(xpath);
     await target.waitFor({ state: 'attached', timeout: 15000 });
     
     if (type === 'select') {
@@ -158,24 +171,24 @@ test('{{jsLit testSuite}}', async ({ page }) => {
   {{/if}}
   {{#if (eq action "fill")}}
     {{#if (eq selectorType "getByTestId")}}
-  await page.getByTestId('{{jsLit selectorValue}}').fill('{{jsLit value}}', { force: true });
+  await activePage.getByTestId('{{jsLit selectorValue}}').fill('{{jsLit value}}', { force: true });
     {{else if (eq selectorType "getByLabel")}}
-  await page.getByLabel('{{jsLit selectorValue}}', { exact: true }).fill('{{jsLit value}}', { force: true });
+  await activePage.getByLabel('{{jsLit selectorValue}}', { exact: true }).fill('{{jsLit value}}', { force: true });
     {{else if (eq selectorType "getByRole")}}
-  await page.getByRole('{{jsLit selectorValue}}', { name: '{{jsLit roleName}}', exact: true }).fill('{{jsLit value}}', { force: true });
+  await activePage.getByRole('{{jsLit selectorValue}}', { name: '{{jsLit roleName}}', exact: true }).fill('{{jsLit value}}', { force: true });
     {{else if (eq selectorType "getByPlaceholder")}}
-  await page.getByPlaceholder('{{jsLit selectorValue}}').fill('{{jsLit value}}', { force: true });
+  await activePage.getByPlaceholder('{{jsLit selectorValue}}').fill('{{jsLit value}}', { force: true });
     {{else if (eq selectorType "getByText")}}
-  await page.getByText('{{jsLit selectorValue}}').fill('{{jsLit value}}', { force: true });
+  await activePage.getByText('{{jsLit selectorValue}}').fill('{{jsLit value}}', { force: true });
     {{else}}
       {{#if ../needsRobustHelper}}
         {{#if targetLabel}}
   await action('fill', '{{jsLit targetLabel}}', '{{jsLit value}}');
         {{else}}
-  await page.locator('{{jsLit selectorValue}}').fill('{{jsLit value}}', { force: true });
+  await activePage.locator('{{jsLit selectorValue}}').fill('{{jsLit value}}', { force: true });
         {{/if}}
       {{else}}
-  await page.locator('{{jsLit selectorValue}}').fill('{{jsLit value}}', { force: true });
+  await activePage.locator('{{jsLit selectorValue}}').fill('{{jsLit value}}', { force: true });
       {{/if}}
     {{/if}}
   {{/if}}
@@ -184,70 +197,67 @@ test('{{jsLit testSuite}}', async ({ page }) => {
   await scopedRow('{{jsLit options.within}}').assertResolvable();
     {{/if}}
     {{#if (eq selectorType "getByTestId")}}
-  await {{{scopedLocJs (concat "page.getByTestId('" (jsLit selectorValue) "')") options.within}}}.click({ force: true });
+  await clickAndAdopt({{{scopedLocJs (concat "activePage.getByTestId('" (jsLit selectorValue) "')") options.within}}});
     {{else if (eq selectorType "getByLabel")}}
-  await {{{scopedLocJs (concat "page.getByLabel('" (jsLit selectorValue) "', { exact: true })") options.within}}}.click({ force: true });
+  await clickAndAdopt({{{scopedLocJs (concat "activePage.getByLabel('" (jsLit selectorValue) "', { exact: true })") options.within}}});
     {{else if (eq selectorType "getByRole")}}
-  await {{{scopedLocJs (concat "page.getByRole('" (jsLit selectorValue) "', { name: '" (jsLit roleName) "' })") options.within}}}.first().click({ force: true });
+  await clickAndAdopt({{{scopedLocJs (concat "activePage.getByRole('" (jsLit selectorValue) "', { name: '" (jsLit roleName) "' })") options.within}}}.first());
     {{else if (eq selectorType "getByPlaceholder")}}
-  await {{{scopedLocJs (concat "page.getByPlaceholder('" (jsLit selectorValue) "')") options.within}}}.first().click({ force: true });
+  await clickAndAdopt({{{scopedLocJs (concat "activePage.getByPlaceholder('" (jsLit selectorValue) "')") options.within}}}.first());
     {{else if (eq selectorType "getByText")}}
-  await {{{scopedLocJs (concat "page.getByText('" (jsLit selectorValue) "')") options.within}}}.first().click({ force: true });
+  await clickAndAdopt({{{scopedLocJs (concat "activePage.getByText('" (jsLit selectorValue) "')") options.within}}}.first());
     {{else}}
-  await {{{scopedLocJs (concat "page.locator('" (jsLit selectorValue) "')") options.within}}}.click({ force: true });
+  await clickAndAdopt({{{scopedLocJs (concat "activePage.locator('" (jsLit selectorValue) "')") options.within}}});
     {{/if}}
-  // AC-07.12: a click may trigger a full-page navigation; wait for the page to
-  // settle before the next step. Guarded so a non-navigating click just proceeds.
-  await page.waitForLoadState('domcontentloaded', { timeout: 3000 }).catch(() => {});
   {{/if}}
   {{#if (eq action "select")}}
     {{#if (eq selectorType "getByTestId")}}
-  await page.getByTestId('{{jsLit selectorValue}}').selectOption('{{jsLit value}}', { force: true });
+  await activePage.getByTestId('{{jsLit selectorValue}}').selectOption('{{jsLit value}}', { force: true });
     {{else if (eq selectorType "getByLabel")}}
-  await page.getByLabel('{{jsLit selectorValue}}', { exact: true }).selectOption('{{jsLit value}}', { force: true });
+  await activePage.getByLabel('{{jsLit selectorValue}}', { exact: true }).selectOption('{{jsLit value}}', { force: true });
     {{else}}
       {{#if ../needsRobustHelper}}
         {{#if targetLabel}}
   await action('select', '{{jsLit targetLabel}}', '{{jsLit value}}');
         {{else}}
-  await page.locator('{{jsLit selectorValue}}').selectOption('{{jsLit value}}', { force: true });
+  await activePage.locator('{{jsLit selectorValue}}').selectOption('{{jsLit value}}', { force: true });
         {{/if}}
       {{else}}
-  await page.locator('{{jsLit selectorValue}}').selectOption('{{jsLit value}}', { force: true });
+  await activePage.locator('{{jsLit selectorValue}}').selectOption('{{jsLit value}}', { force: true });
       {{/if}}
     {{/if}}
   {{/if}}
   {{#if (eq action "check")}}
     {{#if (eq selectorType "getByTestId")}}
-  await page.getByTestId('{{jsLit selectorValue}}').check({ force: true });
+  await activePage.getByTestId('{{jsLit selectorValue}}').check({ force: true });
     {{else if (eq selectorType "getByLabel")}}
-  await page.getByLabel('{{jsLit selectorValue}}', { exact: true }).check({ force: true });
+  await activePage.getByLabel('{{jsLit selectorValue}}', { exact: true }).check({ force: true });
     {{else if (eq selectorType "getByRole")}}
-  await page.getByRole('{{jsLit selectorValue}}', { name: '{{jsLit roleName}}', exact: true }).check({ force: true });
+  await activePage.getByRole('{{jsLit selectorValue}}', { name: '{{jsLit roleName}}', exact: true }).check({ force: true });
     {{else}}
-  await page.locator('{{jsLit selectorValue}}').check({ force: true });
+  await activePage.locator('{{jsLit selectorValue}}').check({ force: true });
     {{/if}}
   {{/if}}
   {{#if (eq action "uncheck")}}
     {{#if (eq selectorType "getByTestId")}}
-  await page.getByTestId('{{jsLit selectorValue}}').uncheck({ force: true });
+  await activePage.getByTestId('{{jsLit selectorValue}}').uncheck({ force: true });
     {{else if (eq selectorType "getByLabel")}}
-  await page.getByLabel('{{jsLit selectorValue}}', { exact: true }).uncheck({ force: true });
+  await activePage.getByLabel('{{jsLit selectorValue}}', { exact: true }).uncheck({ force: true });
     {{else}}
-  await page.locator('{{jsLit selectorValue}}').uncheck({ force: true });
+  await activePage.locator('{{jsLit selectorValue}}').uncheck({ force: true });
     {{/if}}
   {{/if}}
   {{#if (eq action "upload")}}
     {{#if (eq selectorType "getByTestId")}}
-  await page.getByTestId('{{jsLit selectorValue}}').setInputFiles('{{jsLit value}}');
+  await activePage.getByTestId('{{jsLit selectorValue}}').setInputFiles('{{jsLit value}}');
     {{else if (eq selectorType "getByLabel")}}
-  await page.getByLabel('{{jsLit selectorValue}}', { exact: true }).setInputFiles('{{jsLit value}}');
+  await activePage.getByLabel('{{jsLit selectorValue}}', { exact: true }).setInputFiles('{{jsLit value}}');
     {{else if (eq selectorType "getByRole")}}
-  await page.getByRole('{{jsLit selectorValue}}', { name: '{{jsLit roleName}}' }).first().setInputFiles('{{jsLit value}}');
+  await activePage.getByRole('{{jsLit selectorValue}}', { name: '{{jsLit roleName}}' }).first().setInputFiles('{{jsLit value}}');
     {{else if (eq selectorType "getByPlaceholder")}}
-  await page.getByPlaceholder('{{jsLit selectorValue}}').setInputFiles('{{jsLit value}}');
+  await activePage.getByPlaceholder('{{jsLit selectorValue}}').setInputFiles('{{jsLit value}}');
     {{else}}
-  await page.locator('{{jsLit selectorValue}}').setInputFiles('{{jsLit value}}');
+  await activePage.locator('{{jsLit selectorValue}}').setInputFiles('{{jsLit value}}');
     {{/if}}
   {{/if}}
   {{#if (eq action "assert_url")}}
@@ -255,55 +265,55 @@ test('{{jsLit testSuite}}', async ({ page }) => {
   {{/if}}
   {{#if (eq action "assert_text")}}
     {{#if (eq selectorType "getByTestId")}}
-  await expect(page.getByTestId('{{jsLit selectorValue}}')).toContainText('{{jsLit expected}}');
+  await expect(activePage.getByTestId('{{jsLit selectorValue}}')).toContainText('{{jsLit expected}}');
     {{else if (eq selectorType "getByLabel")}}
-  await expect(page.getByLabel('{{jsLit selectorValue}}')).toContainText('{{jsLit expected}}');
+  await expect(activePage.getByLabel('{{jsLit selectorValue}}')).toContainText('{{jsLit expected}}');
     {{else if (eq selectorType "getByRole")}}
-  await expect(page.getByRole('{{jsLit selectorValue}}', { name: '{{jsLit roleName}}' })).toContainText('{{jsLit expected}}');
+  await expect(activePage.getByRole('{{jsLit selectorValue}}', { name: '{{jsLit roleName}}' })).toContainText('{{jsLit expected}}');
     {{else if (eq selectorType "getByPlaceholder")}}
-  await expect(page.getByPlaceholder('{{jsLit selectorValue}}')).toContainText('{{jsLit expected}}');
+  await expect(activePage.getByPlaceholder('{{jsLit selectorValue}}')).toContainText('{{jsLit expected}}');
     {{else if (eq selectorType "getByText")}}
-  await expect(page.getByText('{{jsLit selectorValue}}')).toContainText('{{jsLit expected}}');
+  await expect(activePage.getByText('{{jsLit selectorValue}}')).toContainText('{{jsLit expected}}');
     {{else if (eq selectorType "pageText")}}
   await assertTextOnPage('{{jsLit selectorValue}}');
     {{else}}
-  await expect(page.locator('{{jsLit selectorValue}}')).toContainText('{{jsLit expected}}');
+  await expect(activePage.locator('{{jsLit selectorValue}}')).toContainText('{{jsLit expected}}');
     {{/if}}
   {{/if}}
   {{#if (eq action "assert_visible")}}
     {{! AC-07.11: filter to a visible match first so a hidden twin element with }}
     {{! the same text/label does not fail the assertion falsely. }}
     {{#if (eq selectorType "getByTestId")}}
-  await expect(page.getByTestId('{{jsLit selectorValue}}').filter({ visible: true }).first()).toBeVisible();
+  await expect(activePage.getByTestId('{{jsLit selectorValue}}').filter({ visible: true }).first()).toBeVisible();
     {{else if (eq selectorType "getByLabel")}}
-  await expect(page.getByLabel('{{jsLit selectorValue}}').filter({ visible: true }).first()).toBeVisible();
+  await expect(activePage.getByLabel('{{jsLit selectorValue}}').filter({ visible: true }).first()).toBeVisible();
     {{else if (eq selectorType "getByRole")}}
-  await expect(page.getByRole('{{jsLit selectorValue}}', { name: '{{jsLit roleName}}' }).filter({ visible: true }).first()).toBeVisible();
+  await expect(activePage.getByRole('{{jsLit selectorValue}}', { name: '{{jsLit roleName}}' }).filter({ visible: true }).first()).toBeVisible();
     {{else if (eq selectorType "getByPlaceholder")}}
-  await expect(page.getByPlaceholder('{{jsLit selectorValue}}').filter({ visible: true }).first()).toBeVisible();
+  await expect(activePage.getByPlaceholder('{{jsLit selectorValue}}').filter({ visible: true }).first()).toBeVisible();
     {{else if (eq selectorType "getByText")}}
-  await expect(page.getByText('{{jsLit selectorValue}}').filter({ visible: true }).first()).toBeVisible();
+  await expect(activePage.getByText('{{jsLit selectorValue}}').filter({ visible: true }).first()).toBeVisible();
     {{else if (eq selectorType "pageText")}}
   await assertTextOnPage('{{jsLit selectorValue}}');
     {{else}}
-  await expect(page.locator('{{jsLit selectorValue}}').filter({ visible: true }).first()).toBeVisible();
+  await expect(activePage.locator('{{jsLit selectorValue}}').filter({ visible: true }).first()).toBeVisible();
     {{/if}}
   {{/if}}
   {{#if (eq action "assert_value")}}
     {{#if (eq selectorType "getByTestId")}}
-  await assertFieldValue(page.getByTestId('{{jsLit selectorValue}}'), '{{jsLit expected}}', '{{jsLit targetLabel}}');
+  await assertFieldValue(activePage.getByTestId('{{jsLit selectorValue}}'), '{{jsLit expected}}', '{{jsLit targetLabel}}');
     {{else if (eq selectorType "getByLabel")}}
-  await assertFieldValue(page.getByLabel('{{jsLit selectorValue}}'), '{{jsLit expected}}', '{{jsLit targetLabel}}');
+  await assertFieldValue(activePage.getByLabel('{{jsLit selectorValue}}'), '{{jsLit expected}}', '{{jsLit targetLabel}}');
     {{else if (eq selectorType "getByRole")}}
-  await assertFieldValue(page.getByRole('{{jsLit selectorValue}}', { name: '{{jsLit roleName}}' }), '{{jsLit expected}}', '{{jsLit targetLabel}}');
+  await assertFieldValue(activePage.getByRole('{{jsLit selectorValue}}', { name: '{{jsLit roleName}}' }), '{{jsLit expected}}', '{{jsLit targetLabel}}');
     {{else if (eq selectorType "getByPlaceholder")}}
-  await assertFieldValue(page.getByPlaceholder('{{jsLit selectorValue}}'), '{{jsLit expected}}', '{{jsLit targetLabel}}');
+  await assertFieldValue(activePage.getByPlaceholder('{{jsLit selectorValue}}'), '{{jsLit expected}}', '{{jsLit targetLabel}}');
     {{else}}
-  await assertFieldValue(page.locator('{{jsLit selectorValue}}'), '{{jsLit expected}}', '{{jsLit targetLabel}}');
+  await assertFieldValue(activePage.locator('{{jsLit selectorValue}}'), '{{jsLit expected}}', '{{jsLit targetLabel}}');
     {{/if}}
   {{/if}}
   {{#if (eq action "wait")}}
-  await page.waitForTimeout({{selectorValue}});
+  await activePage.waitForTimeout({{selectorValue}});
   {{/if}}
 
   console.log('__STEP_DONE__ {{step}}');
