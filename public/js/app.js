@@ -2309,11 +2309,38 @@
         // the terminal when the runner captured one.
         showRunSnapshot(data.screenshotUrl);
 
-        if (data.videoUrl) {
+        // A run that switches tabs records one video per tab. When the runner
+        // merged them into one (data.videoMerged), show that single recording of
+        // the whole flow. Otherwise show each tab's recording, labelled per tab,
+        // so the evidence still covers the whole flow. Falls back to the single
+        // videoUrl for older runs.
+        const allVideos = data.videoMerged && data.videoUrl
+          ? [data.videoUrl]
+          : (Array.isArray(data.videos) && data.videos.length
+              ? data.videos.map((v) => v.url)
+              : (data.videoUrl ? [data.videoUrl] : []));
+        if (allVideos.length) {
           const videoContainer = document.getElementById('videoContainer');
           const videoPlayer = document.getElementById('videoPlayer');
           if (videoContainer && videoPlayer) {
-            videoPlayer.src = data.videoUrl;
+            if (allVideos.length === 1) {
+              videoPlayer.src = allVideos[0];
+              videoPlayer.style.display = '';
+            } else {
+              // Multiple tabs: replace the single player with one per tab.
+              videoPlayer.style.display = 'none';
+              const old = document.getElementById('multiVideoWrap');
+              if (old) old.remove();
+              const wrap = document.createElement('div');
+              wrap.id = 'multiVideoWrap';
+              wrap.innerHTML = allVideos.map((url, i) =>
+                '<div style="margin-bottom:12px;">' +
+                  '<div style="font-size:12px; color:var(--slate); margin-bottom:4px;">Rekaman tab ' + (i + 1) + '</div>' +
+                  '<video src="' + url + '" controls style="width:100%; border-radius:8px; border:1px solid var(--hairline);"></video>' +
+                '</div>'
+              ).join('');
+              videoPlayer.parentNode.insertBefore(wrap, videoPlayer.nextSibling);
+            }
             videoContainer.style.display = 'block';
             setTimeout(() => {
               videoContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
