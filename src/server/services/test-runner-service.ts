@@ -3,8 +3,9 @@ import os from 'os';
 import path from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
-import { getSanitizedEnv, findVideoFile, findScreenshotFile, collectStepScreenshots } from '../../security/sanitized-env.js';
+import { getSanitizedEnv, findAllVideoFiles, findScreenshotFile, collectStepScreenshots } from '../../security/sanitized-env.js';
 import { signVideoUrl } from '../lib/storage-url.js';
+import { mergeVideos } from './video-merge.js';
 import { supabase } from '../supabase-client.js';
 
 const execFileAsync = promisify(execFile);
@@ -39,10 +40,21 @@ export function resolveSlowMo(opts: { mode?: string; slowMoMs?: unknown }): numb
 export interface ExecuteTestResult {
   success: boolean;
   logs: string;
-  /** Short-lived signed URL for immediate playback in the client. */
+  /** Short-lived signed URL for immediate playback in the client (first tab). */
   videoUrl?: string;
   /** Durable bucket object path to persist in history (re-signed on read). */
   videoStoragePath?: string;
+  /**
+   * One signed URL + storage path per recorded tab, in order. A run that opens a
+   * new tab records several; this carries all so the report shows the whole flow.
+   */
+  videos?: { url: string; storagePath: string }[];
+  /**
+   * True when videoUrl points at a single recording that already merges every
+   * tab (ffmpeg). The client then shows one player instead of one-per-tab; the
+   * per-tab entries in `videos` remain only as a fallback.
+   */
+  videoMerged?: boolean;
   /** Short-lived signed URL of the failure screenshot, for immediate display. */
   screenshotUrl?: string;
   /** Durable bucket object path of the failure screenshot (re-signed on read). */
@@ -129,6 +141,7 @@ export default defineConfig({
   let success = false;
   let videoUrl: string | undefined;
   let videoStoragePath: string | undefined;
+  let videoMerged = false;
   let screenshotUrl: string | undefined;
   let screenshotStoragePath: string | undefined;
   let stepShots: { step: number; url: string; storagePath: string }[] | undefined;
@@ -153,29 +166,49 @@ export default defineConfig({
     success = false;
   }
 
-  // Check for video recording artifact and upload to Supabase Storage
+  // Check for video recordings and upload to Supabase Storage. Playwright records
+  // one .webm per tab; a run that opens a new tab has several. Merge them into one
+  // recording of the whole flow when possible (ffmpeg), and keep the per-tab
+  // recordings as a fallback for viewers/servers where merging is unavailable.
+  const videos: { url: string; storagePath: string }[] = [];
   try {
-    const foundVideo = findVideoFile(tempDir);
-    if (foundVideo) {
-      const sanitizedUserId = userId.replace(/[^a-zA-Z0-9_-]/g, '');
-      const videoName = `run_${Date.now()}.webm`;
-      const storagePath = `${sanitizedUserId}/${videoName}`;
-      const fileBuffer = fs.readFileSync(foundVideo);
+    // Videos come back in tab-creation order (first tab first): Playwright names
+    // them video.webm, video-1.webm, ... and findAllVideoFiles sorts by that
+    // name-encoded index. This is reliable where timestamps are not.
+    const found = findAllVideoFiles(tempDir);
+    const sanitizedUserId = userId.replace(/[^a-zA-Z0-9_-]/g, '');
 
+    const uploadWebm = async (localPath: string, suffix: string): Promise<{ url: string; storagePath: string } | null> => {
+      const storagePath = `${sanitizedUserId}/run_${Date.now()}_${suffix}.webm`;
+      const fileBuffer = fs.readFileSync(localPath);
       const { error: uploadError } = await supabase.storage
         .from('test-videos')
-        .upload(storagePath, fileBuffer, {
-          contentType: 'video/webm',
-          upsert: true
-        });
-
+        .upload(storagePath, fileBuffer, { contentType: 'video/webm', upsert: true });
       if (uploadError) {
         console.error('Failed to upload video recording to Supabase Storage:', uploadError);
-      } else {
-        // Persist the durable object path; hand the client a short-lived signed URL.
-        videoStoragePath = storagePath;
-        videoUrl = (await signVideoUrl(storagePath)) || undefined;
+        return null;
       }
+      const url = (await signVideoUrl(storagePath)) || undefined;
+      return url ? { url, storagePath } : null;
+    };
+
+    for (let i = 0; i < found.length; i++) {
+      const v = await uploadWebm(found[i] as string, String(i));
+      if (v) videos.push(v);
+    }
+
+    // A single combined recording plays the whole flow. On failure, the per-tab
+    // recordings above remain the evidence.
+    const merged = found.length > 1 ? await mergeVideos(found, tempDir) : null;
+    if (merged) {
+      const mv = await uploadWebm(merged, 'merged');
+      if (mv) { videoStoragePath = mv.storagePath; videoUrl = mv.url; videoMerged = true; }
+    }
+    // Backward compat / fallback: point the single-video fields at the first tab
+    // when no merged recording is available.
+    if (!videoUrl && videos[0]) {
+      videoStoragePath = videos[0].storagePath;
+      videoUrl = videos[0].url;
     }
   } catch (videoErr: unknown) {
     console.warn('Video artifact extraction warning:', (videoErr as Error).message || videoErr);
@@ -242,6 +275,8 @@ export default defineConfig({
     logs: logs.trim(),
     videoUrl,
     videoStoragePath,
+    videos: videos.length ? videos : undefined,
+    videoMerged,
     screenshotUrl,
     screenshotStoragePath,
     stepShots,
