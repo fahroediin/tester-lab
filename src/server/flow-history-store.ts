@@ -60,6 +60,64 @@ function rowToFlowHistory(row: FlowHistoryRow): FlowHistory {
   };
 }
 
+/**
+ * Normalize a scenario name for identity comparison: trim surrounding whitespace
+ * and lowercase, so "Login", "login", and "  Login " are treated as the same
+ * scenario. Interior spacing is preserved (only the ends are trimmed). Pure.
+ */
+export function normalizeScenarioName(name: string | null | undefined): string {
+  return (name || '').trim().toLowerCase();
+}
+
+/**
+ * Whether an existing record shares identity with the target scenario. Identity
+ * is (normalized name + project + suite): a generate for the same three targets
+ * is an edit of that scenario, not a new one. folderId/suiteId compare by exact
+ * value (both null counts as equal, so an unassigned scenario matches only other
+ * unassigned ones). Pure; the query lives in findScenarioByIdentity.
+ */
+export function matchesScenarioIdentity(
+  record: { testSuite: string; folderId?: string | null; suiteId?: string | null },
+  target: { testSuite: string; folderId?: string | null; suiteId?: string | null }
+): boolean {
+  const sameName = normalizeScenarioName(record.testSuite) === normalizeScenarioName(target.testSuite);
+  const sameFolder = (record.folderId ?? null) === (target.folderId ?? null);
+  const sameSuite = (record.suiteId ?? null) === (target.suiteId ?? null);
+  return sameName && sameFolder && sameSuite;
+}
+
+/**
+ * Find the existing scenario record that shares identity (normalized name +
+ * project + suite) with the target, for this user. Used by generate to decide
+ * whether to update an existing scenario (edit) or insert a new one. Returns the
+ * newest match, or undefined when none exists. Case/whitespace on the name is
+ * normalized in memory because the DB comparison is case-sensitive.
+ */
+export async function findScenarioByIdentity(
+  userId: string,
+  target: { testSuite: string; folderId?: string | null; suiteId?: string | null }
+): Promise<FlowHistory | undefined> {
+  // Narrow the DB query to the same user + scope; name is matched in memory so
+  // trim/case differences still count as the same scenario.
+  let query = supabase
+    .from('flow_history')
+    .select('*')
+    .eq('user_id', userId)
+    .order('timestamp', { ascending: false });
+  query = target.folderId ? query.eq('folder_id', target.folderId) : query.is('folder_id', null);
+  query = target.suiteId ? query.eq('suite_id', target.suiteId) : query.is('suite_id', null);
+
+  const { data, error } = await query;
+  if (error) {
+    console.error('Failed to look up scenario by identity:', error);
+    return undefined;
+  }
+  const match = (data || [])
+    .map(rowToFlowHistory)
+    .find((rec) => matchesScenarioIdentity(rec, target));
+  return match;
+}
+
 export async function addHistory(record: Omit<FlowHistory, 'id' | 'timestamp'>): Promise<FlowHistory> {
   const { data, error } = await supabase
     .from('flow_history')
@@ -255,6 +313,8 @@ export async function getHistoryById(id: string): Promise<FlowHistory | undefine
 
 export async function updateHistory(id: string, updates: Partial<FlowHistory>): Promise<FlowHistory | null> {
   const updatePayload: Record<string, unknown> = {};
+  if (updates.testSuite !== undefined) updatePayload.test_suite = updates.testSuite;
+  if (updates.targetUrl !== undefined) updatePayload.target_url = updates.targetUrl;
   if (updates.status !== undefined) updatePayload.status = updates.status;
   // folderId is nullable: pass null explicitly to move a scenario to uncategorized.
   if ('folderId' in updates) updatePayload.folder_id = updates.folderId ?? null;
