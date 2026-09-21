@@ -14,11 +14,17 @@ test('{{jsLit testSuite}}', async ({ page }) => {
 
   // Click, then adopt a popup tab if one opened; else wait for same-tab nav.
   async function clickAndAdopt(locator) {
-    const popupPromise = activePage.context().waitForEvent('page', { timeout: 3000 }).catch(() => null);
+    const popupPromise = activePage.context().waitForEvent('page', { timeout: 1200 }).catch(() => null);
     await locator.click({ force: true });
     const popup = await popupPromise;
-    if (popup) { await popup.waitForLoadState('domcontentloaded', { timeout: 3000 }).catch(() => {}); activePage = popup; }
-    else { await activePage.waitForLoadState('domcontentloaded', { timeout: 3000 }).catch(() => {}); }
+    // Only adopt a real, still-open popup; one that opened and closed at once
+    // (print dialog, prefetch) must not become the active tab.
+    if (popup && !popup.isClosed()) {
+      await popup.waitForLoadState('domcontentloaded', { timeout: 3000 }).catch(() => {});
+      if (!popup.isClosed()) activePage = popup;
+    } else {
+      await activePage.waitForLoadState('domcontentloaded', { timeout: 3000 }).catch(() => {});
+    }
   }
 
   // Success-snapshot engine: remembers the last asserted/matched element and,

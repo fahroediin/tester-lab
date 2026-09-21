@@ -11,6 +11,7 @@ import type { Browser, Page } from 'playwright';
 import type { DOMElementCandidate, DSLConfig, DSLStep, ResolvedStep } from '../types/index.js';
 import { HeuristicMatcher } from '../matcher/heuristic-matcher.js';
 import { extractCandidatesFromPage } from './dom-candidate-extractor.js';
+import { scopeFor } from '../server/services/scope-helper.js';
 
 export interface ExtractorOptions {
   headless?: boolean;
@@ -128,20 +129,23 @@ export class DOMExtractor {
     const type = resolved.selectorType;
     const val = resolved.selectorValue;
 
-    let locator;
-    if (type === 'getByTestId') {
-      locator = page.getByTestId(val).first();
-    } else if (type === 'getByLabel') {
-      locator = page.getByLabel(val).first();
-    } else if (type === 'getByRole') {
-      locator = page.getByRole(val as Parameters<Page['getByRole']>[0], { name: resolved.roleName }).first();
-    } else if (type === 'getByPlaceholder') {
-      locator = page.getByPlaceholder(val).first();
-    } else if (type === 'getByText') {
-      locator = page.getByText(val).first();
-    } else {
-      locator = page.locator(val).first();
-    }
+    // Build the target relative to a root (page or a scoped row), so a step with
+    // options.within transitions DOM by acting on the RIGHT row — e.g. clicking
+    // the "Aksi" button of the named row opens that row's menu, which the next
+    // step then sees. Without this the crawler clicks the first match and the
+    // menu it needs never renders (its items score 0).
+    const build = (root: Page | import('playwright').Locator) => {
+      if (type === 'getByTestId') return root.getByTestId(val);
+      if (type === 'getByLabel') return root.getByLabel(val);
+      if (type === 'getByRole') return root.getByRole(val as Parameters<Page['getByRole']>[0], { name: resolved.roleName });
+      if (type === 'getByPlaceholder') return root.getByPlaceholder(val);
+      if (type === 'getByText') return root.getByText(val);
+      return root.locator(val);
+    };
+    const marker = step.options?.within;
+    const locator = (marker && String(marker).trim())
+      ? scopeFor(page, String(marker).trim(), build)
+      : build(page).first();
 
     if (step.action === 'fill' && step.value) {
       await locator.fill('');

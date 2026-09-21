@@ -78,8 +78,11 @@ export function buildScopedLocatorExpr(innerExpr: string, within: string | null 
     .replace(/\n/g, '\\n');
 
   const scopeAccessor = base + "('" + jsEscaped + "').";
-  // Rebase a page-rooted inner ("page.getByRole(...)") onto the scoped row.
-  const rebased = innerExpr.replace(/^\s*page\./, scopeAccessor);
+  // Rebase a page-rooted inner ("activePage.getByRole(...)" or the legacy
+  // "page.getByRole(...)") onto the scoped row. The active-tab prefix is what the
+  // templates now emit so popup handling can switch tabs; when a scope applies,
+  // resolution happens inside the row helper instead, so the prefix is stripped.
+  const rebased = innerExpr.replace(/^\s*(?:activePage|page)\./, scopeAccessor);
   // If the inner was not page-rooted, wrap defensively.
   if (rebased === innerExpr) {
     return base + "('" + jsEscaped + "').locator(" + JSON.stringify(innerExpr) + ')';
