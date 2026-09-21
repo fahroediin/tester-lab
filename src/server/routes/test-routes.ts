@@ -4,7 +4,7 @@ import type { AuthenticatedRequest } from '../auth-middleware.js';
 import { addLog } from '../activity-log-store.js';
 import { sanitizeCode } from '../../security/code-sanitizer.js';
 import { globalTestRunnerQueue, globalTestGeneratorQueue } from '../queue-manager.js';
-import { addHistory, updateHistory } from '../flow-history-store.js';
+import { addHistory, updateHistory, findScenarioByIdentity } from '../flow-history-store.js';
 import { getFolderById } from '../folder-store.js';
 import { getSuiteById } from '../suite-store.js';
 import { TestScriptGenerator } from '../../index.js';
@@ -117,18 +117,45 @@ testRoutes.post('/generate-script', authenticateJWT, requireApprovedUser, async 
       });
     }
 
-    const historyRecord = await addHistory({
-      userId: req.user!.id,
-      username: req.user!.username,
+    // Upsert by scenario identity (name + project + suite). Re-generating a
+    // scenario with the same name in the same project and suite is an EDIT: it
+    // updates that record in place instead of creating a duplicate. The run
+    // evidence (video, logs, duration) is left untouched so an edit does not
+    // erase the last run's proof. Changing the name (or project/suite) yields a
+    // new record, which starts from the current DSL/targetUrl as its basis.
+    const scenarioName = dsl.testSuite || 'Unknown Test Suite';
+    const existing = await findScenarioByIdentity(req.user!.id, {
+      testSuite: scenarioName,
       folderId: folder.id,
-      suiteId: suite.id,
-      testSuite: dsl.testSuite || 'Unknown Test Suite',
-      targetUrl: dsl.targetUrl || '',
-      status: 'GENERATED',
-      generatedCode: result.code,
-      resolvedSteps: result.resolvedSteps,
-      rawDsl: dsl
+      suiteId: suite.id
     });
+
+    let historyRecord;
+    if (existing) {
+      const updated = await updateHistory(existing.id, {
+        testSuite: scenarioName,
+        targetUrl: dsl.targetUrl || '',
+        status: 'GENERATED',
+        generatedCode: result.code,
+        resolvedSteps: result.resolvedSteps,
+        rawDsl: dsl
+        // videoUrl / runLogs / durationMs intentionally omitted: keep last run's evidence.
+      });
+      historyRecord = updated || existing;
+    } else {
+      historyRecord = await addHistory({
+        userId: req.user!.id,
+        username: req.user!.username,
+        folderId: folder.id,
+        suiteId: suite.id,
+        testSuite: scenarioName,
+        targetUrl: dsl.targetUrl || '',
+        status: 'GENERATED',
+        generatedCode: result.code,
+        resolvedSteps: result.resolvedSteps,
+        rawDsl: dsl
+      });
+    }
 
     res.json({
       success: true,
