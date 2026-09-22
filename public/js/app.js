@@ -2801,6 +2801,9 @@
     let historySortDesc = true;
     let historyCurrentPage = 1;
     const HISTORY_PAGE_SIZE = 10;
+    // Ids of history records selected via the per-row checkboxes, for bulk
+    // delete / move. A Set so toggling is O(1) and order does not matter.
+    const selectedHistoryIds = new Set();
     // Filter for the history view:
     // historyProjectFilter: null = all, 'none' = uncategorized, or a projectId
     // historySuiteFilter: null = all in project, 'none' = unassigned in project, or a suiteId
@@ -2832,8 +2835,8 @@
       const tbody = document.getElementById('historyTableBody');
       if (!tbody) return;
       
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px; color: var(--slate);">Loading history...</td></tr>';
-      
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px; color: var(--slate);">Loading history...</td></tr>';
+
       try {
         // History and folders are independent, so fetch them concurrently.
         // loadAllProjectSuites still runs after loadFolders because it needs
@@ -2844,7 +2847,7 @@
         ]);
 
         if (!data.success) {
-          tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--coral);">${data.error}</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--coral);">${data.error}</td></tr>`;
           return;
         }
 
@@ -2854,7 +2857,7 @@
         renderFolderTree();
         renderHistoryTable();
       } catch (err) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--coral);">Failed to load history</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--coral);">Failed to load history</td></tr>';
       }
     }
 
@@ -3977,7 +3980,8 @@
 
       // Render rows
       if (paginated.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px; color: var(--slate);">No flow history found.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px; color: var(--slate);">No flow history found.</td></tr>';
+        updateHistoryBulkBar(paginated);
         return;
       }
       
@@ -4004,7 +4008,9 @@
           : `<div style="font-size: 11px; color: var(--slate); margin-top: 2px; font-style: italic;">Uncategorized</div>`;
         
         const tr = document.createElement('tr');
+        const isChecked = selectedHistoryIds.has(h.id) ? ' checked' : '';
         tr.innerHTML = `
+          <td style="text-align: center; vertical-align: middle;"><input type="checkbox" class="history-row-check" data-id="${h.id}" onclick="toggleHistoryRow('${h.id}', this.checked)"${isChecked} style="cursor: pointer;" /></td>
           <td style="vertical-align: middle;"><span style="font-size: 11px; font-family: var(--font-mono); color: var(--slate);">${new Date(h.timestamp).toLocaleString()}</span></td>
           <td style="vertical-align: middle;">
             <div style="font-weight: 500;">${escapeHtml(h.testSuite || 'Untitled Scenario')}</div>
@@ -4021,7 +4027,180 @@
         `;
         tbody.appendChild(tr);
       });
+
+      // Keep the bulk toolbar and the header "select all" in sync with the rows
+      // now on screen (this page, current filter).
+      updateHistoryBulkBar(paginated);
     }
+
+    // --- Flow History bulk selection (delete / move many at once) ---
+
+    // Toggle one row's selection. Called from the per-row checkbox.
+    window.toggleHistoryRow = function (id, checked) {
+      if (checked) selectedHistoryIds.add(id);
+      else selectedHistoryIds.delete(id);
+      renderHistoryTable();
+    };
+
+    // Select or clear every row on the current page (visible + filtered only, so
+    // it never silently touches rows on other pages).
+    window.toggleHistorySelectAll = function (checked) {
+      const visible = currentHistoryPageIds();
+      visible.forEach((id) => {
+        if (checked) selectedHistoryIds.add(id);
+        else selectedHistoryIds.delete(id);
+      });
+      renderHistoryTable();
+    };
+
+    window.clearHistorySelection = function () {
+      selectedHistoryIds.clear();
+      renderHistoryTable();
+    };
+
+    // The history ids shown on the current page under the active filter/sort.
+    // Mirrors the filter+sort+paginate logic of renderHistoryTable so "select
+    // all" and the count agree with what the user sees.
+    function currentHistoryPageIds() {
+      let filtered = allHistoryData;
+      if (historySuiteFilter === 'none') {
+        filtered = filtered.filter((h) => h.folderId === historyProjectFilter && !h.suiteId);
+      } else if (historySuiteFilter) {
+        filtered = filtered.filter((h) => h.suiteId === historySuiteFilter);
+      } else if (historyProjectFilter === 'none') {
+        filtered = filtered.filter((h) => !h.folderId);
+      } else if (historyProjectFilter) {
+        filtered = filtered.filter((h) => h.folderId === historyProjectFilter);
+      }
+      if (historySearchQuery) {
+        filtered = filtered.filter((h) =>
+          (h.testSuite || '').toLowerCase().includes(historySearchQuery) ||
+          (h.targetUrl || '').toLowerCase().includes(historySearchQuery) ||
+          (h.status || '').toLowerCase().includes(historySearchQuery)
+        );
+      }
+      filtered = filtered.slice().sort((a, b) => {
+        let valA = a[historySortKey] || '';
+        let valB = b[historySortKey] || '';
+        if (historySortKey === 'timestamp') { valA = new Date(valA).getTime(); valB = new Date(valB).getTime(); }
+        else { valA = String(valA).toLowerCase(); valB = String(valB).toLowerCase(); }
+        if (valA < valB) return historySortDesc ? 1 : -1;
+        if (valA > valB) return historySortDesc ? -1 : 1;
+        return 0;
+      });
+      const startIndex = (historyCurrentPage - 1) * HISTORY_PAGE_SIZE;
+      const endIndex = Math.min(startIndex + HISTORY_PAGE_SIZE, filtered.length);
+      return filtered.slice(startIndex, endIndex).map((h) => h.id);
+    }
+
+    // Refresh the toolbar (count, visibility, move options) and the header
+    // "select all" checkbox state from the current selection + page.
+    function updateHistoryBulkBar(pageRows) {
+      const bar = document.getElementById('historyBulkBar');
+      const countEl = document.getElementById('historyBulkCount');
+      const selectAll = document.getElementById('historySelectAll');
+      const count = selectedHistoryIds.size;
+
+      if (bar) bar.style.display = count > 0 ? 'flex' : 'none';
+      if (countEl) countEl.textContent = count + ' dipilih';
+
+      // Header checkbox: checked only when every row on this page is selected;
+      // indeterminate when some (but not all) are.
+      if (selectAll) {
+        const pageIds = (pageRows || []).map((h) => h.id);
+        const selectedOnPage = pageIds.filter((id) => selectedHistoryIds.has(id)).length;
+        selectAll.checked = pageIds.length > 0 && selectedOnPage === pageIds.length;
+        selectAll.indeterminate = selectedOnPage > 0 && selectedOnPage < pageIds.length;
+      }
+
+      // Populate the move dropdown with the same targets as the per-row move.
+      const moveSel = document.getElementById('historyBulkMoveSelect');
+      if (moveSel) {
+        let opts = '<option value="">Pindahkan ke...</option>';
+        for (const p of userFolders) {
+          const suites = projectSuitesCache.get(p.id) || [];
+          for (const s of suites) {
+            opts += '<option value="suite:' + s.id + '">' + escapeHtml(p.name) + ' › ' + escapeHtml(s.name) + '</option>';
+          }
+          opts += '<option value="project:' + p.id + '">Unassigned in ' + escapeHtml(p.name) + '</option>';
+        }
+        opts += '<option value="none">Uncategorized</option>';
+        moveSel.innerHTML = opts;
+        moveSel.value = '';
+      }
+    }
+
+    // Bulk delete: one confirmation, then DELETE each selected id. Uses
+    // allSettled so one failure does not abort the rest; reports a summary.
+    window.handleBulkDelete = async function () {
+      const ids = Array.from(selectedHistoryIds);
+      if (ids.length === 0) return;
+      const confirmResult = await Swal.fire({
+        title: 'Hapus ' + ids.length + ' scenario?',
+        text: 'Tindakan ini juga menghapus video yang terkait dan tidak bisa dibatalkan.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#66666e',
+        confirmButtonText: 'Ya, hapus'
+      });
+      if (!confirmResult.isConfirmed) return;
+
+      const results = await Promise.allSettled(
+        ids.map((id) =>
+          fetch('/api/v1/history/' + id, { method: 'DELETE', headers: getAuthHeaders() })
+            .then((r) => r.json())
+            .then((d) => { if (!d.success) throw new Error(d.error || 'gagal'); })
+        )
+      );
+      const ok = results.filter((r) => r.status === 'fulfilled').length;
+      const failed = results.length - ok;
+      selectedHistoryIds.clear();
+      if (failed === 0) {
+        showSnackbar({ type: 'success', title: 'Terhapus', message: ok + ' scenario dihapus.' });
+      } else {
+        showSnackbar({ type: 'error', title: 'Sebagian gagal', message: ok + ' terhapus, ' + failed + ' gagal.' });
+      }
+      loadHistory();
+    };
+
+    // Bulk move: reuse the per-row move endpoints for each selected id, then one
+    // refresh. allSettled so a single failure does not stop the others.
+    window.handleBulkMove = async function (targetValue) {
+      if (!targetValue) return;
+      const ids = Array.from(selectedHistoryIds);
+      if (ids.length === 0) return;
+
+      const moveOne = async (id) => {
+        let url, body;
+        if (targetValue.startsWith('suite:')) {
+          url = '/api/v1/history/' + id + '/suite';
+          body = { suiteId: targetValue.replace('suite:', '') };
+        } else if (targetValue.startsWith('project:')) {
+          url = '/api/v1/history/' + id + '/project';
+          body = { projectId: targetValue.replace('project:', '') };
+        } else { // 'none'
+          url = '/api/v1/history/' + id + '/project';
+          body = { projectId: null };
+        }
+        const res = await fetch(url, { method: 'PATCH', headers: getAuthHeaders(), body: JSON.stringify(body) });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'gagal');
+      };
+
+      const results = await Promise.allSettled(ids.map(moveOne));
+      const ok = results.filter((r) => r.status === 'fulfilled').length;
+      const failed = results.length - ok;
+      selectedHistoryIds.clear();
+      try { await loadAllProjectSuites(); } catch (e) {}
+      renderFolderTree();
+      await loadHistory();
+      if (failed === 0) {
+        showSnackbar({ type: 'success', title: 'Dipindahkan', message: ok + ' scenario dipindahkan.' });
+      } else {
+        showSnackbar({ type: 'error', title: 'Sebagian gagal', message: ok + ' dipindahkan, ' + failed + ' gagal.' });
+      }
+    };
 
     async function viewHistory(id) {
       try {

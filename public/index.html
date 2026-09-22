@@ -409,10 +409,21 @@
           <div style="padding: 20px; text-align: center; color: var(--slate); font-size: 13px;">Loading projects & suites...</div>
         </div>
 
+        <!-- Bulk action toolbar: shown only when at least one row is selected -->
+        <div id="historyBulkBar" style="display: none; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; padding: 10px 14px; border: 1px solid var(--hairline); border-radius: var(--radius); background: var(--surface-2);">
+          <span id="historyBulkCount" style="font-size: 13px; font-weight: 500;">0 dipilih</span>
+          <select id="historyBulkMoveSelect" onchange="handleBulkMove(this.value)" style="font-size: 12px; padding: 4px 8px;">
+            <option value="">Pindahkan ke...</option>
+          </select>
+          <button class="btn-pill-outline" onclick="handleBulkDelete()" style="padding: 4px 12px; font-size: 12px; min-height: unset; height: auto; color: var(--coral); border-color: var(--coral);">Hapus terpilih</button>
+          <button class="btn-pill-outline" onclick="clearHistorySelection()" style="padding: 4px 12px; font-size: 12px; min-height: unset; height: auto;">Batalkan pilihan</button>
+        </div>
+
         <div style="overflow-x: auto;">
           <table class="summary-table" style="width: 100%;">
             <thead>
               <tr>
+                <th style="width: 36px; text-align: center;"><input type="checkbox" id="historySelectAll" onclick="toggleHistorySelectAll(this.checked)" title="Pilih semua di halaman ini" style="cursor: pointer;" /></th>
                 <th style="width: 160px; cursor: pointer; user-select: none;" onclick="handleHistorySort('timestamp')">Date & Time <span id="sort-icon-timestamp">↓</span></th>
                 <th style="cursor: pointer; user-select: none;" onclick="handleHistorySort('testSuite')">Scenario Name <span id="sort-icon-testSuite"></span></th>
                 <th style="cursor: pointer; user-select: none;" onclick="handleHistorySort('targetUrl')">Target URL <span id="sort-icon-targetUrl"></span></th>
@@ -422,7 +433,7 @@
             </thead>
             <tbody id="historyTableBody">
               <tr>
-                <td colspan="5" style="text-align: center; color: var(--slate); padding: 32px 0;">Loading history...</td>
+                <td colspan="6" style="text-align: center; color: var(--slate); padding: 32px 0;">Loading history...</td>
               </tr>
             </tbody>
           </table>
