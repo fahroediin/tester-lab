@@ -6,6 +6,8 @@ import { getLogs, addLog } from '../activity-log-store.js';
 import { getAdminApiKeyStats, getAdminApiKeyLogs } from '../api-key-usage-store.js';
 import { supabase } from '../supabase-client.js';
 import { resolveAttachmentUrl } from '../services/attachment-service.js';
+import { loadSmtpCreds, loadEmailConfigPublic } from '../email-config-store.js';
+import { sendEmail, renderTemplate } from '../services/email-service.js';
 
 export const adminRoutes = Router();
 
@@ -150,9 +152,34 @@ adminRoutes.post('/users/:id/approve', authenticateJWT, requireAdmin, async (req
     details: `Approved user '${updated.username}'`
   });
 
+  // Best-effort email notification (US-A). Never fails the approval.
+  let emailNote = '';
+  if (req.body && req.body.sendEmail) {
+    const creds = await loadSmtpCreds();
+    if (!creds) {
+      emailNote = ' SMTP is not configured, so no email was sent.';
+    } else {
+      const cfg = await loadEmailConfigPublic();
+      const tempPassword: string = req.body.password || '';
+      const loginUrl = `${req.protocol}://${req.get('host')}/`;
+      const body = renderTemplate(cfg.approveBody, {
+        name: updated.username,
+        email: updated.email,
+        password: tempPassword,
+        url: loginUrl
+      });
+      const r = await sendEmail(creds, cfg.smtpFromName, { to: updated.email, subject: cfg.approveSubject, body });
+      if (!r.sent) emailNote = ' but the email failed to send.';
+    }
+  }
+
+  const message = emailNote.startsWith(' but')
+    ? `User approved,${emailNote}`
+    : `User approved.${emailNote}`;
+
   res.json({
     success: true,
-    message: `Account '${updated.username}' approved successfully.`,
+    message,
     user: updated
   });
 });
@@ -176,6 +203,17 @@ adminRoutes.post('/users/:id/reject', authenticateJWT, requireAdmin, async (req:
     action: 'Admin Reject',
     details: `Rejected user '${updated.username}'`
   });
+
+  // Best-effort rejection email (US-A / AC-A.04). Never fails the rejection.
+  if (req.body && req.body.sendEmail) {
+    const creds = await loadSmtpCreds();
+    if (creds) {
+      const cfg = await loadEmailConfigPublic();
+      const notes = req.body.notes ? `Reason: ${req.body.notes}` : '';
+      const body = renderTemplate(cfg.rejectBody, { name: updated.username, email: updated.email, notes });
+      await sendEmail(creds, cfg.smtpFromName, { to: updated.email, subject: cfg.rejectSubject, body });
+    }
+  }
 
   res.json({
     success: true,
