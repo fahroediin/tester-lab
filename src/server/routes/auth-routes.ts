@@ -1,10 +1,20 @@
 import { Router, Request, Response } from 'express';
+import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { findUserByUsernameAsync, addUser } from '../auth-store.js';
+import {
+  findUserByUsernameAsync,
+  addUser,
+  findUserByEmailAsync,
+  setResetToken,
+  findUserByResetHash,
+  consumeResetToken
+} from '../auth-store.js';
 import { addLog } from '../activity-log-store.js';
 import { authenticateJWT, JWT_SECRET } from '../auth-middleware.js';
 import type { AuthenticatedRequest } from '../auth-middleware.js';
+import { loadSmtpCreds, loadEmailConfigPublic } from '../email-config-store.js';
+import { sendEmail, renderTemplate, hashResetToken, isResetTokenUsable } from '../services/email-service.js';
 
 export const authRoutes = Router();
 
@@ -190,6 +200,76 @@ authRoutes.post('/login', async (req: Request, res: Response) => {
       success: false,
       error: error.message || 'Internal Server Error'
     });
+  }
+});
+
+/**
+ * POST /api/v1/auth/forgot-password
+ * Request a password-reset link. Always returns the same generic message so the
+ * response does not reveal whether the email is registered (US-C / AC-C.01/02).
+ */
+authRoutes.post('/forgot-password', async (req: Request, res: Response) => {
+  const generic = 'If the email is registered, a reset link has been sent.';
+  try {
+    const { email } = req.body || {};
+    if (!email) {
+      res.status(400).json({ success: false, error: 'Email is required.' });
+      return;
+    }
+    const user = await findUserByEmailAsync(email);
+    if (user && user.status === 'approved') {
+      const creds = await loadSmtpCreds();
+      if (creds) {
+        const raw = crypto.randomBytes(32).toString('hex');
+        const hash = hashResetToken(raw);
+        const expires = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+        await setResetToken(user.id, hash, expires);
+        const cfg = await loadEmailConfigPublic();
+        const url = `${req.protocol}://${req.get('host')}/reset-password?token=${raw}`;
+        const body = renderTemplate(cfg.resetBody, { name: user.username, email: user.email, url });
+        await sendEmail(creds, cfg.smtpFromName, { to: user.email, subject: cfg.resetSubject, body });
+      }
+    }
+    res.json({ success: true, message: generic });
+  } catch {
+    // Keep the response generic even on internal error (no enumeration).
+    res.json({ success: true, message: generic });
+  }
+});
+
+/**
+ * POST /api/v1/auth/reset-password
+ * Set a new password using a reset token. Token is matched by hash, single-use,
+ * and expires after 60 minutes (US-C / AC-C.03/04/05/06).
+ */
+authRoutes.post('/reset-password', async (req: Request, res: Response) => {
+  try {
+    const { token, password } = req.body || {};
+    if (!token || !password) {
+      res.status(400).json({ success: false, error: 'Token and password are required.' });
+      return;
+    }
+    if (password.length < 6) {
+      res.status(400).json({ success: false, error: 'Password must be at least 6 characters long.' });
+      return;
+    }
+    const rec = await findUserByResetHash(hashResetToken(token));
+    if (!rec) {
+      res.status(400).json({ success: false, error: 'This reset link is invalid. Please request a new one.' });
+      return;
+    }
+    if (rec.used) {
+      res.status(400).json({ success: false, error: 'This reset link has already been used. Please request a new one.' });
+      return;
+    }
+    if (!isResetTokenUsable({ expires: rec.expires, used: rec.used })) {
+      res.status(400).json({ success: false, error: 'This reset link has expired. Please request a new one.' });
+      return;
+    }
+    await consumeResetToken(rec.id, bcrypt.hashSync(password, 10));
+    res.json({ success: true, message: 'Your password has been reset. Please log in with your new password.' });
+  } catch (err: unknown) {
+    res.status(500).json({ success: false, error: (err as Error).message || 'Internal Server Error' });
   }
 });
 

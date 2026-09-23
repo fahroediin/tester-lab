@@ -123,6 +123,49 @@ export async function findUserByIdAsync(id: string): Promise<User | undefined> {
   return rowToUser(data);
 }
 
+export async function findUserByEmailAsync(email: string): Promise<User | undefined> {
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+    .ilike('email', email)
+    .limit(1)
+    .single();
+
+  if (error || !data) return undefined;
+  return rowToUser(data);
+}
+
+/** Store a password-reset token hash + expiry, and clear the used flag. */
+export async function setResetToken(userId: string, hash: string, expiresIso: string): Promise<void> {
+  await supabase
+    .from('users')
+    .update({ reset_token_hash: hash, reset_token_expires: expiresIso, reset_token_used: false })
+    .eq('id', userId);
+}
+
+/** Find a user by their reset-token hash, returning only the fields the reset flow needs. */
+export async function findUserByResetHash(
+  hash: string
+): Promise<{ id: string; expires: string | null; used: boolean } | undefined> {
+  const { data, error } = await supabase
+    .from('users')
+    .select('id, reset_token_expires, reset_token_used')
+    .eq('reset_token_hash', hash)
+    .limit(1)
+    .single();
+
+  if (error || !data) return undefined;
+  return { id: data.id, expires: data.reset_token_expires, used: !!data.reset_token_used };
+}
+
+/** Apply a new password hash and burn the reset token (single use). */
+export async function consumeResetToken(userId: string, newPasswordHash: string): Promise<void> {
+  await supabase
+    .from('users')
+    .update({ password_hash: newPasswordHash, reset_token_used: true })
+    .eq('id', userId);
+}
+
 export async function addUser(user: Omit<User, 'id' | 'createdAt'>): Promise<User> {
   const newRow = {
     id: `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
