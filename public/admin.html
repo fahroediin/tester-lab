@@ -988,6 +988,79 @@
           </div>
         </div>
       </div>
+
+      <!-- EMAIL NOTIFICATIONS CONFIG -->
+      <div class="card" style="margin-top: 20px;">
+        <div class="card-header" style="border-bottom: none; padding-bottom: 0;">
+          <div>
+            <div class="card-title">Email Notifications</div>
+            <div class="card-subtitle">SMTP server and email templates for access approval, rejection, and password reset</div>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button type="button" class="btn-pill-outline" onclick="testEmailConnection()">Test Connection</button>
+            <button type="button" class="btn-pill-outline" onclick="saveEmailConfiguration()">Save</button>
+          </div>
+        </div>
+
+        <div style="padding-top: 16px; border-top: 1px solid var(--hairline); margin-top: 16px;">
+          <h4 style="font-family: var(--font-display); font-size: 15px; margin-bottom: 16px;">SMTP Server</h4>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 800px;">
+            <div class="form-group">
+              <label style="font-weight: 500; font-size: 12px; color: var(--body-muted); display: block; margin-bottom: 6px;">SMTP Host</label>
+              <input type="text" id="emailSmtpHost" placeholder="mail.example.com" style="width: 100%; padding: 10px 14px; border: 1px solid var(--hairline); border-radius: 8px; font-size: 13px; outline: none;">
+            </div>
+            <div class="form-group">
+              <label style="font-weight: 500; font-size: 12px; color: var(--body-muted); display: block; margin-bottom: 6px;">SMTP Port</label>
+              <input type="number" id="emailSmtpPort" placeholder="587" value="587" style="width: 100%; padding: 10px 14px; border: 1px solid var(--hairline); border-radius: 8px; font-size: 13px; outline: none;">
+            </div>
+            <div class="form-group">
+              <label style="font-weight: 500; font-size: 12px; color: var(--body-muted); display: block; margin-bottom: 6px;">SMTP User</label>
+              <input type="text" id="emailSmtpUser" placeholder="notifications@example.com" style="width: 100%; padding: 10px 14px; border: 1px solid var(--hairline); border-radius: 8px; font-size: 13px; outline: none;">
+            </div>
+            <div class="form-group">
+              <label style="font-weight: 500; font-size: 12px; color: var(--body-muted); display: block; margin-bottom: 6px;">SMTP Password</label>
+              <input type="password" id="emailSmtpPass" placeholder="Leave blank to keep current password" style="width: 100%; padding: 10px 14px; border: 1px solid var(--hairline); border-radius: 8px; font-size: 13px; outline: none;">
+            </div>
+            <div class="form-group">
+              <label style="font-weight: 500; font-size: 12px; color: var(--body-muted); display: block; margin-bottom: 6px;">From Name</label>
+              <input type="text" id="emailFromName" placeholder="Tester Lab" style="width: 100%; padding: 10px 14px; border: 1px solid var(--hairline); border-radius: 8px; font-size: 13px; outline: none;">
+            </div>
+          </div>
+
+          <h4 style="font-family: var(--font-display); font-size: 15px; margin: 24px 0 16px;">Approval Email Template</h4>
+          <div class="form-group" style="margin-bottom: 12px; max-width: 800px;">
+            <label style="font-weight: 500; font-size: 12px; color: var(--body-muted); display: block; margin-bottom: 6px;">Subject</label>
+            <input type="text" id="emailApproveSubject" style="width: 100%; padding: 10px 14px; border: 1px solid var(--hairline); border-radius: 8px; font-size: 13px; outline: none;">
+          </div>
+          <div class="form-group" style="margin-bottom: 8px; max-width: 800px;">
+            <label style="font-weight: 500; font-size: 12px; color: var(--body-muted); display: block; margin-bottom: 6px;">Body</label>
+            <textarea id="emailApproveBody" rows="8" style="width: 100%; padding: 12px 14px; border: 1px solid var(--hairline); border-radius: 8px; font-family: var(--font-mono); font-size: 12px; line-height: 1.5; outline: none; resize: vertical;"></textarea>
+            <div style="font-size: 11px; color: var(--body-muted); margin-top: 6px;">Variables: {{name}}, {{email}}, {{password}}, {{url}}</div>
+          </div>
+
+          <h4 style="font-family: var(--font-display); font-size: 15px; margin: 24px 0 16px;">Rejection Email Template</h4>
+          <div class="form-group" style="margin-bottom: 12px; max-width: 800px;">
+            <label style="font-weight: 500; font-size: 12px; color: var(--body-muted); display: block; margin-bottom: 6px;">Subject</label>
+            <input type="text" id="emailRejectSubject" style="width: 100%; padding: 10px 14px; border: 1px solid var(--hairline); border-radius: 8px; font-size: 13px; outline: none;">
+          </div>
+          <div class="form-group" style="margin-bottom: 8px; max-width: 800px;">
+            <label style="font-weight: 500; font-size: 12px; color: var(--body-muted); display: block; margin-bottom: 6px;">Body</label>
+            <textarea id="emailRejectBody" rows="7" style="width: 100%; padding: 12px 14px; border: 1px solid var(--hairline); border-radius: 8px; font-family: var(--font-mono); font-size: 12px; line-height: 1.5; outline: none; resize: vertical;"></textarea>
+            <div style="font-size: 11px; color: var(--body-muted); margin-top: 6px;">Variables: {{name}}, {{email}}, {{notes}}</div>
+          </div>
+
+          <h4 style="font-family: var(--font-display); font-size: 15px; margin: 24px 0 16px;">Password Reset Email Template</h4>
+          <div class="form-group" style="margin-bottom: 12px; max-width: 800px;">
+            <label style="font-weight: 500; font-size: 12px; color: var(--body-muted); display: block; margin-bottom: 6px;">Subject</label>
+            <input type="text" id="emailResetSubject" style="width: 100%; padding: 10px 14px; border: 1px solid var(--hairline); border-radius: 8px; font-size: 13px; outline: none;">
+          </div>
+          <div class="form-group" style="margin-bottom: 8px; max-width: 800px;">
+            <label style="font-weight: 500; font-size: 12px; color: var(--body-muted); display: block; margin-bottom: 6px;">Body</label>
+            <textarea id="emailResetBody" rows="8" style="width: 100%; padding: 12px 14px; border: 1px solid var(--hairline); border-radius: 8px; font-family: var(--font-mono); font-size: 12px; line-height: 1.5; outline: none; resize: vertical;"></textarea>
+            <div style="font-size: 11px; color: var(--body-muted); margin-top: 6px;">Variables: {{name}}, {{email}}, {{url}}</div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- API KEYS TAB -->
@@ -1332,6 +1405,7 @@
         await fetchFeedbacks();
       } else if (tabId === 'config') {
         await fetchConfig();
+        await fetchEmailConfig();
       } else if (tabId === 'apikeys') {
         await fetchApiKeysAdmin();
       }
@@ -1741,6 +1815,75 @@
         }
       } catch (err) {
         showSnackbar({ type: 'error', title: 'Error', message: 'Failed to save configuration' });
+      }
+    }
+
+    // --- EMAIL CONFIGURATION LOGIC (US-B) ---
+    function readEmailConfigForm() {
+      return {
+        smtpHost: document.getElementById('emailSmtpHost').value,
+        smtpPort: document.getElementById('emailSmtpPort').value,
+        smtpUser: document.getElementById('emailSmtpUser').value,
+        smtpPass: document.getElementById('emailSmtpPass').value, // blank = keep current
+        smtpFromName: document.getElementById('emailFromName').value,
+        approveSubject: document.getElementById('emailApproveSubject').value,
+        approveBody: document.getElementById('emailApproveBody').value,
+        rejectSubject: document.getElementById('emailRejectSubject').value,
+        rejectBody: document.getElementById('emailRejectBody').value,
+        resetSubject: document.getElementById('emailResetSubject').value,
+        resetBody: document.getElementById('emailResetBody').value
+      };
+    }
+
+    async function fetchEmailConfig() {
+      try {
+        const response = await fetch('/api/v1/email-config', { headers: getAuthHeaders() });
+        const data = await response.json();
+        if (!data.success) { showSnackbar({ type: 'error', title: 'Error', message: data.error }); return; }
+        const c = data.data;
+        document.getElementById('emailSmtpHost').value = c.smtpHost || '';
+        document.getElementById('emailSmtpPort').value = c.smtpPort || 587;
+        document.getElementById('emailSmtpUser').value = c.smtpUser || '';
+        document.getElementById('emailSmtpPass').value = ''; // never prefilled (AC-B.02)
+        document.getElementById('emailFromName').value = c.smtpFromName || '';
+        document.getElementById('emailApproveSubject').value = c.approveSubject || '';
+        document.getElementById('emailApproveBody').value = c.approveBody || '';
+        document.getElementById('emailRejectSubject').value = c.rejectSubject || '';
+        document.getElementById('emailRejectBody').value = c.rejectBody || '';
+        document.getElementById('emailResetSubject').value = c.resetSubject || '';
+        document.getElementById('emailResetBody').value = c.resetBody || '';
+      } catch (err) {
+        showSnackbar({ type: 'error', title: 'Error', message: 'Failed to load email configuration' });
+      }
+    }
+
+    async function saveEmailConfiguration() {
+      try {
+        const response = await fetch('/api/v1/email-config', {
+          method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(readEmailConfigForm())
+        });
+        const data = await response.json();
+        if (data.success) {
+          showSnackbar({ type: 'success', title: 'Saved', message: data.message });
+          document.getElementById('emailSmtpPass').value = ''; // clear after save
+        } else {
+          showSnackbar({ type: 'error', title: 'Save Failed', message: data.error });
+        }
+      } catch (err) {
+        showSnackbar({ type: 'error', title: 'Error', message: 'Failed to save email configuration' });
+      }
+    }
+
+    async function testEmailConnection() {
+      try {
+        const response = await fetch('/api/v1/email-config/test', {
+          method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(readEmailConfigForm())
+        });
+        const data = await response.json();
+        if (data.success) showSnackbar({ type: 'success', title: 'Connection OK', message: data.message });
+        else showSnackbar({ type: 'error', title: 'Connection Failed', message: data.error });
+      } catch (err) {
+        showSnackbar({ type: 'error', title: 'Error', message: 'Failed to test connection' });
       }
     }
 
