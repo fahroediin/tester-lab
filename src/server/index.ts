@@ -10,6 +10,7 @@ import { historyRoutes } from './routes/history-routes.js';
 import { folderRoutes } from './routes/folder-routes.js';
 import { suiteRoutes } from './routes/suite-routes.js';
 import { configRoutes } from './routes/config-routes.js';
+import { emailConfigRoutes } from './routes/email-config-routes.js';
 import { apiKeyRoutes } from './routes/api-key-routes.js';
 import { recorderRoutes, proxyAssetMiddleware } from './routes/recorder-routes.js';
 import { authenticateJWT, requireAdmin } from './auth-middleware.js';
@@ -98,6 +99,7 @@ app.use('/api/v1/folders', folderRoutes);
 app.use('/api/v1/projects', folderRoutes);
 app.use('/api/v1/suites', suiteRoutes);
 app.use('/api/v1/config', configRoutes);
+app.use('/api/v1/email-config', emailConfigRoutes);
 app.use('/api/v1/recorder', recorderRoutes);
 app.use('/api/v1', testRoutes); // testRoutes has endpoints like /generate-script, /inspect-dom, /run-test directly under /api/v1
 
