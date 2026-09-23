@@ -55,6 +55,15 @@ app.get('/admin', (req: Request, res: Response) => {
 });
 
 /**
+ * Reset Password Route: served by the app UI, which reads ?token= and shows the
+ * reset form (US-C). Links in reset emails point here.
+ */
+app.get('/reset-password', (req: Request, res: Response) => {
+  const indexPath = path.join(process.cwd(), 'public', 'index.html');
+  res.sendFile(indexPath);
+});
+
+/**
  * Direct Attachment Access Handler: Redirect to Supabase Storage Signed/Public URL
  */
 app.get('/feedbacks/attachments/:filename', authenticateJWT, requireAdmin, async (req: Request, res: Response) => {

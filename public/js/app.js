@@ -2522,6 +2522,74 @@
       }
     }
 
+    // Forgot password (US-C): ask for the email, POST it, show the generic reply.
+    async function promptForgotPassword(event) {
+      if (event) event.preventDefault();
+      const form = await Swal.fire({
+        title: 'Reset Password',
+        input: 'email',
+        inputLabel: 'Enter your account email',
+        inputPlaceholder: 'you@example.com',
+        showCancelButton: true,
+        confirmButtonText: 'Send Reset Link'
+      });
+      if (!form.isConfirmed || !form.value) return;
+      try {
+        const res = await fetch('/api/v1/auth/forgot-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: form.value })
+        });
+        const data = await res.json();
+        Swal.fire({ icon: 'info', title: 'Check your email', text: data.message || 'If the email is registered, a reset link has been sent.' });
+      } catch (err) {
+        Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+      }
+    }
+    window.promptForgotPassword = promptForgotPassword;
+
+    // If the page was opened from a reset link (?token=...), show the reset form.
+    async function handleResetPasswordFromUrl() {
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get('token');
+      if (!token || !window.location.pathname.includes('reset-password')) return;
+      const form = await Swal.fire({
+        title: 'Set a New Password',
+        html:
+          '<input id="swal-new-pass" type="password" class="swal2-input" placeholder="New password (min 6 chars)">' +
+          '<input id="swal-confirm-pass" type="password" class="swal2-input" placeholder="Confirm new password">',
+        focusConfirm: false,
+        allowOutsideClick: false,
+        confirmButtonText: 'Reset Password',
+        preConfirm: () => {
+          const p1 = (document.getElementById('swal-new-pass') || {}).value || '';
+          const p2 = (document.getElementById('swal-confirm-pass') || {}).value || '';
+          if (p1 !== p2) { Swal.showValidationMessage('Passwords do not match.'); return false; }
+          if (p1.length < 6) { Swal.showValidationMessage('Password must be at least 6 characters long.'); return false; }
+          return { password: p1 };
+        }
+      });
+      if (!form.isConfirmed) return;
+      try {
+        const res = await fetch('/api/v1/auth/reset-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, password: form.value.password })
+        });
+        const data = await res.json();
+        if (data.success) {
+          await Swal.fire({ icon: 'success', title: 'Password Reset', text: data.message });
+          window.location.replace('/');
+        } else {
+          Swal.fire({ icon: 'error', title: 'Reset Failed', text: data.error });
+        }
+      } catch (err) {
+        Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+      }
+    }
+    // Run the reset check on load.
+    document.addEventListener('DOMContentLoaded', handleResetPasswordFromUrl);
+
     async function handleHeroLoginSubmit(event) {
       event.preventDefault();
       const username = document.getElementById('heroLoginUsername').value;
@@ -2681,10 +2749,27 @@
     }
 
     async function approveUser(id) {
+      // Ask for a temporary password + whether to email the user (US-A).
+      const form = await Swal.fire({
+        title: 'Approve User',
+        html:
+          '<input id="swal-approve-pass" class="swal2-input" placeholder="Temporary password (min 6 chars)" value="TesterLab123">' +
+          '<label style="display:flex; align-items:center; gap:8px; margin-top:10px; font-size:14px; justify-content:center;">' +
+          '<input type="checkbox" id="swal-approve-email" checked> Send email notification</label>',
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: 'Approve',
+        preConfirm: () => ({
+          password: (document.getElementById('swal-approve-pass') || {}).value || '',
+          sendEmail: !!(document.getElementById('swal-approve-email') || {}).checked
+        })
+      });
+      if (!form.isConfirmed) return;
       try {
         const response = await fetch(`/api/v1/admin/users/${id}/approve`, {
           method: 'POST',
-          headers: getAuthHeaders()
+          headers: getAuthHeaders(),
+          body: JSON.stringify(form.value)
         });
         const data = await response.json();
         if (data.success) {
@@ -2699,10 +2784,28 @@
     }
 
     async function rejectUser(id) {
+      // Ask for an optional reason + whether to email the user (US-A / AC-A.04).
+      const form = await Swal.fire({
+        title: 'Reject User',
+        html:
+          '<input id="swal-reject-notes" class="swal2-input" placeholder="Reason (optional)">' +
+          '<label style="display:flex; align-items:center; gap:8px; margin-top:10px; font-size:14px; justify-content:center;">' +
+          '<input type="checkbox" id="swal-reject-email" checked> Send email notification</label>',
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: 'Reject',
+        confirmButtonColor: '#dc2626',
+        preConfirm: () => ({
+          notes: (document.getElementById('swal-reject-notes') || {}).value || '',
+          sendEmail: !!(document.getElementById('swal-reject-email') || {}).checked
+        })
+      });
+      if (!form.isConfirmed) return;
       try {
         const response = await fetch(`/api/v1/admin/users/${id}/reject`, {
           method: 'POST',
-          headers: getAuthHeaders()
+          headers: getAuthHeaders(),
+          body: JSON.stringify(form.value)
         });
         const data = await response.json();
         if (data.success) {
