@@ -849,7 +849,7 @@
   </header>
 
   <div class="container">
-    
+
     <div class="tabs">
       <button class="tab-button active" onclick="switchTab('users')" id="tab-btn-users">User Management</button>
       <button class="tab-button" onclick="switchTab('logs')" id="tab-btn-logs">Activity Logs</button>
@@ -984,12 +984,12 @@
             <label style="font-weight: 500; font-size: 12px; color: var(--body-muted); display: block; margin-bottom: 6px;">Test Suite Name</label>
             <input type="text" id="configTestSuite" placeholder="e.g. Standard Web Login" style="width: 100%; padding: 10px 14px; border: 1px solid var(--hairline); border-radius: 8px; font-family: var(--font-body); font-size: 13px; outline: none; transition: border-color 0.2s;">
           </div>
-          
+
           <div class="form-group" style="margin-bottom: 16px; max-width: 600px;">
             <label style="font-weight: 500; font-size: 12px; color: var(--body-muted); display: block; margin-bottom: 6px;">Target URL</label>
             <input type="text" id="configTargetUrl" placeholder="https://example.com/login" style="width: 100%; padding: 10px 14px; border: 1px solid var(--hairline); border-radius: 8px; font-family: var(--font-body); font-size: 13px; outline: none; transition: border-color 0.2s;">
           </div>
-          
+
           <div class="form-group" style="margin-bottom: 16px; max-width: 800px;">
             <label style="font-weight: 500; font-size: 12px; color: var(--body-muted); display: block; margin-bottom: 6px;">Execution Steps (JSON Array)</label>
             <textarea id="configStepsJson" rows="12" style="width: 100%; padding: 12px 14px; border: 1px solid var(--hairline); border-radius: 8px; font-family: var(--font-mono); font-size: 13px; line-height: 1.5; outline: none; transition: border-color 0.2s; resize: vertical;" placeholder='[\n  {\n    "action": "fill",\n    "targetLabel": "Username",\n    "value": "admin",\n    "description": ""\n  }\n]'></textarea>
@@ -1156,10 +1156,26 @@
                   </svg>
                 </button>
               </div>
-              <pre id="snippetGenerateScriptAdmin" style="font-family: var(--font-mono); font-size: 12px; color: var(--action-blue); overflow-x: auto; margin: 0; background: transparent; padding: 0;">curl -X POST "https://tester-lab.mibot.my.id/api/v1/generate-script" \
+              <pre id="snippetGenerateScriptAdmin" style="font-family: var(--font-mono); font-size: 12px; color: var(--action-blue); overflow-x: auto; margin: 0; background: transparent; padding: 0;"># Prerequisite: a Project and a Suite are required. Get their IDs first.
+# 1) List your projects (copy the "id" of one) or create one:
+curl "https://tester-lab.mibot.my.id/api/v1/projects" -H "X-API-Key: tl_live_YOUR_API_KEY"
+curl -X POST "https://tester-lab.mibot.my.id/api/v1/projects" \
+  -H "X-API-Key: tl_live_YOUR_API_KEY" -H "Content-Type: application/json" \
+  -d '{ "name": "My Project" }'
+
+# 2) List suites of that project (or create one with POST + name & projectId):
+curl "https://tester-lab.mibot.my.id/api/v1/suites?projectId=YOUR_PROJECT_ID" -H "X-API-Key: tl_live_YOUR_API_KEY"
+curl -X POST "https://tester-lab.mibot.my.id/api/v1/suites" \
+  -H "X-API-Key: tl_live_YOUR_API_KEY" -H "Content-Type: application/json" \
+  -d '{ "name": "My Suite", "projectId": "YOUR_PROJECT_ID" }'
+
+# 3) Generate the script (projectId and suiteId are mandatory):
+curl -X POST "https://tester-lab.mibot.my.id/api/v1/generate-script" \
   -H "X-API-Key: tl_live_YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
+    "projectId": "YOUR_PROJECT_ID",
+    "suiteId": "YOUR_SUITE_ID",
     "dsl": {
       "testSuite": "Automated Auth Test",
       "targetUrl": "https://practicetestautomation.com/practice-test-login/",
@@ -1427,15 +1443,15 @@
     function renderPagination(containerId, currentPage, totalItems, type) {
       const container = document.getElementById(containerId);
       const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
-      
+
       if (totalPages <= 1) {
         container.innerHTML = '';
         return;
       }
-      
+
       const prevDisabled = currentPage === 1 ? 'disabled' : '';
       const nextDisabled = currentPage === totalPages ? 'disabled' : '';
-      
+
       container.innerHTML = `
         <button class="btn-pill-outline" ${prevDisabled} onclick="changePage('${type}', -1)">Previous</button>
         <span>Page ${currentPage} of ${totalPages}</span>
@@ -1648,13 +1664,13 @@
         const tr = document.createElement('tr');
         let actionClass = '';
         if (log.action.includes('Failed') || log.action.includes('Reject') || log.action.includes('Delete')) {
-          actionClass = 'color: #dc2626;'; 
+          actionClass = 'color: #dc2626;';
         } else if (log.action.includes('Approve') || log.action.includes('Success')) {
-          actionClass = 'color: #16a34a;'; 
+          actionClass = 'color: #16a34a;';
         } else {
           actionClass = 'color: var(--action-blue);';
         }
-        
+
         tr.innerHTML = `
           <td style="white-space: nowrap; font-family: var(--font-mono); font-size: 11px;">${new Date(log.timestamp).toLocaleString()}</td>
           <td><strong>${log.username}</strong></td>
@@ -1714,7 +1730,7 @@
         const globalIdx = startIdx + idx;
         const tr = document.createElement('tr');
         const ts = new Date(f.timestamp).toLocaleString();
-        
+
         let fileCol = '<span style="color:var(--slate); font-style:italic;">No File</span>';
         const fileUrl = f.attachmentUrl || (f.attachment ? (f.attachment.startsWith('http') ? f.attachment : `/feedbacks/attachments/${f.attachment}?token=${encodeURIComponent(authToken)}`) : null);
         if (fileUrl) {
@@ -1774,7 +1790,7 @@
 
     // --- CONFIGURATION LOGIC ---
     let appConfig = null;
-    
+
     async function fetchConfig() {
       try {
         const response = await fetch('/api/v1/config', {

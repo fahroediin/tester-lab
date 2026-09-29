@@ -273,7 +273,7 @@ Buka browser di `http://localhost:3000` untuk mengakses Web Workspace & Admin Co
 | `/api/v1/auth/register` | `POST` | Public | Mendaftarkan akun baru (status awal: `pending`). |
 | `/api/v1/auth/login` | `POST` | Public | Login pengguna, mengembalikan JWT token. |
 | `/api/v1/auth/me` | `GET` | JWT / API Key | Mengambil profil user yang sedang aktif. |
-| `/api/v1/generate-script` | `POST` | JWT / API Key | Mengekstraksi DOM dan menghasilkan script testing. |
+| `/api/v1/generate-script` | `POST` | JWT / API Key | Menghasilkan script testing dari DSL. Wajib menyertakan `projectId` dan `suiteId` (ambil dari `GET /api/v1/projects` dan `GET /api/v1/suites?projectId=...`). |
 | `/api/v1/inspect-dom` | `POST` | JWT / API Key | Mengambil daftar elemen kandidat interaktif dari URL target. |
 | `/api/v1/run-test` | `POST` | JWT / API Key | Mengeksekusi script Playwright dan mengunggah artifact video. |
 | `/api/v1/history` | `GET` | JWT / API Key | Mengambil riwayat pengujian pengguna. |
