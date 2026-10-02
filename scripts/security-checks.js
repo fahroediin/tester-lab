@@ -72,6 +72,12 @@ function ok(name, cond) {
   ok('blocks 192.168.x private', assertSafeProxyUrl('http://192.168.0.5/').ok === false);
   ok('blocks 172.16.x private', assertSafeProxyUrl('http://172.16.5.5/').ok === false);
   ok('blocks ipv6 loopback ::1', assertSafeProxyUrl('http://[::1]/').ok === false);
+  // IPv6-mapped IPv4: Node compresses the embedded v4 to hex in URL.hostname
+  // (e.g. [::ffff:7f00:1]), so a decimal-only match misses it. These must still
+  // be rejected — they resolve to loopback / cloud-metadata (AC-09.03).
+  ok('blocks ipv6-mapped loopback (dotted)', assertSafeProxyUrl('http://[::ffff:127.0.0.1]:3000/').ok === false);
+  ok('blocks ipv6-mapped loopback (hex)', assertSafeProxyUrl('http://[::ffff:7f00:1]/').ok === false);
+  ok('blocks ipv6-mapped cloud metadata (hex)', assertSafeProxyUrl('http://[::ffff:a9fe:a9fe]/latest/meta-data/').ok === false);
   ok('blocks file protocol', assertSafeProxyUrl('file:///etc/passwd').ok === false);
   ok('isValidHttpUrl rejects ftp', isValidHttpUrl('ftp://x') === false);
 

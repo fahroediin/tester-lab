@@ -60,11 +60,21 @@ function isPrivateIpv6(host: string): boolean {
   h = h.toLowerCase();
   if (h === '::1' || h === '::') return true;
   if (h.startsWith('fe80') || h.startsWith('fc') || h.startsWith('fd')) return true;
-  // IPv4-mapped / embedded (e.g. ::ffff:127.0.0.1)
+  // IPv4-mapped / embedded, dotted form (e.g. ::ffff:127.0.0.1).
   const v4 = h.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/);
   if (v4 && v4[1]) {
     const octets = parseIpv4(v4[1]);
     if (octets && isPrivateIpv4(octets)) return true;
+  }
+  // IPv4-mapped, hex form. Node's URL parser compresses the embedded v4 to two
+  // hex groups (e.g. ::ffff:127.0.0.1 -> ::ffff:7f00:1), which the dotted match
+  // above misses. Decode the last two groups back into four octets and re-check.
+  const mapped = h.match(/::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+  if (mapped && mapped[1] && mapped[2]) {
+    const hi = parseInt(mapped[1], 16);
+    const lo = parseInt(mapped[2], 16);
+    const octets = [(hi >> 8) & 0xff, hi & 0xff, (lo >> 8) & 0xff, lo & 0xff];
+    if (isPrivateIpv4(octets)) return true;
   }
   return false;
 }
