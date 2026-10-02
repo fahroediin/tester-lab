@@ -21,3 +21,8 @@ public/videos/
 
 doc_ba/
 docs/spec-*.md
+
+# Dokumen analisis internal (alignment/korelasi dengan rotomate) — tidak di-track
+docs/sprint1-alignment-rotomate-vs-poc.md
+docs/korelasi-fitur-us-rotomate-vs-poc.md
+docs/port-report-suite-level-dari-rotomate.md
