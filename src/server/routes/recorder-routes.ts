@@ -6,6 +6,8 @@ import { handleRecorderProxy, handleAssetProxy } from '../services/recorder-prox
 export const recorderRoutes = Router();
 
 export interface RecordedStepPayload {
+  /** Unique per-action id from the agent, so consumers can drop cross-channel duplicates (AC-09.01). */
+  stepId?: string;
   action: string;
   targetLabel: string;
   value?: string;
@@ -59,6 +61,7 @@ recorderRoutes.post('/ingest', (req: Request, res: Response) => {
   }
 
   const cleanStep: RecordedStepPayload = {
+    stepId: clampField(step.stepId),
     action: step.action.slice(0, 64),
     targetLabel: clampField(step.targetLabel) ?? '',
     value: clampField(step.value),

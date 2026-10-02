@@ -16,6 +16,7 @@ const { toVideoStoragePath } = require('../dist/server/lib/storage-url.js');
 const { checkRunnerSupport, RUNNER_NON_PLAYWRIGHT_MESSAGE } = require('../dist/security/runner-guard.js');
 const { validateCodeEdit, resolveSuiteOnProjectMove } = require('../dist/server/services/history-edit-service.js');
 const { checkRegistrationConflict, EMAIL_TAKEN_MESSAGE, USERNAME_TAKEN_MESSAGE } = require('../dist/server/services/registration-service.js');
+const { reduceRecorderStep } = require('../dist/server/services/recorder-dedupe.js');
 
 let passed = 0;
 function ok(name, cond) {
@@ -155,6 +156,58 @@ function ok(name, cond) {
   ok('no conflict carries no error', checkRegistrationConflict({ existingUsername: false, existingEmail: false }).error === undefined);
   // Messages are the exact AC strings.
   ok('email message matches AC-01.12 text', EMAIL_TAKEN_MESSAGE === 'Email is already registered. Please use another email or sign in.');
+
+  console.log('\n[12] recorder step dedupe (AC-09.01 — satu aksi tak tercatat dobel)');
+  // A step with a fresh stepId is accepted.
+  {
+    const b1 = reduceRecorderStep([], { stepId: 'a', action: 'click', targetLabel: 'Login' });
+    ok('step baru diterima', b1.length === 1 && b1[0].action === 'click');
+  }
+  // The SAME stepId arriving again (second channel) is ignored — the core fix.
+  {
+    let b = reduceRecorderStep([], { stepId: 'a', action: 'click', targetLabel: 'Login' });
+    b = reduceRecorderStep(b, { stepId: 'a', action: 'click', targetLabel: 'Login' });
+    ok('stepId duplikat lintas-channel ditolak', b.length === 1);
+  }
+  // Clicks are deduped by id too (not only fill) — the bug the old merge missed.
+  {
+    let b = reduceRecorderStep([], { stepId: 'c1', action: 'click', targetLabel: 'Save' });
+    b = reduceRecorderStep(b, { stepId: 'c1', action: 'click', targetLabel: 'Save' });
+    ok('klik dobel (id sama) tak jadi dua langkah', b.length === 1);
+  }
+  // Two genuinely different clicks (different ids) are both kept.
+  {
+    let b = reduceRecorderStep([], { stepId: 'c1', action: 'click', targetLabel: 'Save' });
+    b = reduceRecorderStep(b, { stepId: 'c2', action: 'click', targetLabel: 'Cancel' });
+    ok('dua klik berbeda tetap tersimpan', b.length === 2);
+  }
+  // Consecutive fills on the same field still collapse into one (value updated).
+  {
+    let b = reduceRecorderStep([], { stepId: 'f1', action: 'fill', targetLabel: 'Email', value: 'a' });
+    b = reduceRecorderStep(b, { stepId: 'f2', action: 'fill', targetLabel: 'Email', value: 'ab' });
+    ok('fill berurutan field sama digabung', b.length === 1 && b[0].value === 'ab');
+  }
+  // Fill on a different field is a new step.
+  {
+    let b = reduceRecorderStep([], { stepId: 'f1', action: 'fill', targetLabel: 'Email', value: 'a' });
+    b = reduceRecorderStep(b, { stepId: 'f2', action: 'fill', targetLabel: 'Password', value: 'x' });
+    ok('fill field berbeda jadi langkah baru', b.length === 2);
+  }
+  // Missing/invalid payload is ignored (no crash, no push).
+  ok('payload tanpa action diabaikan', reduceRecorderStep([], { stepId: 'z' }).length === 0);
+  ok('payload null diabaikan', reduceRecorderStep([], null).length === 0);
+  // A step WITHOUT a stepId still works (back-compat) — pushed, no dedupe by id.
+  {
+    let b = reduceRecorderStep([], { action: 'click', targetLabel: 'X' });
+    b = reduceRecorderStep(b, { action: 'click', targetLabel: 'Y' });
+    ok('step tanpa stepId tetap diproses', b.length === 2);
+  }
+  // Input is not mutated (pure): returns a new array.
+  {
+    const orig = [];
+    const b = reduceRecorderStep(orig, { stepId: 'a', action: 'click', targetLabel: 'L' });
+    ok('fungsi murni — array asal tak berubah', orig.length === 0 && b.length === 1);
+  }
 
   console.log('\nALL SECURITY CHECKS PASSED (' + passed + ' assertions)\n');
 })().catch((e) => { console.error(e); process.exit(1); });

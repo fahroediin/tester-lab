@@ -100,8 +100,18 @@
   /**
    * Send recorded action payload to Tester Lab
    */
+  // Monotonic per-session counter + random suffix: a stable id for one captured
+  // action, so a consumer that receives it over more than one channel (HTTP,
+  // BroadcastChannel, postMessage) can drop the duplicates (AC-09.01).
+  let emitSeq = 0;
+  function nextStepId() {
+    emitSeq++;
+    return `${currentSessionId || 'sess'}-${emitSeq}-${Math.random().toString(36).slice(2, 8)}`;
+  }
+
   function emitStep(action, targetLabel, value, description) {
     const payload = {
+      stepId: nextStepId(),
       action: action,
       targetLabel: targetLabel,
       value: value || '',

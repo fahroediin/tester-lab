@@ -4942,14 +4942,25 @@ function applyRecordedSteps() {
 function handleIncomingRecordedStep(payload) {
   if (!payload || !payload.action) return;
 
+  // De-duplicate by stepId (AC-09.01): the agent emits each action over several
+  // channels at once (postMessage + BroadcastChannel both reach this same-origin
+  // window), so without this a single click would be buffered twice. Mirrors the
+  // unit-tested reducer in src/server/services/recorder-dedupe.ts — keep in sync.
+  if (payload.stepId !== undefined && recordedStepsBuffer.some(s => s.stepId === payload.stepId)) {
+    return;
+  }
+
   // If the last step was a fill action on the same targetLabel, update its value
+  // (a debounced input can emit several fills for one field).
   const lastStep = recordedStepsBuffer[recordedStepsBuffer.length - 1];
   if (lastStep && lastStep.action === 'fill' && payload.action === 'fill' && lastStep.targetLabel === payload.targetLabel) {
+    lastStep.stepId = payload.stepId !== undefined ? payload.stepId : lastStep.stepId;
     lastStep.value = payload.value || '';
     lastStep.description = payload.description || `Type ${lastStep.value} into ${lastStep.targetLabel}`;
   } else {
     const newStep = {
       step: recordedStepsBuffer.length + 1,
+      stepId: payload.stepId,
       action: payload.action,
       targetLabel: payload.targetLabel || 'Element',
       value: payload.value || '',
