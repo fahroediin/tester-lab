@@ -17,6 +17,11 @@ CREATE TABLE IF NOT EXISTS users (
 -- Index for fast username lookups
 CREATE INDEX IF NOT EXISTS idx_users_username ON users (LOWER(username));
 
+-- Enforce one account per email, case-insensitively (AC-01.12 / AC-01.13).
+-- The register route also checks this in app code; this index is the DB-level
+-- backstop against a race or a direct insert.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_users_email_lower ON users (LOWER(email));
+
 -- 1b. FOLDERS / PROJECTS TABLE (per-user project folders that group test suites)
 CREATE TABLE IF NOT EXISTS folders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

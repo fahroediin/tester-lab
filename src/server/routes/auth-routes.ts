@@ -15,6 +15,7 @@ import { authenticateJWT, JWT_SECRET } from '../auth-middleware.js';
 import type { AuthenticatedRequest } from '../auth-middleware.js';
 import { loadSmtpCreds, loadEmailConfigPublic } from '../email-config-store.js';
 import { sendEmail, renderTemplate, hashResetToken, isResetTokenUsable } from '../services/email-service.js';
+import { checkRegistrationConflict } from '../services/registration-service.js';
 
 export const authRoutes = Router();
 
@@ -42,12 +43,19 @@ authRoutes.post('/register', async (req: Request, res: Response) => {
       return;
     }
 
-    const existingUser = await findUserByUsernameAsync(username);
-    if (existingUser) {
-      res.status(409).json({
-        success: false,
-        error: 'Username is already taken. Please choose another username.'
-      });
+    // Reject duplicate username (AC-01.04) or duplicate email (AC-01.12). Both
+    // lookups are case-insensitive (ilike), so email matching is case-insensitive
+    // too (AC-01.13). The pure guard decides which message to return.
+    const [existingUser, existingEmailUser] = await Promise.all([
+      findUserByUsernameAsync(username),
+      findUserByEmailAsync(email)
+    ]);
+    const conflict = checkRegistrationConflict({
+      existingUsername: !!existingUser,
+      existingEmail: !!existingEmailUser
+    });
+    if (conflict.conflict) {
+      res.status(409).json({ success: false, error: conflict.error });
       return;
     }
 

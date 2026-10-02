@@ -15,6 +15,7 @@ const { validateDSL } = require('../dist/validator/dsl-validator.js');
 const { toVideoStoragePath } = require('../dist/server/lib/storage-url.js');
 const { checkRunnerSupport, RUNNER_NON_PLAYWRIGHT_MESSAGE } = require('../dist/security/runner-guard.js');
 const { validateCodeEdit, resolveSuiteOnProjectMove } = require('../dist/server/services/history-edit-service.js');
+const { checkRegistrationConflict, EMAIL_TAKEN_MESSAGE, USERNAME_TAKEN_MESSAGE } = require('../dist/server/services/registration-service.js');
 
 let passed = 0;
 function ok(name, cond) {
@@ -139,6 +140,21 @@ function ok(name, cond) {
   ok('same project (Unassigned in project) clears suite', resolveSuiteOnProjectMove() === null);
   ok('different project clears suite', resolveSuiteOnProjectMove() === null);
   ok('uncategorized (no project) clears suite', resolveSuiteOnProjectMove() === null);
+
+  console.log('\n[11] registration conflict guard (POST /auth/register) — AC-01.04/01.12/01.13');
+  // AC-01.04: username already taken is rejected with the username message.
+  ok('existing username -> conflict', checkRegistrationConflict({ existingUsername: true, existingEmail: false }).conflict === true);
+  ok('existing username -> username message', checkRegistrationConflict({ existingUsername: true, existingEmail: false }).error === USERNAME_TAKEN_MESSAGE);
+  // AC-01.12: email already registered is rejected with the email message.
+  ok('existing email -> conflict', checkRegistrationConflict({ existingUsername: false, existingEmail: true }).conflict === true);
+  ok('existing email -> email message', checkRegistrationConflict({ existingUsername: false, existingEmail: true }).error === EMAIL_TAKEN_MESSAGE);
+  // Username is checked first when both collide (stable, matches field order).
+  ok('both taken -> username message wins', checkRegistrationConflict({ existingUsername: true, existingEmail: true }).error === USERNAME_TAKEN_MESSAGE);
+  // No collision -> registration may proceed.
+  ok('neither taken -> no conflict', checkRegistrationConflict({ existingUsername: false, existingEmail: false }).conflict === false);
+  ok('no conflict carries no error', checkRegistrationConflict({ existingUsername: false, existingEmail: false }).error === undefined);
+  // Messages are the exact AC strings.
+  ok('email message matches AC-01.12 text', EMAIL_TAKEN_MESSAGE === 'Email is already registered. Please use another email or sign in.');
 
   console.log('\nALL SECURITY CHECKS PASSED (' + passed + ' assertions)\n');
 })().catch((e) => { console.error(e); process.exit(1); });
