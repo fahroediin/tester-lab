@@ -180,6 +180,16 @@ export async function handleAssetProxy(req: Request, res: Response, next: NextFu
       }
     });
 
+    // A redirect must not land on an internal address either — mirror the
+    // final-url re-check that handleRecorderProxy does (AC-09.03). Without this,
+    // a public origin could 30x a sub-resource to an internal/metadata host and
+    // have its body proxied back to the client.
+    const finalAssetUrl = upstreamResponse.url || upstreamAssetUrl;
+    if (assertSafeProxyUrl(finalAssetUrl).ok === false) {
+      next();
+      return;
+    }
+
     const contentType = upstreamResponse.headers.get('content-type') || 'application/octet-stream';
     res.status(upstreamResponse.status);
     stripFrameHeaders(res);
