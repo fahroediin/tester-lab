@@ -466,7 +466,12 @@ async function submitFeedback() {
       body: JSON.stringify({ type, details, fileBase64, filename })
     });
 
-    const data = await response.json();
+    if (response.status === 413) {
+      showSnackbar({ type: 'error', title: 'File Too Large', message: 'Attachment exceeds the server upload limit.' });
+      return;
+    }
+
+    const data = await response.json().catch(() => ({ success: false, error: `Server error (HTTP ${response.status}).` }));
 
     if (data.success) {
       closeFeedbackModal();
