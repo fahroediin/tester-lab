@@ -278,6 +278,13 @@ historyRoutes.delete('/:id', authenticateJWT, requireApprovedUser, async (req: A
       return;
     }
 
+    await addLog({
+      userId,
+      username: req.user!.username,
+      action: 'Delete Run',
+      details: `Deleted run history ${record.id}`
+    });
+
     res.json({ success: true, message: 'History record deleted successfully' });
   } catch (err: unknown) {
     const error = err as Error;

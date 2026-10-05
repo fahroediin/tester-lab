@@ -903,6 +903,21 @@
           <button type="button" class="btn-pill-outline" onclick="fetchLogs()">Refresh Logs</button>
         </div>
 
+        <form id="logsFilterForm" onsubmit="applyLogFilters(event)" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 16px;">
+          <label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 600; min-width: 180px; flex: 1 1 180px;">
+            Action
+            <select id="logsFilterAction" aria-label="Filter by action" style="padding: 9px 12px; border: 1px solid var(--hairline); border-radius: 8px; font-family: var(--font-body); font-size: 13px; background: var(--card-bg); color: inherit;">
+              <option value="">All actions</option>
+            </select>
+          </label>
+          <label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 600; min-width: 180px; flex: 1 1 180px;">
+            Username
+            <input type="text" id="logsFilterUsername" aria-label="Filter by username" placeholder="e.g. qa_budi" maxlength="100" autocomplete="off" style="padding: 9px 12px; border: 1px solid var(--hairline); border-radius: 8px; font-family: var(--font-body); font-size: 13px; outline: none;">
+          </label>
+          <button type="submit" class="btn-pill-outline" id="btnApplyLogFilters">Apply Filter</button>
+          <button type="button" class="btn-pill-outline" id="btnResetLogFilters" onclick="resetLogFilters()">Reset</button>
+        </form>
+
         <div style="overflow-x: auto;">
           <table class="summary-table">
             <thead>
@@ -1622,13 +1637,57 @@ curl -X POST "https://tester-lab.mibot.my.id/api/v1/generate-script" \
       }
     }
 
+    // Every action name written via addLog() on the server.
+    const LOG_ACTIONS = [
+      'Admin Approve', 'Admin Delete', 'Admin Delete Feedback', 'Admin Reject',
+      'API Key Created', 'API Key Deleted', 'API Key Revoked',
+      'Create Project', 'Create Suite', 'Delete Project', 'Delete Run', 'Delete Suite',
+      'Generate Script', 'Generate Script Failed', 'History Code Edit Blocked',
+      'Login Failed', 'Login Success', 'Register', 'Register Failed',
+      'Run Test', 'Run Test Blocked', 'Run Test Rejected', 'run_suite'
+    ];
+    let activeLogFilters = { action: '', username: '' };
+
+    function populateLogActionOptions() {
+      const select = document.getElementById('logsFilterAction');
+      if (!select || select.options.length > 1) return;
+      LOG_ACTIONS.forEach((action) => {
+        const opt = document.createElement('option');
+        opt.value = action;
+        opt.textContent = action;
+        select.appendChild(opt);
+      });
+    }
+
+    function applyLogFilters(event) {
+      if (event) event.preventDefault();
+      activeLogFilters = {
+        action: document.getElementById('logsFilterAction').value,
+        username: document.getElementById('logsFilterUsername').value.trim()
+      };
+      fetchLogs();
+    }
+
+    function resetLogFilters() {
+      document.getElementById('logsFilterAction').value = '';
+      document.getElementById('logsFilterUsername').value = '';
+      activeLogFilters = { action: '', username: '' };
+      fetchLogs();
+    }
+
     async function fetchLogs() {
       const tbody = document.getElementById('logsTableBody');
       if (!tbody) return;
+      populateLogActionOptions();
       tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 24px;">Loading activity logs...</td></tr>';
 
+      const params = new URLSearchParams();
+      if (activeLogFilters.action) params.set('action', activeLogFilters.action);
+      if (activeLogFilters.username) params.set('username', activeLogFilters.username);
+      const qs = params.toString();
+
       try {
-        const response = await fetch('/api/v1/admin/logs', {
+        const response = await fetch(`/api/v1/admin/logs${qs ? `?${qs}` : ''}`, {
           headers: getAuthHeaders()
         });
         const data = await response.json();
@@ -1651,7 +1710,9 @@ curl -X POST "https://tester-lab.mibot.my.id/api/v1/generate-script" \
       if (!tbody) return;
 
       if (allLogs.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 24px;">No activity logs found.</td></tr>';
+        const filtered = activeLogFilters.action || activeLogFilters.username;
+        const emptyMsg = filtered ? 'No activity logs match the selected filters.' : 'No activity logs found.';
+        tbody.innerHTML = `<tr><td colspan="4" id="logsEmptyState" style="text-align:center; padding: 24px; color: var(--body-muted);">${emptyMsg}</td></tr>`;
         document.getElementById('logsPagination').innerHTML = '';
         return;
       }

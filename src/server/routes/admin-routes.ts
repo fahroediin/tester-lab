@@ -2,7 +2,7 @@ import { Router, Response } from 'express';
 import { authenticateJWT, requireAdmin } from '../auth-middleware.js';
 import type { AuthenticatedRequest } from '../auth-middleware.js';
 import { loadUsersAsync, updateUserStatus, deleteUser } from '../auth-store.js';
-import { getLogs, addLog } from '../activity-log-store.js';
+import { getLogs, addLog, normalizeLogFilters } from '../activity-log-store.js';
 import { getAdminApiKeyStats, getAdminApiKeyLogs } from '../api-key-usage-store.js';
 import { supabase } from '../supabase-client.js';
 import { resolveAttachmentUrl } from '../services/attachment-service.js';
@@ -34,8 +34,9 @@ adminRoutes.get('/users', authenticateJWT, requireAdmin, async (req: Authenticat
  */
 adminRoutes.get('/logs', authenticateJWT, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
   const limit = parseInt(req.query.limit as string, 10) || 200;
-  const logs = await getLogs(limit);
-  res.json({ success: true, logs });
+  const filters = normalizeLogFilters({ action: req.query.action, username: req.query.username });
+  const logs = await getLogs(limit, filters);
+  res.json({ success: true, logs, filters });
 });
 
 /**
