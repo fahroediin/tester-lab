@@ -142,6 +142,7 @@ JWT_SECRET=tester-lab-jwt-secret-key-2026-secure
 PLAYWRIGHT_TIMEOUT=120000
 MAX_CONCURRENT_TESTS=3
 MAX_CONCURRENT_GENERATIONS=5
+MAX_QUEUE_LENGTH=0   # 0 = antrean tak dibatasi; isi angka untuk menolak kelebihan beban (HTTP 503)
 
 # Supabase Credentials (PostgreSQL & Storage)
 SUPABASE_URL=https://your-project.supabase.co
@@ -156,6 +157,51 @@ API_KEY_USAGE_RESET_DAYS=30
 ```bash
 npm run build
 ```
+
+---
+
+## Tuning Kapasitas & Infrastruktur
+
+Beban berat Tester Lab **bukan dari jumlah user yang login**, melainkan dari **jumlah test yang berjalan bersamaan** — sebab setiap run meluncurkan proses Playwright + browser Chromium headless sungguhan. Karena itu kapasitas diatur lewat batas konkurensi, bukan jumlah pengguna.
+
+### Variabel yang mengatur kapasitas
+
+| Variabel | Default | Arti |
+|---|---|---|
+| `MAX_CONCURRENT_TESTS` | `3` | Jumlah run test (Chromium) yang berjalan **serentak**. Sisanya antre. |
+| `MAX_CONCURRENT_GENERATIONS` | `5` | Jumlah proses generate (crawler DOM) yang berjalan serentak. |
+| `MAX_QUEUE_LENGTH` | `0` (tak dibatasi) | Maksimum tugas **menunggu** di antrean. Saat semua slot sibuk **dan** antrean penuh, permintaan baru ditolak cepat dengan **HTTP 503** alih-alih menumpuk tanpa batas. |
+| `PLAYWRIGHT_TIMEOUT` | `120000` | Batas waktu (ms) per run. Run lama menahan slot konkurensi lebih lama. |
+
+> Perubahan `.env` hanya terbaca saat **startup** — restart server setelah mengubahnya.
+
+### Estimasi beban per run
+
+Satu run aktif (Chromium headless + Node runner + rekam video 1280×720) memakai **±0,5–0,8 GB RAM**. Jadi RAM minimum ≈ `(MAX_CONCURRENT_TESTS × ~0,7 GB) + ~0,5 GB (app) + ~1 GB (OS)`.
+
+### Rekomendasi spek server
+
+Asumsi: dari sejumlah user aktif, hanya sebagian menekan "Run" di saat bersamaan.
+
+| Skala | vCPU | RAM | Saran konkurensi | Cocok untuk |
+|---|---|---|---|---|
+| Hemat (POC/internal) | 2–4 | **4 GB** | `TESTS=3` (default) | ~10 user, antrean beberapa detik wajar |
+| Nyaman ⭐ | 4 | **8 GB** | `TESTS=5`, `GENERATIONS=6`, `QUEUE_LENGTH=20` | **~10 user paralel** |
+| Lega / siap tumbuh | 8 | **16 GB** | `TESTS=6–8`, `QUEUE_LENGTH=40` | >10 user atau test multi-tab berat |
+
+Contoh `.env` untuk tingkat **Nyaman**:
+```env
+MAX_CONCURRENT_TESTS=5
+MAX_CONCURRENT_GENERATIONS=6
+MAX_QUEUE_LENGTH=20
+```
+
+### Catatan penting
+
+- **Chromium Playwright wajib terpasang** di server (lihat langkah 2). Tanpa itu, run & generate gagal.
+- **Penyimpanan berat (DB + video/screenshot) ada di Supabase**, bukan di server aplikasi — pantau kuota storage Supabase seiring bertambahnya riwayat run.
+- **Nginx `client_max_body_size` ≥ `20m`** diperlukan agar lampiran feedback (base64) tidak kena error 413 (lihat `deploy/nginx-*.conf.example`).
+- **`MAX_QUEUE_LENGTH` sebaiknya kelipatan kecil dari konkurensi** (mis. 4× `MAX_CONCURRENT_TESTS`). Terlalu kecil = user sering kena 503; terlalu besar = antrean panjang & latensi tinggi saat beban puncak.
 
 ---
 

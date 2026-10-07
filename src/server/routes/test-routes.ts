@@ -3,7 +3,7 @@ import { authenticateJWT, requireApprovedUser } from '../auth-middleware.js';
 import type { AuthenticatedRequest } from '../auth-middleware.js';
 import { addLog } from '../activity-log-store.js';
 import { sanitizeCode } from '../../security/code-sanitizer.js';
-import { globalTestRunnerQueue, globalTestGeneratorQueue } from '../queue-manager.js';
+import { globalTestRunnerQueue, globalTestGeneratorQueue, isQueueFullError } from '../queue-manager.js';
 import { addHistory, updateHistory, findScenarioByIdentity } from '../flow-history-store.js';
 import { getFolderById } from '../folder-store.js';
 import { getSuiteById } from '../suite-store.js';
@@ -168,6 +168,10 @@ testRoutes.post('/generate-script', authenticateJWT, requireApprovedUser, async 
       dryRunError: result.dryRunError
     });
   } catch (err: unknown) {
+    if (isQueueFullError(err)) {
+      res.status(503).json({ success: false, error: (err as Error).message });
+      return;
+    }
     const error = err as Error;
     res.status(500).json({
       success: false,
@@ -272,6 +276,17 @@ testRoutes.post('/run-test', authenticateJWT, requireApprovedUser, async (req: A
       return;
     }
 
+    // Backpressure: if the runner queue is full, reject BEFORE creating or
+    // flipping any history record, so a rejected run never strands a record in
+    // RUNNING. (A free slot or room in the queue still proceeds normally.)
+    if (globalTestRunnerQueue.isFull()) {
+      res.status(503).json({
+        success: false,
+        error: 'Server is busy: the execution queue is full. Please try again shortly.'
+      });
+      return;
+    }
+
     // Repeated work: when a scenario is re-run from Flow History, save it as a
     // NEW history record instead of overwriting the loaded one.
     if (saveAsNewHistory) {
@@ -352,6 +367,10 @@ testRoutes.post('/run-test', authenticateJWT, requireApprovedUser, async (req: A
     // record (repeated-run case) for subsequent runs.
     res.json({ ...runResult, historyId });
   } catch (err: unknown) {
+    if (isQueueFullError(err)) {
+      res.status(503).json({ success: false, error: (err as Error).message });
+      return;
+    }
     const error = err as Error;
     res.status(500).json({
       success: false,
