@@ -1,7 +1,10 @@
 name: prisma-deploy
 
+# Auto-deploy-on-push dinonaktifkan sementara: Prisma Cloud masih dievaluasi dan
+# produksi berjalan di GCP (lihat deploy/deploy-prod.sh). Jalankan manual dari
+# tab Actions ("Run workflow") bila ingin mencoba deploy ke Prisma Cloud.
+# Untuk mengaktifkan kembali auto-deploy, tambahkan lagi trigger `push:`.
 on:
-  push:
   workflow_dispatch:
 
 concurrency:
