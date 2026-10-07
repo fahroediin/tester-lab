@@ -29,13 +29,17 @@
   "license": "AGPL-3.0-only",
   "dependencies": {
     "@playwright/test": "^1.45.0",
+    "@prisma/composer": "0.25.0",
+    "@prisma/composer-prisma-cloud": "0.25.0",
     "@supabase/supabase-js": "2.45.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/dotenv": "^6.1.1",
     "@types/jsonwebtoken": "^9.0.10",
+    "alchemy": "2.0.0-beta.78",
     "bcryptjs": "^3.0.3",
     "commander": "^12.1.0",
     "dotenv": "^17.4.2",
+    "effect": "4.0.0-rc.115",
     "express": "^4.19.2",
     "fast-levenshtein": "^3.0.0",
     "handlebars": "^4.7.8",
@@ -52,7 +56,19 @@
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.14.9",
     "@types/nodemailer": "^8.0.2",
+    "prisma": "8.0.0-rc.19",
     "ts-node": "^10.9.2",
     "typescript": "^5.5.2"
+  },
+  "overrides": {
+    "@effect/platform-bun": "4.0.0-rc.115",
+    "@effect/platform-node": "4.0.0-rc.115",
+    "@effect/platform-node-shared": "4.0.0-rc.115",
+    "@effect/sql-d1": "4.0.0-rc.115",
+    "@effect/sql-mysql2": "4.0.0-rc.115",
+    "@effect/sql-pg": "4.0.0-rc.115",
+    "@effect/sql-sqlite-do": "4.0.0-rc.115",
+    "@effect/vitest": "4.0.0-rc.115",
+    "effect": "4.0.0-rc.115"
   }
 }
