@@ -203,6 +203,19 @@ MAX_QUEUE_LENGTH=20
 - **Nginx `client_max_body_size` ≥ `20m`** diperlukan agar lampiran feedback (base64) tidak kena error 413 (lihat `deploy/nginx-*.conf.example`).
 - **`MAX_QUEUE_LENGTH` sebaiknya kelipatan kecil dari konkurensi** (mis. 4× `MAX_CONCURRENT_TESTS`). Terlalu kecil = user sering kena 503; terlalu besar = antrean panjang & latensi tinggi saat beban puncak.
 
+### Validasi kapasitas (load test)
+
+Untuk memverifikasi batas konkurensi bekerja di server nyata sebelum menentukan spek, tersedia skrip load test yang mensimulasikan N user menjalankan **Run Suite bersamaan** dan mengukur puncak run serentak, antrean (FIFO), serta penolakan 503:
+
+```bash
+BASE_URL=http://localhost:3000 \
+API_KEY=tl_live_xxxxx \
+USERS=10 \
+node scripts/load-test-run-suite.js [SUITE_ID]
+```
+
+Skrip menembak server sungguhan (tiap run menjalankan Chromium) — **jalankan di server uji/staging, bukan produksi saat jam sibuk**. Jika `SUITE_ID` tak diberikan, skrip mencoba menemukan suite berisi scenario lewat API. Bandingkan nilai **"PUNCAK run serentak"** pada output dengan `MAX_CONCURRENT_TESTS` yang di-set: bila mendekati dan sebagian user "menunggu antre", Skema B (Run Suite lewat queue) bekerja.
+
 ---
 
 ## Penggunaan CLI (`test-gen`)
