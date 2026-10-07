@@ -528,10 +528,26 @@
                 </svg>
               </button>
             </div>
-            <pre id="snippetGenerateScript" style="font-family: var(--font-mono); font-size: 12px; color: var(--action-blue); overflow-x: auto; margin: 0; background: transparent; padding: 0;">curl -X POST "https://tester-lab.mibot.my.id/api/v1/generate-script" \
+            <pre id="snippetGenerateScript" style="font-family: var(--font-mono); font-size: 12px; color: var(--action-blue); overflow-x: auto; margin: 0; background: transparent; padding: 0;"># Prerequisite: a Project and a Suite are required. Get their IDs first.
+# 1) List your projects (copy the "id" of one) or create one:
+curl "https://tester-lab.mibot.my.id/api/v1/projects" -H "X-API-Key: tl_live_YOUR_API_KEY"
+curl -X POST "https://tester-lab.mibot.my.id/api/v1/projects" \
+  -H "X-API-Key: tl_live_YOUR_API_KEY" -H "Content-Type: application/json" \
+  -d '{ "name": "My Project" }'
+
+# 2) List suites of that project (or create one with POST + name & projectId):
+curl "https://tester-lab.mibot.my.id/api/v1/suites?projectId=YOUR_PROJECT_ID" -H "X-API-Key: tl_live_YOUR_API_KEY"
+curl -X POST "https://tester-lab.mibot.my.id/api/v1/suites" \
+  -H "X-API-Key: tl_live_YOUR_API_KEY" -H "Content-Type: application/json" \
+  -d '{ "name": "My Suite", "projectId": "YOUR_PROJECT_ID" }'
+
+# 3) Generate the script (projectId and suiteId are mandatory):
+curl -X POST "https://tester-lab.mibot.my.id/api/v1/generate-script" \
   -H "X-API-Key: tl_live_YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
+    "projectId": "YOUR_PROJECT_ID",
+    "suiteId": "YOUR_SUITE_ID",
     "dsl": {
       "testSuite": "Automated Auth Test",
       "targetUrl": "https://practicetestautomation.com/practice-test-login/",
