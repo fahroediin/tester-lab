@@ -10,6 +10,7 @@ import { addLog } from '../activity-log-store.js';
 import { addSuiteRun, getSuiteRunById, getSuiteRunsBySuite } from '../suite-run-store.js';
 import { buildSuiteReport } from '../services/suite-report-service.js';
 import { exportSuiteReport } from '../services/suite-report-export.js';
+import { globalTestRunnerQueue } from '../queue-manager.js';
 
 export const suiteRoutes = Router();
 
@@ -135,6 +136,19 @@ suiteRoutes.post('/:suiteId/run', authenticateJWT, requireApprovedUser, async (r
       return;
     }
 
+    // Backpressure (Skema B): a Run Suite is a long sequential batch of real
+    // Chromium runs, so it must share the global runner queue — otherwise N
+    // concurrent Run Suites launch N browsers at once and can OOM the server.
+    // Reject BEFORE opening the NDJSON stream so a busy server returns a clean
+    // 503 instead of a silently-hanging stream.
+    if (globalTestRunnerQueue.isFull()) {
+      res.status(503).json({
+        success: false,
+        error: 'Server is busy: the execution queue is full. Please try again shortly.'
+      });
+      return;
+    }
+
     // Stream progress as newline-delimited JSON (US-16): one JSON object per
     // line, flushed as the run advances so the client sees which scenario is
     // running instead of a frozen "Running..." for large suites. The final
@@ -147,7 +161,15 @@ suiteRoutes.post('/:suiteId/run', authenticateJWT, requireApprovedUser, async (r
 
     const write = (obj: unknown) => res.write(JSON.stringify(obj) + '\n');
 
-    const result = await runSuiteForSuite(userId, suiteId, (ev) => write(ev));
+    // Let the client know it may be waiting its turn (FIFO) before the first
+    // scenario starts, so a queued run shows "queued" instead of a frozen line.
+    write({ type: 'queued' });
+
+    // Run THROUGH the shared runner queue: capped at MAX_CONCURRENT_TESTS, FIFO,
+    // so concurrent Run Suites queue instead of all launching browsers at once.
+    const result = await globalTestRunnerQueue.enqueue(() =>
+      runSuiteForSuite(userId, suiteId, (ev) => write(ev))
+    );
 
     // Persist the run so its suite-level report can be rebuilt later. A failure
     // to save must not fail the run the user just watched succeed, so the id is

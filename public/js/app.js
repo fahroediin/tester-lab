@@ -3593,7 +3593,11 @@ window.runSuitePrompt = async function (suiteId, suiteName, event) {
 
     const handleEvent = function (ev) {
       if (!ev || !ev.type) return;
-      if (ev.type === 'start') {
+      if (ev.type === 'queued') {
+        // The run is waiting its turn in the server queue (FIFO) before the
+        // first scenario starts. Show a non-blocking hint so it isn't silent.
+        showSnackbar({ type: 'info', title: 'Antre', message: 'Server sedang sibuk — run suite ini menunggu giliran. Akan mulai otomatis.' });
+      } else if (ev.type === 'start') {
         total = ev.total;
         openSuiteProgress(suiteName, ev);
         progressOpen = true;
