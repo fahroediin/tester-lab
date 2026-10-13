@@ -11,6 +11,7 @@ import type { Browser, Page } from 'playwright';
 import type { DOMElementCandidate, DSLConfig, DSLStep, ResolvedStep } from '../types/index.js';
 import { HeuristicMatcher } from '../matcher/heuristic-matcher.js';
 import { extractCandidatesFromPage } from './dom-candidate-extractor.js';
+import { isCheckboxStateError } from './checkbox-fallback.js';
 import { scopeFor } from '../server/services/scope-helper.js';
 
 export interface ExtractorOptions {
@@ -178,9 +179,27 @@ export class DOMExtractor {
         await locator.fill(step.value, { force: true, timeout: 5000 });
       }
     } else if (step.action === 'check') {
-      await locator.check({ force: true, timeout: 5000 });
+      try {
+        await locator.check({ force: true, timeout: 5000 });
+      } catch (err: unknown) {
+        // React/Vue custom checkboxes may not flip `checked` the way check()
+        // expects ("did not change its state"); a plain click toggles them.
+        if (isCheckboxStateError((err as Error)?.message)) {
+          await locator.first().click({ force: true, timeout: 5000 });
+        } else {
+          throw err;
+        }
+      }
     } else if (step.action === 'uncheck') {
-      await locator.uncheck({ force: true, timeout: 5000 });
+      try {
+        await locator.uncheck({ force: true, timeout: 5000 });
+      } catch (err: unknown) {
+        if (isCheckboxStateError((err as Error)?.message)) {
+          await locator.first().click({ force: true, timeout: 5000 });
+        } else {
+          throw err;
+        }
+      }
     } else if ((step.action as string) === 'upload' && step.value) {
       await locator.setInputFiles(step.value, { timeout: 5000 }).catch((e) => {
         console.warn('[Crawler] File upload failed:', e.message);

@@ -144,9 +144,23 @@ test('{{jsLit testSuite}}', async ({ page }) => {
           } else if (action === 'select') {
             await locator.first().selectOption(value!, { force: true, timeout: 2000 });
           } else if (action === 'check') {
-            await locator.first().check({ force: true, timeout: 2000 });
+            try {
+              await locator.first().check({ force: true, timeout: 2000 });
+            } catch (e: any) {
+              // React/Vue custom checkboxes may not flip `checked` as check()
+              // expects ("did not change its state"); a click toggles them.
+              if (String(e?.message || '').toLowerCase().includes('did not change its state')) {
+                await locator.first().click({ force: true, timeout: 2000 });
+              } else { throw e; }
+            }
           } else if (action === 'uncheck') {
-            await locator.first().uncheck({ force: true, timeout: 2000 });
+            try {
+              await locator.first().uncheck({ force: true, timeout: 2000 });
+            } catch (e: any) {
+              if (String(e?.message || '').toLowerCase().includes('did not change its state')) {
+                await locator.first().click({ force: true, timeout: 2000 });
+              } else { throw e; }
+            }
           } else if (action === 'upload') {
             await locator.first().setInputFiles(value!, { timeout: 2000 });
           } else if (action === 'assert_visible') {
