@@ -23,6 +23,32 @@ function ok(name, cond) {
   }
 }
 
+/**
+ * Extract a complete `function <name>(...) { ... }` from source by BALANCING
+ * braces, not by matching an indentation pattern. The old regex relied on
+ * "\n    }" (4-space indent) to mark the end, so it silently captured a
+ * truncated body when app.js was reformatted (2-space indent) -> vm got
+ * incomplete code -> "SyntaxError: Unexpected end of input". Brace-counting is
+ * format-independent and robust. Returns the function source string, or null.
+ */
+function extractFunction(source, fnName) {
+  const sig = 'function ' + fnName;
+  const start = source.indexOf(sig);
+  if (start === -1) return null;
+  const braceOpen = source.indexOf('{', start);
+  if (braceOpen === -1) return null;
+  let depth = 0;
+  for (let i = braceOpen; i < source.length; i++) {
+    const ch = source[i];
+    if (ch === '{') depth++;
+    else if (ch === '}') {
+      depth--;
+      if (depth === 0) return source.slice(start, i + 1);
+    }
+  }
+  return null; // unbalanced
+}
+
 (async () => {
   const gen = new CodeGenerator();
 
@@ -91,12 +117,12 @@ function ok(name, cond) {
   console.log('\n[5] Katalon Groovy Reverse-Parsing (AC-11.12 to AC-11.16)');
   const appJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'app.js'), 'utf-8');
   const sandbox = {};
-  const callArgsMatch = appJs.match(/function extractCallArgs[\s\S]*?\n    \}/);
-  const parseGroovyMatch = appJs.match(/function parseGroovyToSteps[\s\S]*?\n    \}/);
-  ok('found extractCallArgs in app.js', !!callArgsMatch);
-  ok('found parseGroovyToSteps in app.js', !!parseGroovyMatch);
+  const callArgsSrc = extractFunction(appJs, 'extractCallArgs');
+  const parseGroovySrc = extractFunction(appJs, 'parseGroovyToSteps');
+  ok('found extractCallArgs in app.js', !!callArgsSrc);
+  ok('found parseGroovyToSteps in app.js', !!parseGroovySrc);
 
-  vm.runInNewContext(callArgsMatch[0] + '\n' + parseGroovyMatch[0] + '\nsandbox.parseGroovyToSteps = parseGroovyToSteps;', { sandbox });
+  vm.runInNewContext(callArgsSrc + '\n' + parseGroovySrc + '\nsandbox.parseGroovyToSteps = parseGroovyToSteps;', { sandbox });
   const parseGroovyToSteps = sandbox.parseGroovyToSteps;
 
   const parsed = parseGroovyToSteps(code);
@@ -184,10 +210,10 @@ WebUI.closeBrowser()
      robust.some(s => hasWarn(s) && /CustomKeywords/i.test(s.warning || '')));
 
   console.log('\n[7] Import Warning Summary (reported to user, not silently dropped)');
-  const summaryMatch = appJs.match(/function summarizeImportWarnings[\s\S]*?\n    \}/);
-  ok('found summarizeImportWarnings in app.js', !!summaryMatch);
-  if (summaryMatch) {
-    vm.runInNewContext(summaryMatch[0] + '\nsandbox.summarize = summarizeImportWarnings;', { sandbox });
+  const summarySrc = extractFunction(appJs, 'summarizeImportWarnings');
+  ok('found summarizeImportWarnings in app.js', !!summarySrc);
+  if (summarySrc) {
+    vm.runInNewContext(summarySrc + '\nsandbox.summarize = summarizeImportWarnings;', { sandbox });
     const summarize = sandbox.summarize;
     ok('no warnings -> null summary', summarize(robust.filter(s => !s.warning).map(s => ({ action: s.action }))) === null);
     const summary = summarize(robust);
@@ -198,11 +224,10 @@ WebUI.closeBrowser()
   // Helper: pull a top-level (4-space indented) function body out of app.js and
   // eval it into our sandbox, returning the callable.
   function loadFn(name) {
-    const re = new RegExp('function ' + name + '[\\s\\S]*?\\n    \\}');
-    const m = appJs.match(re);
-    ok('found ' + name + ' in app.js', !!m);
-    if (!m) return null;
-    vm.runInNewContext(m[0] + '\nsandbox.__fn = ' + name + ';', { sandbox });
+    const src = extractFunction(appJs, name);
+    ok('found ' + name + ' in app.js', !!src);
+    if (!src) return null;
+    vm.runInNewContext(src + '\nsandbox.__fn = ' + name + ';', { sandbox });
     return sandbox.__fn;
   }
 
@@ -275,11 +300,11 @@ WebUI.closeBrowser()
   // makeRsResolver calls parseRsSelector, so both must share one eval scope
   // (in production they live in the same closure; the harness isolates them).
   let makeRsResolver = null;
-  const mkMatch = appJs.match(/function makeRsResolver[\s\S]*?\n    \}/);
-  const rsMatch = appJs.match(/function parseRsSelector[\s\S]*?\n    \}/);
-  ok('found makeRsResolver in app.js', !!mkMatch);
-  if (mkMatch && rsMatch) {
-    vm.runInNewContext(rsMatch[0] + '\n' + mkMatch[0] + '\nsandbox.mk = makeRsResolver;', { sandbox });
+  const mkSrc = extractFunction(appJs, 'makeRsResolver');
+  const rsSrc = extractFunction(appJs, 'parseRsSelector');
+  ok('found makeRsResolver in app.js', !!mkSrc);
+  if (mkSrc && rsSrc) {
+    vm.runInNewContext(rsSrc + '\n' + mkSrc + '\nsandbox.mk = makeRsResolver;', { sandbox });
     makeRsResolver = sandbox.mk;
   }
   if (makeRsResolver && parseRsSelector) {
