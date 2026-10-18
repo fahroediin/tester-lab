@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import type { Request, Response, NextFunction } from 'express';
 import { assertSafeProxyUrl, isValidHttpUrl } from '../../security/url-guard.js';
+import { diagnoseProxyPage } from './proxy-diagnose.js';
 
 /** Extract a cookie by name from a raw cookie header string. */
 function getCookieValue(cookieHeader: string | undefined, name: string): string | null {
@@ -46,21 +47,51 @@ function stripFrameHeaders(res: Response): void {
   res.removeHeader('Cross-Origin-Resource-Policy');
 }
 
+/**
+ * A fixed, dismissible banner explaining why a page may not record (e.g. the
+ * target redirected to a login page). Injected at the top of <body> so the user
+ * sees a clear message even when the underlying SPA fails to render.
+ */
+function buildProxyBanner(message: string): string {
+  const safe = String(message)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return (
+    '<div id="__tl_proxy_banner__" style="position:fixed;top:0;left:0;right:0;z-index:2147483647;' +
+    'background:#fff7ed;color:#7c2d12;border-bottom:1px solid #fdba74;padding:12px 16px;' +
+    'font-family:system-ui,sans-serif;font-size:13px;line-height:1.5;box-shadow:0 2px 8px rgba(0,0,0,.12);">' +
+    '<strong>Perhatian:</strong> ' + safe +
+    '<button onclick="this.parentElement.remove()" style="float:right;margin-left:12px;background:transparent;' +
+    'border:1px solid #fdba74;color:#7c2d12;border-radius:6px;padding:2px 10px;cursor:pointer;font-size:12px;">Tutup</button>' +
+    '</div>'
+  );
+}
+
 /** Inject the recorder agent + base tag + anti-frame-buster into an HTML document. */
-function injectRecorder(html: string, finalUrl: string): string {
+function injectRecorder(html: string, finalUrl: string, banner = ''): string {
   const sanitized = sanitizeHtmlForIframe(html);
   const baseTag = `<base href="${finalUrl}">`;
   const antiFrameBuster =
     `<script>try { if (window.top !== window.self) { Object.defineProperty(window, 'top', { get: function() { return window.self; } }); } } catch(e) {}</script>`;
   const injectionBlock = `${baseTag}\n${antiFrameBuster}\n${getInlinedRecorderScript()}`;
 
+  let out: string;
   if (sanitized.includes('<head>')) {
-    return sanitized.replace('<head>', `<head>\n  ${injectionBlock}`);
+    out = sanitized.replace('<head>', `<head>\n  ${injectionBlock}`);
+  } else if (sanitized.includes('<html>')) {
+    out = sanitized.replace('<html>', `<html>\n<head>${injectionBlock}</head>`);
+  } else {
+    out = `${injectionBlock}\n${sanitized}`;
   }
-  if (sanitized.includes('<html>')) {
-    return sanitized.replace('<html>', `<html>\n<head>${injectionBlock}</head>`);
+
+  // Place the banner right after <body> (or prepend) so it's always visible.
+  if (banner) {
+    if (out.includes('<body')) {
+      out = out.replace(/<body[^>]*>/i, (m) => `${m}\n${banner}`);
+    } else {
+      out = `${banner}\n${out}`;
+    }
   }
-  return `${injectionBlock}\n${sanitized}`;
+  return out;
 }
 
 const UPSTREAM_UA =
@@ -118,7 +149,11 @@ export async function handleRecorderProxy(req: Request, res: Response): Promise<
     if (contentType.includes('text/html')) {
       const rawHtml = await upstreamResponse.text();
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      res.send(injectRecorder(rawHtml, finalUrl));
+      // Explain why an auth-gated target won't record (redirected to login),
+      // instead of leaving the user with a raw browser error in the iframe.
+      const diag = diagnoseProxyPage(targetUrl, finalUrl, rawHtml);
+      const banner = diag.kind === 'login_required' ? buildProxyBanner(diag.message || '') : '';
+      res.send(injectRecorder(rawHtml, finalUrl, banner));
       return;
     }
 
