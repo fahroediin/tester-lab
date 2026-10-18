@@ -1,0 +1,35 @@
+# Dependencies & build output (reinstalled/rebuilt inside the image)
+node_modules
+dist
+
+# Env & secrets — never bake into the image; pass at runtime
+.env
+.env.*
+!.env.example
+
+# Local/dev artifacts
+test-results
+test-output.ts
+temp_out.ts
+*.log
+.DS_Store
+
+# Runtime data (pre-Supabase JSON store & locally recorded videos)
+data
+public/videos
+
+# Internal docs not needed in the image
+doc_ba
+docs
+scratch
+
+# VCS & CI
+.git
+.github
+.gitignore
+.gitattributes
+
+# Docker files themselves
+Dockerfile
+docker-compose*.yml
+.dockerignore

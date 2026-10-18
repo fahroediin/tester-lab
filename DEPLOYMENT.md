@@ -1,72 +1,128 @@
-# Deployment & Environments
+# Deployment Plan — Tester Lab
 
-tester-lab dijalankan dalam dua lingkungan terpisah yang dipetakan ke dua branch Git.
+Tester Lab dapat dijalankan dengan **dua cara**. Keduanya butuh Supabase
+(database + object storage) eksternal, dan Chromium (Playwright) untuk menjalankan
+test.
 
-## Branch & lingkungan
+| Metode | Untuk | Status |
+|--------|-------|--------|
+| **A. VM + PM2** | Produksi saat ini (GCP) | Sudah dipakai |
+| **B. Docker Compose** | Portabel, konsisten, mudah pindah provider | Baru |
 
-| Branch | Lingkungan | Domain | Database |
-| :--- | :--- | :--- | :--- |
-| `main` | Production | `tester-lab.mibot.my.id` | Supabase project produksi |
-| `develop` | Staging / Dev | `dev.tester-lab.mibot.my.id` (contoh) | Supabase project dev (terpisah) |
+---
 
-Aturan pokok:
+## Prasyarat (kedua metode)
 
-- `main` selalu stabil dan hanya menerima kode yang sudah diuji di staging.
-- Pekerjaan harian dilakukan di `develop` (atau branch `feature/*` yang di-merge ke `develop`).
-- Promosi ke produksi = merge `develop` ke `main`, lalu deploy dan beri tag rilis.
+1. **Proyek Supabase** aktif — ambil `SUPABASE_URL`, `SUPABASE_ANON_KEY`,
+   `SUPABASE_SERVICE_ROLE_KEY` dari dashboard.
+2. **Jalankan migration SQL** di Supabase SQL Editor (sekali, berurutan):
+   - `supabase/schema.sql`
+   - `supabase/migration-add-suites.sql`
+   - `supabase/migration-add-suite-runs.sql`
+   - `supabase/migration-add-email.sql`
+   - `supabase/migration-add-email-unique.sql`
+3. **Buat bucket Storage** di Supabase: `test-videos`, `feedback-attachments`.
+4. **Siapkan `.env`** — salin `.env.example` ke `.env`, isi nilai nyata.
+   Variabel kunci:
+   - `SUPABASE_*` — kredensial di atas
+   - `JWT_SECRET` — string acak panjang (mis. `openssl rand -base64 32`)
+   - `EMAIL_CONFIG_SECRET` — string acak panjang (wajib untuk fitur email)
+   - `ADMIN_USERNAME` / `ADMIN_PASSWORD` — admin awal (ganti dari default!)
+   - `MAX_CONCURRENT_TESTS` / `MAX_QUEUE_LENGTH` — sesuaikan kapasitas server
+     (lihat README → Tuning Kapasitas & Infrastruktur)
 
-## Alur kerja
+> **Catatan Chromium:** kedua metode butuh browser Playwright. Metode Docker
+> sudah menyertakannya lewat base image resmi; metode VM butuh
+> `npx playwright install chromium` + dependensi OS.
 
-```
-1. git checkout develop
-2. (kerjakan perubahan; commit)
-3. git push origin develop            -> deploy otomatis/manual ke domain dev
-4. Uji di dev.tester-lab.mibot.my.id
-5. Jika lolos:
-     git checkout main
-     git merge develop
-     git push origin main             -> deploy ke domain utama
-     git tag -a vX.Y.Z main && git push origin vX.Y.Z
-```
+---
 
-Untuk banyak fitur paralel, kerjakan di `feature/<nama>` lalu merge ke `develop`.
+## Metode A — VM + PM2 (produksi GCP saat ini)
 
-## Environment variable per lingkungan
+Skrip `deploy/deploy-prod.sh` menjalankan deploy di server (pull, build, restart).
 
-Setiap lingkungan memakai file `.env` sendiri (tidak pernah di-commit). Salin dari `.env.example` dan sesuaikan.
-
-Yang WAJIB berbeda antara produksi dan dev:
-
-- `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` — arahkan dev ke Supabase project dev yang terpisah, agar data uji tidak mengotori data produksi.
-- `PORT` — proses dev berjalan di port berbeda dari produksi pada server yang sama.
-- `JWT_SECRET` — gunakan secret berbeda per lingkungan.
-- `ADMIN_USERNAME` / `ADMIN_EMAIL` / `ADMIN_PASSWORD` — kredensial admin bootstrap terpisah.
-
-Menyiapkan Supabase project dev: buat project baru di Supabase, jalankan `supabase/schema.sql` di SQL editor-nya (membuat tabel + RLS), buat bucket Storage privat `test-videos` dan `feedback-attachments`, lalu isi kredensialnya ke `.env` dev.
-
-## Menyiapkan domain dev (di server / DNS, di luar repo)
-
-1. Buat subdomain (mis. `dev.tester-lab.mibot.my.id`) dan arahkan DNS-nya ke server.
-2. Jalankan instance aplikasi kedua dari branch `develop` pada port dev.
-3. Arahkan reverse proxy (mis. nginx) dari subdomain dev ke port dev tersebut.
-4. Pastikan instance dev memakai `.env` dev (Supabase dev, secret dev).
-
-## Build & jalankan
-
+### Setup awal (sekali) di VM
 ```bash
+git clone <repo> tester-lab && cd tester-lab
 npm install
-npx playwright install chromium
+npx playwright install chromium          # + dependensi OS (lihat dok Playwright)
+cp .env.example .env                      # lalu isi nilai nyata
 npm run build
-npm run start
+pm2 start dist/server/index.js --name tester-lab
+pm2 save
 ```
 
-## Git hooks
-
-Repo menyertakan hook di `.githooks/`. Aktifkan sekali per clone:
-
+### Deploy pembaruan (rutin)
 ```bash
-git config core.hooksPath .githooks
+cd tester-lab
+bash deploy/deploy-prod.sh               # pull + install + build + pm2 restart
 ```
 
-`commit-msg` otomatis membuang baris atribusi AI (mis. `Co-Authored-By: Claude`,
-`Generated with Claude Code`) dari setiap pesan commit.
+### nginx (reverse proxy, di host)
+Pakai `deploy/nginx-prod.conf.example` (atau `-dev`). Penting:
+`client_max_body_size 20m`, dan `certbot` untuk SSL.
+
+---
+
+## Metode B — Docker Compose (app + nginx)
+
+Menjalankan **app (Node + Chromium)** dan **nginx** sebagai container. Database
+& storage tetap di Supabase.
+
+### File terkait
+- `Dockerfile` — image app (base: `mcr.microsoft.com/playwright:v1.62.1-jammy`,
+  multi-stage, + ffmpeg, non-root).
+- `docker-compose.yml` — orkestrasi app + nginx.
+- `deploy/nginx-docker.conf` — konfig nginx untuk Compose (proxy ke `app:3000`).
+- `.dockerignore` — mengecualikan node_modules, dist, .env, docs, dll.
+
+### Jalankan
+```bash
+cp .env.example .env                      # isi nilai nyata (JANGAN commit .env)
+docker compose up -d --build              # build image + jalankan app & nginx
+docker compose logs -f app                # pantau log (termasuk [EVENT] ...)
+```
+Aplikasi tersedia di `http://<host>/` (nginx port 80 → app 3000).
+
+### Perintah berguna
+```bash
+docker compose ps                         # status container
+docker compose restart app                # restart app saja
+docker compose down                       # hentikan & hapus container
+docker compose up -d --build              # rebuild setelah update kode
+```
+
+### Catatan penting Docker
+- **`.env` tidak di-bake ke image** — dibaca saat runtime via `env_file`. Aman
+  dari kebocoran di image.
+- **`shm_size: 1gb`** sudah di-set untuk app — Chromium butuh shared memory
+  besar; default 64MB menyebabkan crash saat beban.
+- **Tag base image = versi Playwright** (1.62.1). Saat upgrade Playwright di
+  `package.json`, perbarui juga tag di `Dockerfile`.
+- **SSL** tak termasuk di `nginx-docker.conf` — terminasi TLS di proxy host,
+  atau tambah container certbot/Traefik.
+- **Volume video**: video run diunggah ke Supabase Storage (tak disimpan di
+  container), jadi tak perlu volume persisten untuk itu.
+
+---
+
+## Verifikasi pasca-deploy (kedua metode)
+
+1. Server hidup: log menampilkan `Tester Lab backend listening on ...`.
+2. Buka `/` (landing) dan `/app` (workspace) — tampil tanpa error.
+3. Login sebagai admin → buat project → suite → scenario → **Run Test**
+   (memastikan Chromium berfungsi di lingkungan itu).
+4. Cek log event (observability): aksi seperti `[EVENT] action=recorder_open`
+   muncul saat memakai recorder.
+
+---
+
+## Troubleshooting
+
+| Gejala | Kemungkinan sebab | Solusi |
+|--------|-------------------|--------|
+| Run/generate gagal "browser not found" | Chromium belum terpasang | VM: `npx playwright install chromium`; Docker: pastikan base image Playwright |
+| Crash saat beberapa run paralel | RAM/`shm` kurang | Turunkan `MAX_CONCURRENT_TESTS`; Docker: naikkan `shm_size` |
+| 413 saat upload feedback | body limit nginx kecil | pastikan `client_max_body_size 20m` |
+| "Could not save SMTP" | `EMAIL_CONFIG_SECRET` kosong | set di `.env` (fail-closed by design) |
+| Video multi-tab tak tergabung | ffmpeg tak ada | VM: install ffmpeg; Docker: sudah termasuk |

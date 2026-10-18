@@ -1,0 +1,46 @@
+# ==============================================================================
+# Tester Lab — Docker Compose (app + nginx)
+#
+# - app:   the Tester Lab server (Node + Playwright/Chromium), built from
+#          ./Dockerfile. Reads config from a .env file (NOT baked into image).
+# - nginx: reverse proxy in front (body limit 20m, streaming-friendly).
+#
+# Database & object storage stay external on Supabase (set in .env), matching
+# the current architecture. Only the app + proxy run in containers.
+#
+# Usage:
+#   cp .env.example .env     # then fill real values (Supabase keys, JWT, etc.)
+#   docker compose up -d --build
+#   docker compose logs -f app
+# ==============================================================================
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: tester-lab:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Ensure the server binds inside the container on all interfaces.
+      - HOST=0.0.0.0
+      - PORT=3000
+    expose:
+      - "3000"
+    # Chromium can use a lot of shared memory; the default 64MB /dev/shm is too
+    # small and causes crashes under load. Raise it (or use --ipc=host).
+    shm_size: "1gb"
+    # Cap concurrency to protect a shared/small host (see README tuning).
+    # Override in .env as needed.
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+    volumes:
+      - ./deploy/nginx-docker.conf:/etc/nginx/conf.d/default.conf:ro
