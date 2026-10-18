@@ -13,6 +13,7 @@ import { configRoutes } from './routes/config-routes.js';
 import { emailConfigRoutes } from './routes/email-config-routes.js';
 import { apiKeyRoutes } from './routes/api-key-routes.js';
 import { recorderRoutes, proxyAssetMiddleware } from './routes/recorder-routes.js';
+import { eventRoutes } from './routes/event-routes.js';
 import { authenticateJWT, requireAdmin } from './auth-middleware.js';
 import { ensureAdminUser } from './auth-store.js';
 import { supabase } from './supabase-client.js';
@@ -110,6 +111,7 @@ app.use('/api/v1/suites', suiteRoutes);
 app.use('/api/v1/config', configRoutes);
 app.use('/api/v1/email-config', emailConfigRoutes);
 app.use('/api/v1/recorder', recorderRoutes);
+app.use('/api/v1/events', eventRoutes);
 app.use('/api/v1', testRoutes); // testRoutes has endpoints like /generate-script, /inspect-dom, /run-test directly under /api/v1
 
 // Fallback proxy middleware for target application assets (Next.js chunks, OutSystems assets, styles)

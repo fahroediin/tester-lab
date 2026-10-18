@@ -7,6 +7,7 @@ import { getSuiteById } from '../suite-store.js';
 import { signVideoUrl } from '../lib/storage-url.js';
 import { validateCodeEdit, resolveSuiteOnProjectMove } from '../services/history-edit-service.js';
 import { addLog } from '../activity-log-store.js';
+import { logEvent } from '../lib/event-logger.js';
 
 export const historyRoutes = Router();
 
@@ -245,6 +246,7 @@ historyRoutes.patch('/:id/code', authenticateJWT, requireApprovedUser, async (re
       res.status(500).json({ success: false, error: 'Failed to save edited code' });
       return;
     }
+    logEvent({ action: 'code_edit', user: req.user?.username, scenario: updated.id });
     res.json({ success: true, message: 'Scenario code updated successfully', data: { id: updated.id, status: updated.status } });
   } catch (err: unknown) {
     const error = err as Error;

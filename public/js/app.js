@@ -1157,6 +1157,20 @@ function loadSampleScenario() {
   }
 }
 
+// Report a client-side event to the server's structured log (POC observability).
+// Best-effort & fire-and-forget: never blocks or breaks the import flow.
+function reportEvent(payload) {
+  try {
+    const token = localStorage.getItem('tester_jwt_token') || (typeof authToken !== 'undefined' ? authToken : '') || '';
+    if (!token) return;
+    fetch('/api/v1/events', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify(payload)
+    }).catch(function () {});
+  } catch (e) { /* logging must never break the UI */ }
+}
+
 function handleImportFile(event) {
   const file = event.target.files[0];
   if (!file) return;
@@ -1175,15 +1189,19 @@ function handleImportFile(event) {
         ? `${ext} archives are not supported. Zip the Katalon project as .zip (Send to > Compressed (zipped) folder) and try again.`
         : `${ext} is not a supported import. Use .json, .yaml, .groovy, a Katalon project .zip, or a .spec.ts/.js file.`
     });
+    reportEvent({ action: 'import', result: 'error', format: 'unsupported', msg: ext });
     event.target.value = '';
     return;
   }
 
   // A .zip is a binary Katalon project — handle it before the text reader.
   if (importKind === 'katalon-zip') {
-    handleKatalonZipImport(file).catch(function (err) {
+    handleKatalonZipImport(file).then(function () {
+      reportEvent({ action: 'import', result: 'ok', format: 'katalon-zip' });
+    }).catch(function (err) {
       console.error('Katalon zip import failed:', err);
       showSnackbar({ type: 'error', title: 'Import Failed', message: 'Could not read the Katalon project zip.' });
+      reportEvent({ action: 'import', result: 'error', format: 'katalon-zip', msg: (err && err.message) || 'zip read failed' });
     });
     event.target.value = '';
     return;
@@ -1233,6 +1251,7 @@ function handleImportFile(event) {
           title: 'Flow File Loaded',
           message: `Successfully imported "${file.name}".`
         });
+        reportEvent({ action: 'import', result: 'ok', format: 'flow', steps: Array.isArray(steps) ? steps.length : 0 });
 
       } else if (fileName.endsWith('.groovy')) {
         // AC-11.12 to AC-11.16: Katalon Groovy import logic
@@ -1241,6 +1260,7 @@ function handleImportFile(event) {
           return;
         }
         applyKatalonImport(content, file.name);
+        reportEvent({ action: 'import', result: 'ok', format: 'katalon-groovy' });
 
       } else {
         // Spec import logic (.spec.ts, .spec.js, .ts, .js)
@@ -1316,10 +1336,12 @@ function handleImportFile(event) {
         if (btnCopyCode) btnCopyCode.disabled = false;
         if (btnDownloadCode) btnDownloadCode.disabled = false;
         if (btnRunTest) btnRunTest.disabled = false;
+        reportEvent({ action: 'import', result: 'ok', format: 'spec', steps: Array.isArray(steps) ? steps.length : 0 });
       }
 
     } catch (err) {
       Swal.fire({ icon: 'error', title: 'Import Failed', text: 'Failed to read/parse file: ' + err.message, confirmButtonColor: '#005bbf' });
+      reportEvent({ action: 'import', result: 'error', format: importKind, msg: (err && err.message) || 'parse failed' });
     }
   };
   reader.readAsText(file);

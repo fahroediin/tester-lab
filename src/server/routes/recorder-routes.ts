@@ -2,6 +2,7 @@ import { Router, Response, Request } from 'express';
 import { authenticateJWT, requireApprovedUser } from '../auth-middleware.js';
 import type { AuthenticatedRequest } from '../auth-middleware.js';
 import { handleRecorderProxy, handleAssetProxy } from '../services/recorder-proxy-service.js';
+import { logEvent } from '../lib/event-logger.js';
 
 export const recorderRoutes = Router();
 
@@ -121,6 +122,13 @@ recorderRoutes.delete('/session/:sessionId', authenticateJWT, requireApprovedUse
  * Reverse-proxy endpoint to embed target websites inside the Recorder (SSRF-guarded).
  */
 recorderRoutes.get('/proxy', authenticateJWT, requireApprovedUser, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  // Observability (POC): log when a user opens the recorder against a target,
+  // and whether the proxy accepted it. Only the initial document request is
+  // logged (Sec-Fetch-Dest=document / no referer), not every sub-resource.
+  const isInitial = req.headers['sec-fetch-dest'] === 'document' || !req.headers.referer;
+  if (isInitial) {
+    logEvent({ action: 'recorder_open', user: req.user?.username, target: (req.query.url as string) || '' });
+  }
   await handleRecorderProxy(req, res);
 });
 
