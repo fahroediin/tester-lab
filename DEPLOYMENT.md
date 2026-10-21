@@ -114,6 +114,45 @@ docker compose up -d --build              # rebuild setelah update kode
    (memastikan Chromium berfungsi di lingkungan itu).
 4. Cek log event (observability): aksi seperti `[EVENT] action=recorder_open`
    muncul saat memakai recorder.
+5. Cek endpoint health: `curl https://<host>/healthz` membalas HTTP 200 dengan
+   `{"status":"ok",...}` (lihat bagian berikut).
+
+---
+
+## Health Check & Monitoring
+
+### Endpoint `/healthz`
+
+Endpoint publik (tanpa auth) untuk monitor uptime eksternal. Mengecek dependensi
+kritis dan membalas:
+
+- **HTTP 200** `{"status":"ok",...}` — semua dependensi sehat.
+- **HTTP 503** `{"status":"error","failing":[...],...}` — ada dependensi gagal.
+
+Yang dicek: **Supabase** (query ringan + timeout 4 detik) dan **runner queue**.
+Body JSON juga memuat stats queue (`activeCount`, `maxConcurrent`, `maxQueue`),
+`uptimeSeconds`, dan `timestamp`. Tidak membocorkan rahasia apa pun.
+
+```bash
+curl -s https://<host>/healthz | jq
+# { "status": "ok", "failing": [], "checks": { "database": {...}, "queue": {...} }, ... }
+```
+
+> Kenapa `/healthz`, bukan `/`: halaman `/` tetap tampil (200) meski Supabase
+> putus, sehingga monitor tak tahu ada masalah. `/healthz` menguji dependensi,
+> jadi monitor membuka incident saat gangguan nyata — bukan hanya saat crash.
+
+### Integrasi monitor uptime (mis. Monita)
+
+1. Di aplikasi monitor, buat **Monitor** baru ke URL `https://<host>/healthz`.
+2. Setel **A check passes when**: Status code `2xx` **dan** Response body
+   contains `"status":"ok"` (dua lapis: menolak 503 dan body error).
+3. Interval cek mis. 60 detik; "counts as down after" 2 kegagalan berturut
+   (hindari false alarm sesaat).
+4. Pasang alert (email/webhook) sesuai kebutuhan.
+
+Monitor bersifat generik dan tidak perlu diubah untuk Tester Lab — Tester Lab
+hanya menyediakan titik ukur `/healthz`.
 
 ---
 
@@ -126,3 +165,5 @@ docker compose up -d --build              # rebuild setelah update kode
 | 413 saat upload feedback | body limit nginx kecil | pastikan `client_max_body_size 20m` |
 | "Could not save SMTP" | `EMAIL_CONFIG_SECRET` kosong | set di `.env` (fail-closed by design) |
 | Video multi-tab tak tergabung | ffmpeg tak ada | VM: install ffmpeg; Docker: sudah termasuk |
+| `/healthz` balas 503 `failing:["database"]` | Supabase tak terjangkau / kredensial salah | Cek `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY`, konektivitas jaringan ke Supabase |
+| Monitor uptime selalu merah padahal app jalan | `/healthz` belum ter-deploy (kode lama) | Deploy ulang; pastikan `curl /healthz` membalas 200 |
