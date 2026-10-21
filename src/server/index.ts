@@ -17,6 +17,8 @@ import { eventRoutes } from './routes/event-routes.js';
 import { authenticateJWT, requireAdmin } from './auth-middleware.js';
 import { ensureAdminUser } from './auth-store.js';
 import { supabase } from './supabase-client.js';
+import { globalTestRunnerQueue } from './queue-manager.js';
+import { computeHealthStatus } from './lib/health.js';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -37,6 +39,48 @@ app.use(express.static(path.join(process.cwd(), 'dist', 'public'), { index: fals
 app.get('/', (req: Request, res: Response) => {
   const landingPath = path.join(process.cwd(), 'public', 'landing.html');
   res.sendFile(landingPath);
+});
+
+/**
+ * Health Route: a lightweight check for external uptime monitors (e.g. Monita).
+ * Verifies critical dependencies (Supabase DB reachable, runner queue present)
+ * and returns 200 when healthy or 503 when any fails — so a monitor opens an
+ * incident on a real dependency outage, not just a server crash. Public, no auth
+ * (monitors call it unauthenticated); exposes only booleans + counts, no secrets.
+ */
+app.get('/healthz', async (req: Request, res: Response) => {
+  // DB check: a cheap, bounded query. Any error (or timeout) counts as down.
+  const database: { ok: boolean; error?: string } = { ok: false };
+  try {
+    const probe = supabase.from('users').select('id', { head: true, count: 'exact' }).limit(1);
+    const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('db timeout')), 4000));
+    const { error } = (await Promise.race([probe, timeout])) as { error: unknown };
+    database.ok = !error;
+    if (error) database.error = (error as Error).message || 'query error';
+  } catch (err: unknown) {
+    database.ok = false;
+    database.error = (err as Error).message || 'unreachable';
+  }
+
+  // Queue check: the runner queue object responds to getStats() (process alive,
+  // queue wired). Cheap and in-process.
+  let queueStats: { activeCount: number; queuedCount: number; maxConcurrent: number; maxQueue: number } | undefined;
+  const queue: { ok: boolean } = { ok: false };
+  try {
+    queueStats = globalTestRunnerQueue.getStats();
+    queue.ok = !!queueStats;
+  } catch {
+    queue.ok = false;
+  }
+
+  const health = computeHealthStatus({ database, queue });
+  res.status(health.httpStatus).json({
+    status: health.status,
+    failing: health.failing,
+    checks: { database, queue: { ok: queue.ok, ...(queueStats || {}) } },
+    uptimeSeconds: Math.round(process.uptime()),
+    timestamp: new Date().toISOString()
+  });
 });
 
 /**
