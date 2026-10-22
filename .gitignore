@@ -26,3 +26,6 @@ docs/spec-*.md
 docs/sprint1-alignment-rotomate-vs-poc.md
 docs/korelasi-fitur-us-rotomate-vs-poc.md
 docs/port-report-suite-level-dari-rotomate.md
+
+# Codebase Memory MCP graph (persisted index; mesin-spesifik, jangan di-track)
+.codebase-memory/
